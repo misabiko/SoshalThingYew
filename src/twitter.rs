@@ -1,7 +1,8 @@
 use std::{rc::Rc, collections::HashSet};
 use wasm_bindgen::prelude::*;
 use yew::worker::*;
-use yew::agent::Dispatched;
+use yew::agent::{Dispatched, Dispatcher};
+use yewtil::future::LinkFuture;
 
 use crate::articles::SocialArticleData;
 use crate::endpoints::{EndpointAgent, Endpoint, EndpointRequest};
@@ -145,7 +146,7 @@ impl Agent for TwitterAgent {
 		Self {
 			link,
 			subscribers: HashSet::new(),
-			endpoints: vec![Rc::from(TwitterEndpoint {
+			/*endpoints: vec![Rc::from(TwitterEndpoint {
 				article: Rc::from(TweetArticleData {
 					id: "1467723852239470594".to_owned(),
 					text: Some("🤞".to_owned()),
@@ -156,7 +157,8 @@ impl Agent for TwitterAgent {
 					},
 					media: vec!["https://pbs.twimg.com/media/FF5m5NFaUAAAOGl?format=png".to_owned()]
 				})
-			})]
+			})]*/
+			endpoints: Vec::new()
 		}
 	}
 
@@ -187,52 +189,11 @@ impl Agent for TwitterAgent {
 	}
 }
 
-/*pub struct TwitterEndpoint {
-	link: AgentLink<Self>,
-	subscribers: HashSet<HandlerId>,
-	kind: EndpointKind,
-	ratelimit: RateLimit,
-	article: Rc<dyn SocialArticleData>,
-}
-
-pub enum EndpointKind {
-	Uninitialized,
-	UserTimeline(String),
-	List(String, String),
-}
-
-impl Endpoint for TwitterEndpoint {
-	fn name(&self) -> String {
-		match &self.kind {
-			EndpointKind::Uninitialized => "Uninitialized".to_owned(),
-			EndpointKind::UserTimeline(username) => format!("User Timeline {}", username),
-			EndpointKind::List(username, slug) => format!("List {}/{}", username, slug),
-		}
-	}
-
-	fn get_article(&self) -> Rc<dyn SocialArticleData> {
-		self.article.clone()
-	}
-}
-
-impl Agent for TwitterEndpoint {
+/*impl Agent for TwitterEndpoint {
 	type Reach = Context<Self>;
 	type Message = EndpointMsg;
 	type Input = EndpointRequest;
 	type Output = EndpointResponse;
-
-	fn create(link: AgentLink<Self>) -> Self {
-		Self {
-			link,
-			subscribers: HashSet::new(),
-			kind: EndpointKind::Uninitialized,
-			ratelimit: RateLimit {
-				limit: 1,
-				remaining: 1,
-				reset: 0,
-			}
-		}
-	}
 
 	fn update(&mut self, msg: Self::Message) {
 		match msg {
@@ -247,39 +208,50 @@ impl Agent for TwitterEndpoint {
 			}
 		};
 	}
-
-	fn connected(&mut self, id: HandlerId) {
-		self.subscribers.insert(id);
-	}
-
-	fn handle_input(&mut self, msg: Self::Input, _id: HandlerId) {
-		match msg {
-			EndpointRequest::Refresh => {
-				self.link.send_future(async {
-					match fetch_tweets("/proxy/art").await {
-						Ok(vec_tweets) => EndpointMsg::Refreshed(vec_tweets),
-						Err(err) => EndpointMsg::RefreshFail(err)
-					}
-				});
-			}
-		}
-	}
-
-	fn disconnected(&mut self, id: HandlerId) {
-		self.subscribers.remove(&id);
-	}
 }*/
 
-pub struct TwitterEndpoint {
-	article: Rc<dyn SocialArticleData>
+pub struct UserTimelineEndpoint {
+	username: String,
+	agent: Dispatcher<TwitterAgent>
 }
 
-impl Endpoint for TwitterEndpoint {
+impl Endpoint for UserTimelineEndpoint {
 	fn name(&self) -> String {
-		"Hard-coded Twitter Endpoint".to_owned()
+		format!("{} User Timeline Endpoint", &self.username).to_owned()
 	}
 
-	fn get_article(&self) -> Rc<dyn SocialArticleData> {
-		self.article.clone()
+	fn refresh(&self) {}
+}
+
+pub struct ListEndpoint {
+	username: String,
+	slug: String,
+	agent: Dispatcher<TwitterAgent>
+}
+
+impl Endpoint for ListEndpoint {
+	fn name(&self) -> String {
+		format!("List {}/{}", &self.username, &self.slug).to_owned()
+	}
+
+	fn refresh(&self) {}
+}
+
+pub struct ArtEndpoint {
+	agent: Dispatcher<TwitterAgent>
+}
+
+impl Endpoint for ArtEndpoint {
+	fn name(&self) -> String {
+		"Art Endpoint".to_owned()
+	}
+
+	fn refresh(&self) {
+		/*self.agent.send_future(async {
+			match fetch_tweets("/proxy/art").await {
+				Ok(vec_tweets) => AgentRequest::Refreshed(vec_tweets),
+				Err(err) => EndpointMsg::RefreshFail(err)
+			}
+		});*/
 	}
 }

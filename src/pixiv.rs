@@ -100,77 +100,6 @@ impl Agent for PixivAgent {
 	}
 }
 
-/*pub struct PixivEndpoint {
-	link: AgentLink<Self>,
-	subscribers: HashSet<HandlerId>,
-	kind: EndpointKind,
-	articles: Vec<Rc<dyn SocialArticleData>>,
-}
-
-pub enum EndpointKind {
-	Uninitialized,
-	Bookmark,
-}
-
-impl Endpoint for PixivEndpoint {
-	fn name(&self) -> String {
-		match &self.kind {
-			EndpointKind::Uninitialized => "Uninitialized".to_owned(),
-			EndpointKind::Bookmark => "Bookmark".to_owned(),
-		}
-	}
-}
-
-impl Agent for PixivEndpoint {
-	type Reach = Context<Self>;
-	type Message = EndpointMsg;
-	type Input = EndpointRequest;
-	type Output = EndpointResponse;
-
-	fn create(link: AgentLink<Self>) -> Self {
-		Self {
-			link,
-			subscribers: HashSet::new(),
-			kind: EndpointKind::Uninitialized,
-			articles: vec![Rc::from(PixivArticleData {
-				id: "92885703".to_owned()
-			})]
-		}
-	}
-
-	fn update(&mut self, msg: Self::Message) {
-		match msg {
-			//AgentRequest::UpdateRateLimit(rateLimit) => self.ratelimit = rateLimit,
-			EndpointMsg::Refreshed(Pixivs) => {
-				for sub in self.subscribers.iter() {
-					self.link.respond(*sub, EndpointResponse::NewArticles(Pixivs.clone()));
-				}
-			}
-			EndpointMsg::RefreshFail(err) => {
-				log::error!("Failed to fetch \"/proxy/art\"\n{:?}", err);
-			}
-		};
-	}
-
-	fn connected(&mut self, id: HandlerId) {
-		self.subscribers.insert(id);
-	}
-
-	fn handle_input(&mut self, msg: Self::Input, _id: HandlerId) {
-		match msg {
-			EndpointRequest::Refresh => {
-				for sub in self.subscribers.iter() {
-					self.link.respond(*sub, EndpointResponse::NewArticles(vec![self.articles[0].clone()]));
-				}
-			}
-		}
-	}
-
-	fn disconnected(&mut self, id: HandlerId) {
-		self.subscribers.remove(&id);
-	}
-}*/
-
 pub struct PixivEndpoint {
 	article: Rc<dyn SocialArticleData>
 }
@@ -180,7 +109,5 @@ impl Endpoint for PixivEndpoint {
 		"Hard-coded Pixiv Endpoint".to_owned()
 	}
 
-	fn get_article(&self) -> Rc<dyn SocialArticleData> {
-		self.article.clone()
-	}
+	fn refresh(&self) {}
 }

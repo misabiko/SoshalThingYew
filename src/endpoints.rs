@@ -6,7 +6,7 @@ use crate::articles::SocialArticleData;
 
 pub trait Endpoint {
 	fn name(&self) -> String;
-	fn get_article(&self) -> Rc<dyn SocialArticleData>;
+	fn refresh(&self);
 }
 
 pub struct EndpointAgent {
@@ -62,9 +62,10 @@ impl Agent for EndpointAgent {
 		match msg {
 			EndpointRequest::Refresh => {
 				if self.endpoints.len() > 0 {
-					for sub in self.subscribers.iter() {
+					self.endpoints[self.endpoints.len() - 1].refresh()
+					/*for sub in self.subscribers.iter() {
 						self.link.respond(*sub, EndpointResponse::NewArticles(vec![self.endpoints[self.endpoints.len() - 1].get_article()]));
-					}
+					}*/
 				}
 			}
 			EndpointRequest::AddEndpoint(endpoint) => {
