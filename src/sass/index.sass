@@ -1,0 +1,29 @@
+@use 'core' as *
+@use 'timeline' as *
+@use 'socialArticle' as *
+@use 'sidebar' as *
+@import "../../node_modules/bulma/bulma.sass"
+
+@include pretty-scrollbar
+
+.input.is-static
+	color: $text
+
+.icon
+	color: $white-ter
+
+html
+	overflow-y: hidden
+
+body
+	margin: 0
+	height: 100vh
+	display: flex
+	-webkit-font-smoothing: antialiased
+	-moz-osx-font-smoothing: grayscale
+
+#timelineContainer
+	height: 100%
+	overflow-x: scroll
+	display: flex
+	flex-grow: 1

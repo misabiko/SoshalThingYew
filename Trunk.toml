@@ -1,0 +1,5 @@
+[watch]
+watch = ["src", "Cargo.toml", "index.html"]
+
+[[proxy]]
+backend = "http://localhost:3000/proxy"

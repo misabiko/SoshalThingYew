@@ -1,0 +1,68 @@
+@use 'core' as *
+
+.timeline
+	@include pretty-scrollbar
+
+	color: $text
+	height: 100%
+	padding: 0 5px
+	box-sizing: border-box
+	display: flex
+	flex-flow: column
+	width: 500px
+	flex-shrink: 0
+
+	&:first-child
+		padding: 0
+
+.timeline.mainTimeline
+	flex-grow: 2
+	width: unset
+	max-width: 100%
+
+.timelineHeader
+	height: 50px
+	line-height: 50px
+	padding-left: 25px
+	background-color: $dark
+	display: flex
+	justify-content: space-between
+
+	strong
+		vertical-align: middle
+
+	&.timelineInvalid
+		background-color: $dark-error
+
+.timelineLeftHeader
+	display: flex
+	flex-shrink: 8
+
+.timelineButtons
+	display: flex
+	flex-wrap: nowrap
+
+.timelineButtons > button
+	@include borderless-button(0 1rem)
+	height: 100%
+
+.timelineOptions
+	background-color: $scheme-main-ter
+	padding: 1rem
+	display: flex
+	flex-direction: column
+	align-items: flex-start
+	overflow-x: hidden
+	overflow-y: scroll
+
+	& input[type="number"]
+		width: 200px
+
+	& > .box
+		max-width: 100%
+
+.articlesContainer
+	overflow-y: scroll
+	overflow-x: hidden
+	flex-grow: 1
+	height: 100%
