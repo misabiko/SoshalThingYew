@@ -1,11 +1,8 @@
 use std::rc::Rc;
 use yew::prelude::*;
-use yew::worker::Context;
 
 use crate::articles::{SocialArticleData, SocialArticle};
-use crate::endpoints::{Endpoint, EndpointRequest, EndpointResponse, EndpointMsg};
-use crate::twitter::TwitterEndpoint;
-use crate::pixiv::PixivEndpoint;
+use crate::endpoints::{EndpointAgent, EndpointRequest, EndpointResponse};
 
 struct ColumnContainer {
 	props: ColumnProps
@@ -64,9 +61,7 @@ pub struct Timeline {
 	articles: Vec<Rc<dyn SocialArticleData>>,	//TODO Use rc::Weak
 	options_shown: bool,
 	compact: bool,
-	endpoint: Option<String>,
-	pixiv: Box<dyn Bridge<PixivEndpoint>>,
-	twitter: Box<dyn Bridge<TwitterEndpoint>>,
+	endpoint_agent: Box<dyn Bridge<EndpointAgent>>,
 }
 
 pub enum TimelineMsg {
@@ -76,7 +71,7 @@ pub enum TimelineMsg {
 	EndpointResponse(EndpointResponse),
 	ToggleOptions,
 	SetCompact(bool),
-	ChangeEndpoint(String),
+	//ChangeEndpoint(String),
 }
 
 
@@ -98,15 +93,6 @@ impl Timeline {
 						<ybc::Checkbox name="compact" checked=self.compact update=update_callback>
 							{ "Compact articles" }
 						</ybc::Checkbox>
-					</ybc::Control>
-					<ybc::Control>
-						<ybc::Input
-							name="endpoint"
-							r#type=ybc::InputType::Text
-							value=self.endpoint.clone().unwrap_or_default()
-							update=self.link.callback(|value| TimelineMsg::ChangeEndpoint(value))
-							placeholder="Endpoint"
-						/>
 					</ybc::Control>
 				</div>
 			}
@@ -130,9 +116,7 @@ impl Component for Timeline {
 			props,
 			options_shown: false,
 			compact: false,
-			endpoint: None,
-			twitter: TwitterEndpoint::bridge(link.callback(TimelineMsg::EndpointResponse)),
-			pixiv: PixivEndpoint::bridge(link.callback(TimelineMsg::EndpointResponse)),
+			endpoint_agent: EndpointAgent::bridge(link.callback(TimelineMsg::EndpointResponse)),
 			link,
 		}
 	}
@@ -140,19 +124,22 @@ impl Component for Timeline {
 	fn update(&mut self, msg: Self::Message) -> ShouldRender {
 		match msg {
 			TimelineMsg::Refresh => {
-				match self.endpoint.as_ref().map(|e| e.as_str()) {
+				/*match self.endpoint.as_ref().map(|e| e.as_str()) {
 					Some("Twitter") =>  {
 						log::info!("Trying to refresh Twitter");
-						self.twitter.send(EndpointRequest::Refresh);
+						self.endpoint_agent.send(EndpointRequest::Refresh);
 						true
 					}
 					Some("Pixiv") => {
 						log::info!("Trying to refresh Pixiv");
-						self.pixiv.send(EndpointRequest::Refresh);
+						self.endpoint_agent.send(EndpointRequest::Refresh);
 						true
 					}
 					_ => false
-				}
+				}*/
+
+				self.endpoint_agent.send(EndpointRequest::Refresh);
+				false
 			}
 
 			TimelineMsg::Refreshed(articles) => {
@@ -166,7 +153,6 @@ impl Component for Timeline {
 			TimelineMsg::EndpointResponse(response) =>  {
 				match response {
 					EndpointResponse::NewArticles(articles) => {
-						log::info!("EndpointResponse with {} articles!", articles.len());
 						self.articles.extend(articles);
 						true
 					}
@@ -184,7 +170,7 @@ impl Component for Timeline {
 				true
 			}
 
-			TimelineMsg::ChangeEndpoint(new_endpoint) => {
+			/*TimelineMsg::ChangeEndpoint(new_endpoint) => {
 				match new_endpoint.as_str() {
 					"Twitter" | "Pixiv" => {
 						if Some(&new_endpoint) != self.endpoint.as_ref() {
@@ -199,7 +185,7 @@ impl Component for Timeline {
 					}
 					_ => false
 				}
-			}
+			}*/
 		}
 	}
 

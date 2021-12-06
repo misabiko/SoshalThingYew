@@ -1,10 +1,10 @@
 use std::{rc::Rc, collections::HashSet};
 use wasm_bindgen::prelude::*;
 use yew::worker::*;
-use yewtil::future::LinkFuture;
+use yew::agent::Dispatched;
 
 use crate::articles::SocialArticleData;
-use crate::endpoints::{Endpoint, EndpointMsg, EndpointRequest, EndpointResponse};
+use crate::endpoints::{EndpointAgent, Endpoint, EndpointRequest};
 
 #[derive(Clone, PartialEq)]
 pub struct TwitterUser {
@@ -117,6 +117,7 @@ pub struct RateLimit {
 pub struct TwitterAgent {
 	link: AgentLink<Self>,
 	subscribers: HashSet<HandlerId>,
+	endpoints: Vec<Rc<dyn Endpoint>>,
 }
 
 pub enum AgentRequest {
@@ -128,24 +129,44 @@ pub enum AgentOutput {
 	//UpdatedRateLimit(RateLimit),
 }
 
-impl TwitterAgent {
-
+pub enum AgentMsg {
+	Init,
 }
 
 impl Agent for TwitterAgent {
 	type Reach = Context<Self>;
-	type Message = ();
+	type Message = AgentMsg;
 	type Input = AgentRequest;
 	type Output = String;
 
 	fn create(link: AgentLink<Self>) -> Self {
+		link.send_message(AgentMsg::Init);
+
 		Self {
 			link,
 			subscribers: HashSet::new(),
+			endpoints: vec![Rc::from(TwitterEndpoint {
+				article: Rc::from(TweetArticleData {
+					id: "1467723852239470594".to_owned(),
+					text: Some("🤞".to_owned()),
+					author: TwitterUser {
+						username: "Banya_Bana".to_owned(),
+						name: "BANYA".to_owned(),
+						avatar_url: "https://pbs.twimg.com/profile_images/1467723898095824898/HCM0q8Mh_200x200.jpg".to_owned(),
+					},
+					media: vec!["https://pbs.twimg.com/media/FF5m5NFaUAAAOGl?format=png".to_owned()]
+				})
+			})]
 		}
 	}
 
-	fn update(&mut self, _msg: Self::Message) {}
+	fn update(&mut self, msg: Self::Message) {
+		match msg {
+			AgentMsg::Init => {
+				EndpointAgent::dispatcher().send(EndpointRequest::AddEndpoint(self.endpoints[0].clone()));
+			}
+		}
+	}
 
 	fn connected(&mut self, id: HandlerId) {
 		self.subscribers.insert(id);
@@ -166,11 +187,12 @@ impl Agent for TwitterAgent {
 	}
 }
 
-pub struct TwitterEndpoint {
+/*pub struct TwitterEndpoint {
 	link: AgentLink<Self>,
 	subscribers: HashSet<HandlerId>,
 	kind: EndpointKind,
 	ratelimit: RateLimit,
+	article: Rc<dyn SocialArticleData>,
 }
 
 pub enum EndpointKind {
@@ -186,6 +208,10 @@ impl Endpoint for TwitterEndpoint {
 			EndpointKind::UserTimeline(username) => format!("User Timeline {}", username),
 			EndpointKind::List(username, slug) => format!("List {}/{}", username, slug),
 		}
+	}
+
+	fn get_article(&self) -> Rc<dyn SocialArticleData> {
+		self.article.clone()
 	}
 }
 
@@ -241,5 +267,19 @@ impl Agent for TwitterEndpoint {
 
 	fn disconnected(&mut self, id: HandlerId) {
 		self.subscribers.remove(&id);
+	}
+}*/
+
+pub struct TwitterEndpoint {
+	article: Rc<dyn SocialArticleData>
+}
+
+impl Endpoint for TwitterEndpoint {
+	fn name(&self) -> String {
+		"Hard-coded Twitter Endpoint".to_owned()
+	}
+
+	fn get_article(&self) -> Rc<dyn SocialArticleData> {
+		self.article.clone()
 	}
 }

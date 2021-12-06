@@ -1,6 +1,6 @@
 use std::rc::Rc;
 use yew::prelude::*;
-use yewtil::future::LinkFuture;
+use yew::agent::{Dispatched, Dispatcher};
 
 pub mod timeline;
 pub mod articles;
@@ -12,6 +12,8 @@ mod favviewer;
 use crate::timeline::{Timeline};
 use crate::articles::SocialArticleData;
 use crate::favviewer::FavViewer;
+use crate::twitter::TwitterAgent;
+use crate::pixiv::PixivAgent;
 
 struct Sidebar;
 
@@ -56,8 +58,10 @@ impl Component for Sidebar {
 }
 
 struct Model {
-	link: ComponentLink<Self>,
-	boot_articles: Option<Vec<Rc<dyn SocialArticleData>>>
+	//link: ComponentLink<Self>,
+	boot_articles: Option<Vec<Rc<dyn SocialArticleData>>>,
+	twitter: Dispatcher<TwitterAgent>,
+	pixiv: Dispatcher<PixivAgent>,
 }
 
 enum Msg {
@@ -69,10 +73,12 @@ impl Component for Model {
 	type Message = Msg;
 	type Properties = ();
 
-	fn create(_props: Self::Properties, link: ComponentLink<Self>) -> Self {
+	fn create(_props: Self::Properties, _link: ComponentLink<Self>) -> Self {
 		Self {
-			link,
+			//link,
 			boot_articles: None,
+			twitter: TwitterAgent::dispatcher(),
+			pixiv: PixivAgent::dispatcher(),
 		}
 	}
 

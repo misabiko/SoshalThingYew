@@ -1,10 +1,9 @@
 use std::{rc::Rc, collections::HashSet};
-use wasm_bindgen::prelude::*;
+use yew::agent::Dispatched;
 use yew::worker::*;
-use yewtil::future::LinkFuture;
 
 use crate::articles::SocialArticleData;
-use crate::endpoints::{Endpoint, EndpointMsg, EndpointRequest, EndpointResponse};
+use crate::endpoints::{EndpointAgent, Endpoint, EndpointRequest};
 
 pub struct PixivArticleData {
 	id: String
@@ -38,6 +37,7 @@ impl SocialArticleData for PixivArticleData {
 pub struct PixivAgent {
 	link: AgentLink<Self>,
 	subscribers: HashSet<HandlerId>,
+	endpoints: Vec<Rc<dyn Endpoint>>,
 }
 
 pub enum AgentRequest {
@@ -49,24 +49,37 @@ pub enum AgentOutput {
 	//UpdatedRateLimit(RateLimit),
 }
 
-impl PixivAgent {
-
+pub enum AgentMsg {
+	Init,
 }
 
 impl Agent for PixivAgent {
 	type Reach = Context<Self>;
-	type Message = ();
+	type Message = AgentMsg;
 	type Input = AgentRequest;
 	type Output = String;
 
 	fn create(link: AgentLink<Self>) -> Self {
+		link.send_message(AgentMsg::Init);
+
 		Self {
 			link,
 			subscribers: HashSet::new(),
+			endpoints: vec![Rc::from(PixivEndpoint {
+				article: Rc::from(PixivArticleData {
+					id: "92885703".to_owned()
+				})
+			})]
 		}
 	}
 
-	fn update(&mut self, _msg: Self::Message) {}
+	fn update(&mut self, msg: Self::Message) {
+		match msg {
+			AgentMsg::Init => {
+				EndpointAgent::dispatcher().send(EndpointRequest::AddEndpoint(self.endpoints[0].clone()));
+			}
+		}
+	}
 
 	fn connected(&mut self, id: HandlerId) {
 		self.subscribers.insert(id);
@@ -87,7 +100,7 @@ impl Agent for PixivAgent {
 	}
 }
 
-pub struct PixivEndpoint {
+/*pub struct PixivEndpoint {
 	link: AgentLink<Self>,
 	subscribers: HashSet<HandlerId>,
 	kind: EndpointKind,
@@ -155,5 +168,19 @@ impl Agent for PixivEndpoint {
 
 	fn disconnected(&mut self, id: HandlerId) {
 		self.subscribers.remove(&id);
+	}
+}*/
+
+pub struct PixivEndpoint {
+	article: Rc<dyn SocialArticleData>
+}
+
+impl Endpoint for PixivEndpoint {
+	fn name(&self) -> String {
+		"Hard-coded Pixiv Endpoint".to_owned()
+	}
+
+	fn get_article(&self) -> Rc<dyn SocialArticleData> {
+		self.article.clone()
 	}
 }
