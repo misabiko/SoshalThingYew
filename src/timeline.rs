@@ -2,7 +2,7 @@ use std::rc::Rc;
 use yew::prelude::*;
 
 use crate::articles::{SocialArticleData, SocialArticle};
-use crate::endpoints::{EndpointAgent, EndpointRequest, EndpointResponse};
+use crate::endpoints::{EndpointAgent, EndpointRequest, EndpointResponse, TimelineEndpoints};
 
 struct ColumnContainer {
 	props: ColumnProps
@@ -80,6 +80,8 @@ pub struct TimelineProps {
 	pub name: String,
 	#[prop_or_default]
 	pub articles: Vec<Rc<dyn SocialArticleData>>,
+	#[prop_or_default]
+	pub endpoints: Option<TimelineEndpoints>,
 }
 
 impl Timeline {
@@ -107,8 +109,9 @@ impl Component for Timeline {
 	type Properties = TimelineProps;
 
 	fn create(props: Self::Properties, link: ComponentLink<Self>) -> Self {
-		if props.articles.len() == 0 {
-			link.send_message(TimelineMsg::Refresh);
+		let mut endpoint_agent = EndpointAgent::bridge(link.callback(TimelineMsg::EndpointResponse));
+		if let Some(endpoints) = props.endpoints.clone() {
+			endpoint_agent.send(EndpointRequest::InitTimeline(endpoints));
 		}
 
 		Self {
@@ -116,7 +119,7 @@ impl Component for Timeline {
 			props,
 			options_shown: false,
 			compact: false,
-			endpoint_agent: EndpointAgent::bridge(link.callback(TimelineMsg::EndpointResponse)),
+			endpoint_agent,
 			link,
 		}
 	}
@@ -126,18 +129,19 @@ impl Component for Timeline {
 			TimelineMsg::Refresh => {
 				/*match self.endpoint.as_ref().map(|e| e.as_str()) {
 					Some("Twitter") =>  {
-						log::info!("Trying to refresh Twitter");
+						log::debug!("Trying to refresh Twitter");
 						self.endpoint_agent.send(EndpointRequest::Refresh);
 						true
 					}
 					Some("Pixiv") => {
-						log::info!("Trying to refresh Pixiv");
+						log::debug!("Trying to refresh Pixiv");
 						self.endpoint_agent.send(EndpointRequest::Refresh);
 						true
 					}
 					_ => false
 				}*/
 
+				log::debug!("Timeline Refresh!");
 				self.endpoint_agent.send(EndpointRequest::Refresh);
 				false
 			}

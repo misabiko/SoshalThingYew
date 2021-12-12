@@ -1,4 +1,5 @@
-use std::{rc::Rc, collections::HashSet};
+use std::rc::Rc;
+use std::collections::HashMap;
 use yew::worker::*;
 use wasm_bindgen::prelude::*;
 
@@ -6,32 +7,40 @@ use crate::articles::SocialArticleData;
 
 pub trait Endpoint {
 	fn name(&self) -> String;
-	fn refresh(&self);
+
+	fn id(&self) -> &EndpointId;
+
+	fn refresh(&mut self);
+}
+
+pub type EndpointId = i32;
+
+#[derive(Clone)]
+pub struct TimelineEndpoints {
+	pub start: Vec<EndpointId>,
+	pub refresh: Vec<EndpointId>,
 }
 
 pub struct EndpointAgent {
 	link: AgentLink<Self>,
-	subscribers: HashSet<HandlerId>,
-	endpoints: Vec<Rc<dyn Endpoint>>
+	endpoint_keys: EndpointId,
+	endpoints: HashMap<EndpointId, Box<dyn Endpoint>>,
+	timelines: HashMap<HandlerId, TimelineEndpoints>,
 }
 
-pub enum AgentRequest {
-	//UpdateRateLimit(RateLimit),
-	EventBusMsg(String),
-}
-
-pub enum AgentOutput {
-	//UpdatedRateLimit(RateLimit),
-}
-
+//TODO Use struct variants instead of tuples?
 pub enum EndpointMsg {
-	Refreshed(Vec<Rc<dyn SocialArticleData>>),
+	/// When an endpoint is done refreshing. Contains the endpoint key and articles
+	Refreshed(EndpointId, Vec<Rc<dyn SocialArticleData>>),
 	RefreshFail(JsValue),
 }
 
 pub enum EndpointRequest {
 	Refresh,
-	AddEndpoint(Rc<dyn Endpoint>),
+	InitTimeline(TimelineEndpoints),
+	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
+	FetchResponse(EndpointId, Result<Vec<Rc<dyn SocialArticleData>>, JsValue>),
+	AddArticle(EndpointId, Rc<dyn SocialArticleData>),
 }
 
 pub enum EndpointResponse {
@@ -47,34 +56,68 @@ impl Agent for EndpointAgent {
 	fn create(link: AgentLink<Self>) -> Self {
 		Self {
 			link,
-			subscribers: HashSet::new(),
-			endpoints: Vec::new()
+			endpoint_keys: i32::MIN,
+			endpoints: HashMap::new(),
+			timelines: HashMap::new(),
 		}
 	}
 
-	fn update(&mut self, _msg: Self::Message) {}
-
-	fn connected(&mut self, id: HandlerId) {
-		self.subscribers.insert(id);
-	}
-
-	fn handle_input(&mut self, msg: Self::Input, _id: HandlerId) {
+	fn update(&mut self, msg: Self::Message) {
 		match msg {
-			EndpointRequest::Refresh => {
-				if self.endpoints.len() > 0 {
-					self.endpoints[self.endpoints.len() - 1].refresh()
-					/*for sub in self.subscribers.iter() {
-						self.link.respond(*sub, EndpointResponse::NewArticles(vec![self.endpoints[self.endpoints.len() - 1].get_article()]));
-					}*/
+			EndpointMsg::Refreshed(endpoint, articles) => {
+				for (timeline_id, timeline) in &self.timelines {
+					timeline.refresh
+						.iter()
+						.find(|e| *e == &endpoint);
+
+					log::debug!("Response for timeline");
+					self.link.respond(*timeline_id, EndpointResponse::NewArticles(articles.clone()));
 				}
 			}
-			EndpointRequest::AddEndpoint(endpoint) => {
-				self.endpoints.push(endpoint)
+			EndpointMsg::RefreshFail(err) => {
+				log::error!("Failed to fetch \"/proxy/art\"\n{:?}", err);
 			}
 		}
 	}
 
 	fn disconnected(&mut self, id: HandlerId) {
-		self.subscribers.remove(&id);
+		self.timelines.remove(&id);
+	}
+
+	fn handle_input(&mut self, msg: Self::Input, id: HandlerId) {
+		match msg {
+			EndpointRequest::InitTimeline(endpoints) => {
+				self.timelines.insert(id, endpoints);
+
+				for endpoint in &self.timelines[&id].start {
+					log::debug!("Refreshing {}", &self.endpoints[&endpoint].name());
+					self.endpoints.get_mut(&endpoint).unwrap().refresh();
+				}
+			}
+			EndpointRequest::AddEndpoint(endpoint) => {
+				self.endpoints.insert(self.endpoint_keys, endpoint(self.endpoint_keys));
+				self.endpoint_keys += 1;
+			}
+			EndpointRequest::Refresh => {
+				match self.timelines.get(&id) {
+					Some(timeline) => {
+						for endpoint_key in &self.timelines[&id].refresh {
+							self.endpoints.get_mut(&endpoint_key).unwrap().refresh();
+						}
+					}
+					None => {
+						log::warn!("No TimelineEndpoints found for {:?}", &id);
+					}
+				}
+			}
+			EndpointRequest::FetchResponse(id, r) => {
+				match r {
+					Ok(vec_tweets) => self.link.send_message(EndpointMsg::Refreshed(id, vec_tweets)),
+					Err(err) => self.link.send_message(EndpointMsg::RefreshFail(err))
+				};
+			}
+			EndpointRequest::AddArticle(id, a)
+				=> self.link.send_message(EndpointMsg::Refreshed(id, vec![a]))
+		}
 	}
 }

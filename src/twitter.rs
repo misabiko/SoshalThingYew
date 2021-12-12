@@ -5,7 +5,7 @@ use yew::agent::{Dispatched, Dispatcher};
 use yewtil::future::LinkFuture;
 
 use crate::articles::SocialArticleData;
-use crate::endpoints::{EndpointAgent, Endpoint, EndpointRequest};
+use crate::endpoints::{EndpointAgent, Endpoint, EndpointRequest, EndpointId};
 
 #[derive(Clone, PartialEq)]
 pub struct TwitterUser {
@@ -117,13 +117,14 @@ pub struct RateLimit {
 
 pub struct TwitterAgent {
 	link: AgentLink<Self>,
+	//endpoints: Vec<Rc<dyn Endpoint>>,
+	endpoint_agent: Dispatcher<EndpointAgent>,
 	subscribers: HashSet<HandlerId>,
-	endpoints: Vec<Rc<dyn Endpoint>>,
 }
 
 pub enum AgentRequest {
 	//UpdateRateLimit(RateLimit),
-	EventBusMsg(String),
+	FetchTweets(EndpointId, String),
 }
 
 pub enum AgentOutput {
@@ -132,20 +133,26 @@ pub enum AgentOutput {
 
 pub enum AgentMsg {
 	Init,
+	DefaultEndpoint(EndpointId),
+	FetchResponse(EndpointId, Result<Vec<Rc<dyn SocialArticleData>>, JsValue>)
+}
+
+pub enum Response {
+	DefaultEndpoint(EndpointId),
 }
 
 impl Agent for TwitterAgent {
 	type Reach = Context<Self>;
 	type Message = AgentMsg;
 	type Input = AgentRequest;
-	type Output = String;
+	type Output = Response;
 
 	fn create(link: AgentLink<Self>) -> Self {
+		log::debug!("Creating TwitterAgent");
 		link.send_message(AgentMsg::Init);
 
 		Self {
 			link,
-			subscribers: HashSet::new(),
 			/*endpoints: vec![Rc::from(TwitterEndpoint {
 				article: Rc::from(TweetArticleData {
 					id: "1467723852239470594".to_owned(),
@@ -158,15 +165,9 @@ impl Agent for TwitterAgent {
 					media: vec!["https://pbs.twimg.com/media/FF5m5NFaUAAAOGl?format=png".to_owned()]
 				})
 			})]*/
-			endpoints: Vec::new()
-		}
-	}
-
-	fn update(&mut self, msg: Self::Message) {
-		match msg {
-			AgentMsg::Init => {
-				EndpointAgent::dispatcher().send(EndpointRequest::AddEndpoint(self.endpoints[0].clone()));
-			}
+			//endpoints: Vec::new(),
+			endpoint_agent: EndpointAgent::dispatcher(),
+			subscribers: HashSet::new(),
 		}
 	}
 
@@ -174,43 +175,49 @@ impl Agent for TwitterAgent {
 		self.subscribers.insert(id);
 	}
 
-	fn handle_input(&mut self, msg: Self::Input, _id: HandlerId) {
-		match msg {
-			AgentRequest::EventBusMsg(s) => {
-				for sub in self.subscribers.iter() {
-					self.link.respond(*sub, s.clone());
-				}
-			}
-		}
-	}
-
 	fn disconnected(&mut self, id: HandlerId) {
 		self.subscribers.remove(&id);
 	}
-}
-
-/*impl Agent for TwitterEndpoint {
-	type Reach = Context<Self>;
-	type Message = EndpointMsg;
-	type Input = EndpointRequest;
-	type Output = EndpointResponse;
 
 	fn update(&mut self, msg: Self::Message) {
 		match msg {
-			//AgentRequest::UpdateRateLimit(rateLimit) => self.ratelimit = rateLimit,
-			EndpointMsg::Refreshed(tweets) => {
+			AgentMsg::Init => {
+				let callback = self.link.callback(AgentMsg::DefaultEndpoint);
+				self.endpoint_agent.send(
+					EndpointRequest::AddEndpoint(Box::new(move |id| {
+						log::debug!("Creating endpoint!");
+						callback.emit(id);
+						Box::new(ArtEndpoint {
+							id,
+							agent: TwitterAgent::dispatcher(),
+						})
+					}))
+				)
+			},
+			AgentMsg::DefaultEndpoint(e) => {
 				for sub in self.subscribers.iter() {
-					self.link.respond(*sub, EndpointResponse::NewArticles(tweets.clone()));
+					self.link.respond(*sub, Response::DefaultEndpoint(e));
 				}
 			}
-			EndpointMsg::RefreshFail(err) => {
-				log::error!("Failed to fetch \"/proxy/art\"\n{:?}", err);
+			AgentMsg::FetchResponse(id, r) => {
+				log::debug!("FetchResponse {}", &r.is_ok());
+				self.endpoint_agent.send(EndpointRequest::FetchResponse(id, r))
 			}
 		};
 	}
-}*/
+
+	fn handle_input(&mut self, msg: Self::Input, id: HandlerId) {
+		match msg {
+			AgentRequest::FetchTweets(id, path) =>
+				self.link.send_future(async move {
+					AgentMsg::FetchResponse(id, fetch_tweets(&path).await)
+				})
+		}
+	}
+}
 
 pub struct UserTimelineEndpoint {
+	id: EndpointId,
 	username: String,
 	agent: Dispatcher<TwitterAgent>
 }
@@ -220,10 +227,15 @@ impl Endpoint for UserTimelineEndpoint {
 		format!("{} User Timeline Endpoint", &self.username).to_owned()
 	}
 
-	fn refresh(&self) {}
+	fn id(&self) -> &EndpointId {
+		&self.id
+	}
+
+	fn refresh(&mut self) {}
 }
 
 pub struct ListEndpoint {
+	id: EndpointId,
 	username: String,
 	slug: String,
 	agent: Dispatcher<TwitterAgent>
@@ -234,11 +246,16 @@ impl Endpoint for ListEndpoint {
 		format!("List {}/{}", &self.username, &self.slug).to_owned()
 	}
 
-	fn refresh(&self) {}
+	fn id(&self) -> &EndpointId {
+		&self.id
+	}
+
+	fn refresh(&mut self) {}
 }
 
 pub struct ArtEndpoint {
-	agent: Dispatcher<TwitterAgent>
+	agent: Dispatcher<TwitterAgent>,
+	id: EndpointId,
 }
 
 impl Endpoint for ArtEndpoint {
@@ -246,12 +263,12 @@ impl Endpoint for ArtEndpoint {
 		"Art Endpoint".to_owned()
 	}
 
-	fn refresh(&self) {
-		/*self.agent.send_future(async {
-			match fetch_tweets("/proxy/art").await {
-				Ok(vec_tweets) => AgentRequest::Refreshed(vec_tweets),
-				Err(err) => EndpointMsg::RefreshFail(err)
-			}
-		});*/
+	fn id(&self) -> &EndpointId {
+		&self.id
+	}
+
+	fn refresh(&mut self) {
+		let id = self.id().clone();
+		self.agent.send(AgentRequest::FetchTweets(id, "/proxy/art".to_owned()))
 	}
 }

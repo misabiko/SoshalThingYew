@@ -1,9 +1,9 @@
-use std::{rc::Rc, collections::HashSet};
-use yew::agent::Dispatched;
+use std::rc::Rc;
+use yew::agent::{Dispatched, Dispatcher};
 use yew::worker::*;
 
 use crate::articles::SocialArticleData;
-use crate::endpoints::{EndpointAgent, Endpoint, EndpointRequest};
+use crate::endpoints::{EndpointAgent, Endpoint, EndpointRequest, EndpointId};
 
 pub struct PixivArticleData {
 	id: String
@@ -36,13 +36,12 @@ impl SocialArticleData for PixivArticleData {
 
 pub struct PixivAgent {
 	link: AgentLink<Self>,
-	subscribers: HashSet<HandlerId>,
-	endpoints: Vec<Rc<dyn Endpoint>>,
+	endpoint_agent: Dispatcher<EndpointAgent>,
 }
 
 pub enum AgentRequest {
 	//UpdateRateLimit(RateLimit),
-	EventBusMsg(String),
+	AddArticle(EndpointId, Rc<PixivArticleData>)
 }
 
 pub enum AgentOutput {
@@ -64,44 +63,35 @@ impl Agent for PixivAgent {
 
 		Self {
 			link,
-			subscribers: HashSet::new(),
-			endpoints: vec![Rc::from(PixivEndpoint {
-				article: Rc::from(PixivArticleData {
-					id: "92885703".to_owned()
-				})
-			})]
+			endpoint_agent: EndpointAgent::dispatcher(),
 		}
 	}
 
 	fn update(&mut self, msg: Self::Message) {
 		match msg {
 			AgentMsg::Init => {
-				EndpointAgent::dispatcher().send(EndpointRequest::AddEndpoint(self.endpoints[0].clone()));
+				EndpointAgent::dispatcher().send(EndpointRequest::AddEndpoint(Box::new(|id|
+					Box::new(PixivEndpoint {
+						id,
+						article: Rc::from(PixivArticleData {
+							id: "92885703".to_owned()
+						})
+					})
+				)));
 			}
 		}
-	}
-
-	fn connected(&mut self, id: HandlerId) {
-		self.subscribers.insert(id);
 	}
 
 	fn handle_input(&mut self, msg: Self::Input, _id: HandlerId) {
 		match msg {
-			AgentRequest::EventBusMsg(s) => {
-				for sub in self.subscribers.iter() {
-					self.link.respond(*sub, s.clone());
-				}
-			}
+			AgentRequest::AddArticle(id, a) => self.endpoint_agent.send(EndpointRequest::AddArticle(id, a))
 		}
-	}
-
-	fn disconnected(&mut self, id: HandlerId) {
-		self.subscribers.remove(&id);
 	}
 }
 
 pub struct PixivEndpoint {
-	article: Rc<dyn SocialArticleData>
+	id: EndpointId,
+	article: Rc<dyn SocialArticleData>,
 }
 
 impl Endpoint for PixivEndpoint {
@@ -109,5 +99,11 @@ impl Endpoint for PixivEndpoint {
 		"Hard-coded Pixiv Endpoint".to_owned()
 	}
 
-	fn refresh(&self) {}
+	fn id(&self) -> &EndpointId {
+		&self.id
+	}
+
+	fn refresh(&mut self) {
+		//self.agent.
+	}
 }

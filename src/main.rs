@@ -11,8 +11,9 @@ mod favviewer;
 
 use crate::timeline::{Timeline};
 use crate::articles::SocialArticleData;
+use crate::endpoints::{EndpointId, TimelineEndpoints};
 use crate::favviewer::FavViewer;
-use crate::twitter::TwitterAgent;
+use crate::twitter::{TwitterAgent, Response as TwitterResponse};
 use crate::pixiv::PixivAgent;
 
 struct Sidebar;
@@ -60,25 +61,28 @@ impl Component for Sidebar {
 struct Model {
 	//link: ComponentLink<Self>,
 	boot_articles: Option<Vec<Rc<dyn SocialArticleData>>>,
-	twitter: Dispatcher<TwitterAgent>,
+	twitter: Box<dyn Bridge<TwitterAgent>>,
 	pixiv: Dispatcher<PixivAgent>,
+	default_endpoint: Option<EndpointId>,
 }
 
 enum Msg {
 	FetchedBootArticles(Vec<Rc<dyn SocialArticleData>>),
 	FailedToFetch,
+	TwitterResponse(TwitterResponse),
 }
 
 impl Component for Model {
 	type Message = Msg;
 	type Properties = ();
 
-	fn create(_props: Self::Properties, _link: ComponentLink<Self>) -> Self {
+	fn create(_props: Self::Properties, link: ComponentLink<Self>) -> Self {
 		Self {
 			//link,
 			boot_articles: None,
-			twitter: TwitterAgent::dispatcher(),
+			twitter: TwitterAgent::bridge(link.callback(Msg::TwitterResponse)),
 			pixiv: PixivAgent::dispatcher(),
+			default_endpoint: None,
 		}
 	}
 
@@ -94,7 +98,15 @@ impl Component for Model {
 
 				true
 			},
-			Msg::FailedToFetch => false
+			Msg::FailedToFetch => false,
+			Msg::TwitterResponse(r) => {
+				match r {
+					TwitterResponse::DefaultEndpoint(e) => {
+						self.default_endpoint = Some(e);
+						true
+					}
+				}
+			}
 		}
 	}
 
@@ -142,12 +154,20 @@ impl Component for Model {
 			}
 		};
 
+		let home_timeline = match self.default_endpoint {
+			Some(e) => html! { <Timeline name="Home" endpoints={TimelineEndpoints {
+				start: vec![e],
+				refresh: vec![e],
+			}}/> },
+			None => html! {},
+		};
+
 		html! {
 			<>
 				<Sidebar/>
 				<div id="timelineContainer">
 					{ boot_timeline }
-					<Timeline name="Home"/>
+					{ home_timeline }
 				</div>
 			</>
 		}
@@ -177,6 +197,12 @@ fn main() {
 	};
 }
 
+//TODO Merge branch
+//TODO Choose endpoints
+//TODO Update multiple timelines with the same endpoint
+//TODO Update to 0.19.3
+//TODO Reduce agent param names
+//TODO Add image article
 //TODO Filters
 //TODO Rate limits
 //TODO Twitter Auth
@@ -187,4 +213,3 @@ fn main() {
 //TODO Social expanded view
 
 //TODO Show multiple article types in same timeline
-//TODO Update multiple timelines with the same endpoint
