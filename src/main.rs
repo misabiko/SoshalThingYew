@@ -186,11 +186,12 @@ fn main() {
 	};
 }
 
-//TODO Fix duplicate articles
+//TODO Add sorting
 //TODO Add timeline to pixiv
 //TODO Choose endpoints
 //TODO Update multiple timelines with the same endpoint
 //TODO Add image article
+//TODO Add timelines
 //TODO Filters
 //TODO Rate limits
 //TODO Twitter Auth

@@ -138,7 +138,11 @@ impl Component for Timeline {
 			TimelineMsg::EndpointResponse(response) =>  {
 				match response {
 					EndpointResponse::NewArticles(articles) => {
-						self.articles.extend(articles);
+						for a in articles {
+							if !self.articles.iter().any(|existing| existing.id() == a.id()) {
+								self.articles.push(a);
+							}
+						}
 						true
 					}
 					_ => false
