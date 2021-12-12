@@ -1,0 +1,17 @@
+{
+	"name": "FavViewer",
+	"description": "Adds a TweetDeck style column on various websites.",
+	"version": "0.1",
+	"manifest_version": 3,
+	"content_scripts": [
+		{
+			"matches": ["https://*.pixiv.net/bookmark_new_illust.php*"],
+			"css": ["styles.css"],
+			"js": ["content-script.js"]
+		}
+	],
+	"web_accessible_resources": [{
+		"resources": ["/dist/index-780e0c641604af13.js", "/dist/index-*"],
+		"matches": ["https://*.pixiv.net/*"]
+	}]
+}

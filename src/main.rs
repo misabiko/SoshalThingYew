@@ -197,10 +197,9 @@ fn main() {
 	};
 }
 
-//TODO Merge branch
+//TODO Update to 0.19.3
 //TODO Choose endpoints
 //TODO Update multiple timelines with the same endpoint
-//TODO Update to 0.19.3
 //TODO Reduce agent param names
 //TODO Add image article
 //TODO Filters
