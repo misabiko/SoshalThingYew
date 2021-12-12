@@ -7,47 +7,15 @@ pub mod articles;
 pub mod endpoints;
 pub mod twitter;
 pub mod pixiv;
+mod sidebar;
 mod favviewer;
 
+use crate::sidebar::Sidebar;
 use crate::timeline::{TimelineProps, Timeline};
 use crate::endpoints::{EndpointAgent, EndpointId, TimelineEndpoints, Endpoint, Request as EndpointRequest};
 use crate::favviewer::FavViewer;
-use crate::twitter::{TwitterAgent, Response as TwitterResponse, fetch_tweet, UserTimelineEndpoint};
+use crate::twitter::{TwitterAgent, Response as TwitterResponse, fetch_tweet, UserTimelineEndpoint, HomeTimelineEndpoint};
 use crate::pixiv::PixivAgent;
-
-struct Sidebar;
-
-impl Component for Sidebar {
-	type Message = ();
-	type Properties = ();
-
-	fn create(_ctx: &Context<Self>) -> Self {
-		Self {}
-	}
-
-	//TODO Fix top button click moving bottom ones
-	fn view(&self, _ctx: &Context<Self>) -> Html {
-		html! {
-			<nav id="sidebar">
-				<div id="sidebarButtons">
-					<div>
-						<button title="Expand sidebar">
-							<span class="icon">
-								<i class="fas fa-angle-double-right fa-2x"/>
-							</span>
-						</button>
-						<button title="Add new timeline">
-							<span class="icon">
-								<i class="fas fa-plus fa-2x"/>
-							</span>
-						</button>
-					</div>
-					<div/>
-				</div>
-			</nav>
-		}
-	}
-}
 
 struct Model {
 	endpoint_agent: Dispatcher<EndpointAgent>,
@@ -98,6 +66,18 @@ impl Component for Model {
 						Box::new(UserTimelineEndpoint {
 							id,
 							username: username.clone(),
+							agent: TwitterAgent::dispatcher(),
+							articles: Vec::new()
+						})
+					}))
+				);
+			} else if pathname.starts_with("/twitter/home") {
+				let callback = ctx.link().callback(Msg::AddTimeline);
+				ctx.link().send_message(
+					Msg::AddEndpoint(Box::new(move |id| {
+						callback.emit(id);
+						Box::new(HomeTimelineEndpoint {
+							id,
 							agent: TwitterAgent::dispatcher(),
 							articles: Vec::new()
 						})
@@ -191,12 +171,10 @@ fn main() {
 //TODO Add sorting
 //TODO Add timeline to pixiv
 //TODO Choose endpoints
-//TODO Update multiple timelines with the same endpoint
 //TODO Add image article
 //TODO Add timelines
 //TODO Filters
 //TODO Rate limits
-//TODO Twitter Auth
 //TODO Pixiv articles
 //TODO Masonry
 //TODO Youtube articles

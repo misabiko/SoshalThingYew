@@ -263,11 +263,59 @@ impl Endpoint for UserTimelineEndpoint {
 	}
 }
 
+pub struct HomeTimelineEndpoint {
+	pub id: EndpointId,
+	pub articles: Vec<Rc<dyn SocialArticleData>>,
+	pub agent: Dispatcher<TwitterAgent>
+}
+
+impl Endpoint for HomeTimelineEndpoint {
+	fn name(&self) -> String {
+		"Home Timeline Endpoint".to_owned()
+	}
+
+	fn id(&self) -> &EndpointId {
+		&self.id
+	}
+
+	fn add_articles(&mut self, articles: Vec<Rc<dyn SocialArticleData>>)  {
+		for a in articles {
+			if !self.articles.iter().any(|existing| existing.id() == a.id()) {
+				self.articles.push(a);
+			}
+		}
+		self.articles.sort_by(|a, b| b.id().partial_cmp(&a.id()).unwrap())
+	}
+
+	fn refresh(&mut self) {
+		let id = self.id().clone();
+		self.agent.send(Request::FetchTweets(id, "/proxy/twitter/home".to_owned()))
+	}
+
+	fn load_top(&mut self) {
+
+	}
+
+	fn load_bottom(&mut self) {
+		match self.articles.last() {
+			Some(last_id) => {
+				let id = self.id().clone();
+				self.agent.send(Request::FetchTweets(
+					id,
+					format!("/proxy/twitter/home?max_id={}", &last_id.id())
+				))
+			}
+			None => self.refresh()
+		}
+	}
+}
+
 pub struct ListEndpoint {
-	id: EndpointId,
-	username: String,
-	slug: String,
-	agent: Dispatcher<TwitterAgent>
+	pub id: EndpointId,
+	pub username: String,
+	pub slug: String,
+	pub articles: Vec<Rc<dyn SocialArticleData>>,
+	pub agent: Dispatcher<TwitterAgent>
 }
 
 impl Endpoint for ListEndpoint {
@@ -279,14 +327,38 @@ impl Endpoint for ListEndpoint {
 		&self.id
 	}
 
-	fn refresh(&mut self) {}
+	fn add_articles(&mut self, articles: Vec<Rc<dyn SocialArticleData>>)  {
+		for a in articles {
+			if !self.articles.iter().any(|existing| existing.id() == a.id()) {
+				self.articles.push(a);
+			}
+		}
+		self.articles.sort_by(|a, b| b.id().partial_cmp(&a.id()).unwrap())
+	}
+
+	fn refresh(&mut self) {
+		let id = self.id().clone();
+		self.agent.send(Request::FetchTweets(
+			id,
+			format!("/proxy/twitter/list/{}/{}", &self.username, &self.slug)
+		))
+	}
 
 	fn load_top(&mut self) {
 
 	}
 
 	fn load_bottom(&mut self) {
-
+		match self.articles.last() {
+			Some(last_id) => {
+				let id = self.id().clone();
+				self.agent.send(Request::FetchTweets(
+					id,
+					format!("/proxy/twitter/list/{}/{}?max_id={}", &self.username, &self.slug, &last_id.id())
+				))
+			}
+			None => self.refresh()
+		}
 	}
 }
 
