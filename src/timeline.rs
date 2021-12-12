@@ -46,6 +46,7 @@ pub struct Timeline {
 	options_shown: bool,
 	compact: bool,
 	endpoint_agent: Box<dyn Bridge<EndpointAgent>>,
+	filters: Vec<fn(&Rc<dyn SocialArticleData>) -> bool>,
 }
 
 pub enum TimelineMsg {
@@ -57,7 +58,6 @@ pub enum TimelineMsg {
 	ToggleCompact,
 	//ChangeEndpoint(String),
 }
-
 
 #[derive(Properties, Clone, PartialEq)]
 pub struct TimelineProps {
@@ -102,26 +102,13 @@ impl Component for Timeline {
 			options_shown: false,
 			compact: false,
 			endpoint_agent,
+			filters: vec![|a| a.media().len() > 0]
 		}
 	}
 
 	fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
 		match msg {
 			TimelineMsg::Refresh => {
-				/*match self.endpoint.as_ref().map(|e| e.as_str()) {
-					Some("Twitter") =>  {
-						log::debug!("Trying to refresh Twitter");
-						self.endpoint_agent.send(EndpointRequest::Refresh);
-						true
-					}
-					Some("Pixiv") => {
-						log::debug!("Trying to refresh Pixiv");
-						self.endpoint_agent.send(EndpointRequest::Refresh);
-						true
-					}
-					_ => false
-				}*/
-
 				log::debug!("Timeline Refresh!");
 				self.endpoint_agent.send(EndpointRequest::Refresh);
 				false
@@ -145,7 +132,6 @@ impl Component for Timeline {
 						}
 						true
 					}
-					_ => false
 				}
 			}
 
@@ -179,6 +165,11 @@ impl Component for Timeline {
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
+		let mut articles = self.articles.clone();
+		for filter in &self.filters {
+			articles = articles.into_iter().filter(filter).collect();
+		}
+
 		html! {
 			<div class="timeline">
 				<div class="timelineHeader">
@@ -199,7 +190,7 @@ impl Component for Timeline {
 					</div>
 				</div>
 				{ self.view_options(ctx) }
-				<ColumnContainer compact={self.compact} articles={self.articles.clone()}></ColumnContainer>
+				<ColumnContainer compact={self.compact} {articles}/>
 			</div>
 		}
 	}

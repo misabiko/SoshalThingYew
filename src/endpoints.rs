@@ -67,12 +67,14 @@ impl Agent for EndpointAgent {
 		match msg {
 			Msg::Refreshed(endpoint, articles) => {
 				for (timeline_id, timeline) in &self.timelines {
-					timeline.refresh
+					 if timeline.refresh
 						.iter()
-						.find(|e| *e == &endpoint);
-
-					log::debug!("Response for timeline");
-					self.link.respond(*timeline_id, Response::NewArticles(articles.clone()));
+						.any(|e| e == &endpoint) || timeline.start
+						 .iter()
+						 .any(|e| e == &endpoint) {
+						 log::debug!("Response for timeline");
+						 self.link.respond(*timeline_id, Response::NewArticles(articles.clone()));
+					 }
 				}
 			}
 			Msg::RefreshFail(err) => {

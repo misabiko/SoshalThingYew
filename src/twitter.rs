@@ -46,7 +46,7 @@ impl SocialArticleData for TweetArticleData {
 	}
 }
 
-async fn fetch_tweets(url: &str) -> Result<Vec<Rc<dyn SocialArticleData>>> {
+pub async fn fetch_tweets(url: &str) -> Result<Vec<Rc<dyn SocialArticleData>>> {
 	let json_str = reqwest::Client::builder().build()?
 		.get(format!("http://localhost:8080{}", url))
 		.query(&[("rts", false), ("replies", false)])
@@ -65,7 +65,7 @@ async fn fetch_tweets(url: &str) -> Result<Vec<Rc<dyn SocialArticleData>>> {
 		.map_err(|err| Error::from(err))
 }
 
-async fn fetch_tweet(id: &str) -> Result<Rc<TweetArticleData>> {
+pub async fn fetch_tweet(id: &str) -> Result<Rc<TweetArticleData>> {
 	let json_str = reqwest::get(format!("http://localhost:8080/proxy/twitter/status/{}", &id))
 		.await?
 		.text()
@@ -184,7 +184,6 @@ impl Agent for TwitterAgent {
 				let callback = self.link.callback(Msg::DefaultEndpoint);
 				self.endpoint_agent.send(
 					EndpointRequest::AddEndpoint(Box::new(move |id| {
-						log::debug!("Creating endpoint!");
 						callback.emit(id);
 						Box::new(ArtEndpoint {
 							id,
@@ -214,9 +213,9 @@ impl Agent for TwitterAgent {
 }
 
 pub struct UserTimelineEndpoint {
-	id: EndpointId,
-	username: String,
-	agent: Dispatcher<TwitterAgent>
+	pub id: EndpointId,
+	pub username: String,
+	pub agent: Dispatcher<TwitterAgent>
 }
 
 impl Endpoint for UserTimelineEndpoint {
@@ -228,7 +227,13 @@ impl Endpoint for UserTimelineEndpoint {
 		&self.id
 	}
 
-	fn refresh(&mut self) {}
+	fn refresh(&mut self) {
+		let id = self.id().clone();
+		self.agent.send(Request::FetchTweets(
+			id,
+			format!("/proxy/twitter/user/{}", &self.username)
+		))
+	}
 }
 
 pub struct ListEndpoint {

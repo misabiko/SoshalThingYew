@@ -37,6 +37,7 @@ async fn status(id: Path<u64>, token: web::Data<egg_mode::Token>) -> HttpRespons
 struct UserTimelineQuery {
 	replies: Option<bool>,
 	rts: Option<bool>,
+	count: Option<i32>,
 }
 
 #[get("/twitter/user/{username}")]
@@ -46,8 +47,8 @@ async fn user_timeline(username: Path<String>, query: web::Query<UserTimelineQue
 		query.replies.unwrap_or(true),
 		query.rts.unwrap_or(true),
 		&token
-	);
-	//.with_page_size(10);
+	)
+	.with_page_size(query.count.unwrap_or(200));
 
 	let (_timeline, feed) = timeline.start().await.unwrap();
 	Ok(HttpResponse::Ok()

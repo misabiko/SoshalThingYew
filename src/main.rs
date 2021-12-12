@@ -1,4 +1,3 @@
-use std::rc::Rc;
 use yew::prelude::*;
 use yew_agent::{Bridge, Bridged, Dispatched, Dispatcher};
 
@@ -10,11 +9,10 @@ pub mod twitter;
 pub mod pixiv;
 mod favviewer;
 
-use crate::timeline::{Timeline};
-use crate::articles::SocialArticleData;
-use crate::endpoints::{EndpointId, TimelineEndpoints};
+use crate::timeline::{TimelineProps, Timeline};
+use crate::endpoints::{EndpointAgent, EndpointId, TimelineEndpoints, Endpoint, Request as EndpointRequest};
 use crate::favviewer::FavViewer;
-use crate::twitter::{TwitterAgent, Response as TwitterResponse};
+use crate::twitter::{TwitterAgent, Response as TwitterResponse, fetch_tweet, UserTimelineEndpoint};
 use crate::pixiv::PixivAgent;
 
 struct Sidebar;
@@ -52,7 +50,8 @@ impl Component for Sidebar {
 }
 
 struct Model {
-	boot_articles: Option<Vec<Rc<dyn SocialArticleData>>>,
+	endpoint_agent: Dispatcher<EndpointAgent>,
+	timelines: Vec<TimelineProps>,
 	#[allow(dead_code)]
 	twitter: Box<dyn Bridge<TwitterAgent>>,
 	#[allow(dead_code)]
@@ -61,9 +60,9 @@ struct Model {
 }
 
 enum Msg {
-	FetchedBootArticles(Vec<Rc<dyn SocialArticleData>>),
-	FailedToFetch,
 	TwitterResponse(TwitterResponse),
+	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
+	AddTimeline(EndpointId),
 }
 
 impl Component for Model {
@@ -71,8 +70,45 @@ impl Component for Model {
 	type Properties = ();
 
 	fn create(ctx: &Context<Self>) -> Self {
+		let pathname_opt = match web_sys::window().map(|w| w.location()) {
+			Some(location) => match location.pathname() {
+				Ok(pathname_opt) => Some(pathname_opt),
+				Err(_) => None
+			},
+			None => None,
+		};
+
+		match pathname_opt.as_ref() {
+			Some(pathname) => if let Some(id) = pathname.strip_prefix("/twitter/status/").map(str::to_owned) {
+				/*ctx.link().send_future(async move {
+					match fetch_tweet(&id).await {
+						Ok(tweet) => Msg::FetchedBootArticles(vec!(tweet)),
+						Err(err) => {
+							log::error!("Failed to fetch \"{}\"\n{:?}", &id, err);
+							Msg::FailedToFetch
+						}
+					}
+				});*/
+			} else if let Some(username) = pathname.strip_prefix("/twitter/user/").map(str::to_owned) {
+				let callback = ctx.link().callback(Msg::AddTimeline);
+				log::debug!("Adding endpoint for {}", &username);
+				ctx.link().send_message(
+					Msg::AddEndpoint(Box::new(move |id| {
+						callback.emit(id);
+						Box::new(UserTimelineEndpoint {
+							id,
+							username: username.clone(),
+							agent: TwitterAgent::dispatcher(),
+						})
+					}))
+				);
+			},
+			None => {}
+		};
+
 		Self {
-			boot_articles: None,
+			timelines: Vec::new(),
+			endpoint_agent: EndpointAgent::dispatcher(),
 			twitter: TwitterAgent::bridge(ctx.link().callback(Msg::TwitterResponse)),
 			pixiv: PixivAgent::dispatcher(),
 			default_endpoint: None,
@@ -81,68 +117,31 @@ impl Component for Model {
 
 	fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
 		match msg {
-			Msg::FetchedBootArticles(articles) => {
-				match &mut self.boot_articles {
-					Some(boot_articles) => boot_articles.extend(articles),
-					None => {
-						self.boot_articles = Some(articles)
-					}
-				};
-
-				true
-			},
-			Msg::FailedToFetch => false,
-			Msg::TwitterResponse(r) => {
-				match r {
-					TwitterResponse::DefaultEndpoint(e) => {
-						self.default_endpoint = Some(e);
-						true
-					}
+			Msg::TwitterResponse(r) => match r {
+				TwitterResponse::DefaultEndpoint(e) => {
+					self.default_endpoint = Some(e);
+					true
 				}
+			},
+			Msg::AddEndpoint(e) => {
+				self.endpoint_agent.send(EndpointRequest::AddEndpoint(e));
+				false
+			}
+			Msg::AddTimeline(id) => {
+				log::debug!("Adding new timeline for {}", &id);
+				self.timelines.push(yew::props! { TimelineProps {
+					name: "Added Timeline",
+					endpoints: TimelineEndpoints {
+						start: vec![id],
+						refresh: vec![id],
+					}
+				}});
+				true
 			}
 		}
 	}
 
 	fn view(&self, _ctx: &Context<Self>) -> Html {
-		let pathname_opt = match web_sys::window().map(|w| w.location()) {
-			Some(location) => match location.pathname() {
-				Ok(pathname_opt) => Some(pathname_opt),
-				Err(_) => None
-			},
-			None => None,
-		};
-		let boot_timeline = match &self.boot_articles {
-			Some(articles) => html!{ <Timeline name="Boot Articles" articles={articles.clone()}/>},
-			None => {
-				/*match pathname_opt.as_ref() {
-					Some(pathname) => if let Some(id) = pathname.strip_prefix("/twitter/status/").map(str::to_owned) {
-						ctx.link().send_future(async move {
-							match fetch_tweet(&id).await {
-								Ok(tweet) => Msg::FetchedBootArticles(vec!(tweet)),
-								Err(err) => {
-									log::error!("Failed to fetch \"{}\"\n{:?}", &id, err);
-									Msg::FailedToFetch
-								}
-							}
-						});
-					} else if let Some(username) = pathname.strip_prefix("/twitter/user/").map(str::to_owned) {
-						ctx.link().send_future(async move {
-							let url = format!("/proxy/twitter/user/{}", &username);
-							match fetch_tweets(&url).await {
-								Ok(vec_tweets) => Msg::FetchedBootArticles(vec_tweets),
-								Err(err) => {
-									log::error!("Failed to fetch \"{}\"\n{:?}", &url, err);
-									Msg::FailedToFetch
-								}
-							}
-						});
-					},
-					None => {}
-				};*/
-				html!{}
-			}
-		};
-
 		let home_timeline = match self.default_endpoint {
 			Some(e) => html! { <Timeline name="Home" endpoints={TimelineEndpoints {
 				start: vec![e],
@@ -155,7 +154,9 @@ impl Component for Model {
 			<>
 				<Sidebar/>
 				<div id="timelineContainer">
-					{ boot_timeline }
+					{for self.timelines.iter().map(|props| html! {
+						<Timeline ..props.clone()/>
+					})}
 					{ home_timeline }
 				</div>
 			</>
