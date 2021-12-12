@@ -224,3 +224,7 @@ impl Component for SocialArticle {
 		}
 	}
 }
+
+pub fn sort_by_id(a: &Rc<dyn SocialArticleData>, b: &Rc<dyn SocialArticleData>) -> std::cmp::Ordering {
+	b.id().partial_cmp(&a.id()).unwrap()
+}

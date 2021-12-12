@@ -2,7 +2,7 @@ use std::rc::Rc;
 use yew::prelude::*;
 use yew_agent::{Bridge, Bridged};
 
-use crate::articles::{SocialArticleData, SocialArticle};
+use crate::articles::{SocialArticleData, SocialArticle, sort_by_id};
 use crate::endpoints::{EndpointAgent, Request as EndpointRequest, Response as EndpointResponse, TimelineEndpoints};
 
 struct ColumnContainer;
@@ -174,6 +174,8 @@ impl Component for Timeline {
 		for filter in &self.filters {
 			articles = articles.into_iter().filter(filter).collect();
 		}
+
+		articles.sort_by(sort_by_id);
 
 		html! {
 			<div class="timeline">

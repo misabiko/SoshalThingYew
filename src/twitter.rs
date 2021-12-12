@@ -3,7 +3,7 @@ use wasm_bindgen::prelude::*;
 use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher};
 use yewtil::future::LinkFuture;
 
-use crate::articles::SocialArticleData;
+use crate::articles::{sort_by_id, SocialArticleData};
 use crate::endpoints::{EndpointAgent, Endpoint, Request as EndpointRequest, EndpointId};
 use crate::error::{Result, Error};
 
@@ -284,12 +284,12 @@ impl Endpoint for HomeTimelineEndpoint {
 				self.articles.push(a);
 			}
 		}
-		self.articles.sort_by(|a, b| b.id().partial_cmp(&a.id()).unwrap())
+		self.articles.sort_by(sort_by_id)
 	}
 
 	fn refresh(&mut self) {
 		let id = self.id().clone();
-		self.agent.send(Request::FetchTweets(id, "/proxy/twitter/home".to_owned()))
+		self.agent.send(Request::FetchTweets(id, "/proxy/twitter/home?count=20".to_owned()))
 	}
 
 	fn load_top(&mut self) {
@@ -333,7 +333,7 @@ impl Endpoint for ListEndpoint {
 				self.articles.push(a);
 			}
 		}
-		self.articles.sort_by(|a, b| b.id().partial_cmp(&a.id()).unwrap())
+		self.articles.sort_by(sort_by_id)
 	}
 
 	fn refresh(&mut self) {

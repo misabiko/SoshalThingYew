@@ -168,7 +168,6 @@ fn main() {
 	};
 }
 
-//TODO Add sorting
 //TODO Add timeline to pixiv
 //TODO Masonry
 //TODO Choose endpoints
