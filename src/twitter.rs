@@ -1,10 +1,11 @@
 use std::{rc::Rc, collections::HashSet};
 use wasm_bindgen::prelude::*;
-use yew_agent::{Agent, AgentLink, Context, HandlerId, Bridged, Dispatched, Dispatcher};
+use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher};
 use yewtil::future::LinkFuture;
 
 use crate::articles::SocialArticleData;
 use crate::endpoints::{EndpointAgent, Endpoint, Request as EndpointRequest, EndpointId};
+use crate::error::{Result, Error};
 
 #[derive(Clone, PartialEq)]
 pub struct TwitterUser {
@@ -45,7 +46,7 @@ impl SocialArticleData for TweetArticleData {
 	}
 }
 
-async fn fetch_tweets(url: &str) -> Result<Vec<Rc<dyn SocialArticleData>>, JsValue> {
+async fn fetch_tweets(url: &str) -> Result<Vec<Rc<dyn SocialArticleData>>> {
 	let json_str = reqwest::Client::builder().build()?
 		.get(format!("http://localhost:8080{}", url))
 		.query(&[("rts", false), ("replies", false)])
@@ -53,15 +54,18 @@ async fn fetch_tweets(url: &str) -> Result<Vec<Rc<dyn SocialArticleData>>, JsVal
 		.text().await?
 		.to_string();
 
-	let value: serde_json::Value = serde_json::from_str(&json_str).unwrap();
-	Ok(value
-		.as_array().unwrap()
-		.iter()
-		.map(|json| Rc::new(TweetArticleData::from(json)) as Rc<dyn SocialArticleData>)
-		.collect())
+	serde_json::from_str(&json_str)
+		.map(|value: serde_json::Value|
+			value
+			.as_array().unwrap()
+			.iter()
+			.map(|json| Rc::new(TweetArticleData::from(json)) as Rc<dyn SocialArticleData>)
+			.collect()
+		)
+		.map_err(|err| Error::from(err))
 }
 
-async fn fetch_tweet(id: &str) -> Result<Rc<TweetArticleData>, JsValue> {
+async fn fetch_tweet(id: &str) -> Result<Rc<TweetArticleData>> {
 	let json_str = reqwest::get(format!("http://localhost:8080/proxy/twitter/status/{}", &id))
 		.await?
 		.text()
@@ -129,7 +133,7 @@ pub enum Request {
 pub enum Msg {
 	Init,
 	DefaultEndpoint(EndpointId),
-	FetchResponse(EndpointId, Result<Vec<Rc<dyn SocialArticleData>>, JsValue>)
+	FetchResponse(EndpointId, Result<Vec<Rc<dyn SocialArticleData>>>)
 }
 
 pub enum Response {
@@ -194,10 +198,8 @@ impl Agent for TwitterAgent {
 					self.link.respond(*sub, Response::DefaultEndpoint(e));
 				}
 			}
-			Msg::FetchResponse(id, r) => {
-				log::debug!("FetchResponse {}", &r.is_ok());
+			Msg::FetchResponse(id, r) =>
 				self.endpoint_agent.send(EndpointRequest::FetchResponse(id, r))
-			}
 		};
 	}
 

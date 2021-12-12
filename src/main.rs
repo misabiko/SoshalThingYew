@@ -2,6 +2,7 @@ use std::rc::Rc;
 use yew::prelude::*;
 use yew_agent::{Bridge, Bridged, Dispatched, Dispatcher};
 
+pub mod error;
 pub mod timeline;
 pub mod articles;
 pub mod endpoints;
@@ -185,7 +186,7 @@ fn main() {
 	};
 }
 
-//TODO Handle fetch failing
+//TODO Fix duplicate articles
 //TODO Add timeline to pixiv
 //TODO Choose endpoints
 //TODO Update multiple timelines with the same endpoint

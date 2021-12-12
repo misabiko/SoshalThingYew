@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
 use yew_agent::{Agent, AgentLink, Context, HandlerId};
 
+use crate::error::{Result, Error};
 use crate::articles::SocialArticleData;
 
 pub trait Endpoint {
@@ -32,14 +33,14 @@ pub struct EndpointAgent {
 pub enum Msg {
 	/// When an endpoint is done refreshing. Contains the endpoint key and articles
 	Refreshed(EndpointId, Vec<Rc<dyn SocialArticleData>>),
-	RefreshFail(JsValue),
+	RefreshFail(Error),
 }
 
 pub enum Request {
 	Refresh,
 	InitTimeline(TimelineEndpoints),
 	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
-	FetchResponse(EndpointId, Result<Vec<Rc<dyn SocialArticleData>>, JsValue>),
+	FetchResponse(EndpointId, Result<Vec<Rc<dyn SocialArticleData>>>),
 	AddArticle(EndpointId, Rc<dyn SocialArticleData>),
 }
 
