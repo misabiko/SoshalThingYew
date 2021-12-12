@@ -2,8 +2,6 @@ use std::rc::Rc;
 use yew::prelude::*;
 
 pub struct SocialArticle {
-	link: ComponentLink<Self>,
-	props: Props,
 	compact: Option<bool>,
 }
 
@@ -12,6 +10,12 @@ pub struct Props {
 	#[prop_or_default]
 	pub compact: bool,
 	pub data: Rc<dyn SocialArticleData>,
+}
+
+impl PartialEq<Props> for Props {
+	fn eq(&self, other: &Props) -> bool {
+		self.compact == other.compact && &self.data == &other.data
+	}
 }
 
 pub enum Msg {
@@ -29,16 +33,28 @@ pub trait SocialArticleData {
 	fn media(&self) -> Vec<String>;
 }
 
+impl PartialEq<dyn SocialArticleData> for dyn SocialArticleData {
+	fn eq(&self, other: &dyn SocialArticleData) -> bool {
+		self.id() == other.id() &&
+		self.text() == other.text() &&
+		self.author_username() == other.author_username() &&
+		self.author_name() == other.author_name() &&
+		self.author_avatar_url() == other.author_avatar_url() &&
+		self.author_url() == other.author_url() &&
+		self.media() == other.media()
+	}
+}
+
 impl SocialArticle {
-	fn is_compact(&self) -> bool {
+	fn is_compact(&self, ctx: &Context<Self>) -> bool {
 		match self.compact {
 			Some(compact) => compact,
-			None => self.props.compact,
+			None => ctx.props().compact,
 		}
 	}
 
-	fn view_nav(&self) -> Html {
-		let ontoggle_compact = self.link.callback(|_| Msg::ToggleCompact);
+	fn view_nav(&self, ctx: &Context<Self>) -> Html {
+		let ontoggle_compact = ctx.link().callback(|_| Msg::ToggleCompact);
 
 		html! {
 			<nav class="level is-mobile">
@@ -56,78 +72,82 @@ impl SocialArticle {
 						<span>{"0"}</span>
 					</a>
 					{
-						match self.props.data.media().len() {
+						match ctx.props().data.media().len() {
 							0 => html! {},
 							_ => html! {
-								<a class="level-item articleButton" onclick=&ontoggle_compact>
+								<a class="level-item articleButton" onclick={&ontoggle_compact}>
 									<span class="icon">
-										<i class=classes!("fas", if self.is_compact() { "fa-compress" } else { "fa-expand" })/>
+										<i class={classes!("fas", if self.is_compact(ctx) { "fa-compress" } else { "fa-expand" })}/>
 									</span>
 								</a>
 							}
 						}
 					}
-					<ybc::Dropdown
-						button_classes=classes!("level-item", "articleButton")
-						button_html=html! {
-							<span class="icon">
-								<i class="fas fa-ellipsis-h"/>
-							</span>
-						}
-					>
-						<div class="dropdown-item"> {"Mark as red"} </div>
-						<div class="dropdown-item"> {"Hide"} </div>
-						<div class="dropdown-item" onclick=&ontoggle_compact> { if self.is_compact() { "Show expanded" } else { "Show compact" } } </div>
-						<div class="dropdown-item"> {"Log"} </div>
-						<div class="dropdown-item"> {"Fetch Status"} </div>
-						<div class="dropdown-item"> {"Expand"} </div>
-						<a
-							class="dropdown-item"
-							href={ format!("https://twitter.com/{}/status/{}", &self.props.data.author_username(), &self.props.data.id()) }
-							target="_blank" rel="noopener noreferrer"
-						>
-							{ "External Link" }
-						</a>
-					</ybc::Dropdown>
+					<div class="dropdown">
+						<div class="dropdown-trigger">
+							<a class="level-item articleButton">
+								<span class="icon">
+									<i class="fas fa-ellipsis-h"/>
+								</span>
+							</a>
+						</div>
+						<div class="dropdown-menu">
+							<div class="dropdown-content">
+								<div class="dropdown-item"> {"Mark as red"} </div>
+								<div class="dropdown-item"> {"Hide"} </div>
+								<div class="dropdown-item" onclick={&ontoggle_compact}> { if self.is_compact(ctx) { "Show expanded" } else { "Show compact" } } </div>
+								<div class="dropdown-item"> {"Log"} </div>
+								<div class="dropdown-item"> {"Fetch Status"} </div>
+								<div class="dropdown-item"> {"Expand"} </div>
+								<a
+									class="dropdown-item"
+									href={ format!("https://twitter.com/{}/status/{}", &ctx.props().data.author_username(), &ctx.props().data.id()) }
+									target="_blank" rel="noopener noreferrer"
+								>
+									{ "External Link" }
+								</a>
+							</div>
+						</div>
+					</div>
 				</div>
 			</nav>
 		}
 	}
 
-	fn view_media(&self) -> Html {
+	fn view_media(&self, ctx: &Context<Self>) -> Html {
 		let images_classes = classes!(
 			"postMedia",
 			"postImages",
-			if self.is_compact() { Some("postImagesCompact") } else { None }
+			if self.is_compact(ctx) { Some("postImagesCompact") } else { None }
 		);
 
-		if self.props.data.media().len() == 0 {
+		if ctx.props().data.media().len() == 0 {
 			html! {}
 		} else {
 			html! {
 				<div>
-					<div class=images_classes.clone()> {
-						match &self.props.data.media()[..] {
-							[image] => self.view_image(image.clone(), false),
+					<div class={images_classes.clone()}> {
+						match &ctx.props().data.media()[..] {
+							[image] => self.view_image(ctx, image.clone(), false),
 							[i1, i2] => html! {
 								<>
-									{ self.view_image(i1.clone(), false) }
-									{ self.view_image(i2.clone(), false) }
+									{ self.view_image(ctx, i1.clone(), false) }
+									{ self.view_image(ctx, i2.clone(), false) }
 								</>
 							},
 							[i1, i2, i3] => html! {
 								<>
-									{ self.view_image(i1.clone(), false) }
-									{ self.view_image(i2.clone(), false) }
-									{ self.view_image(i3.clone(), true) }
+									{ self.view_image(ctx, i1.clone(), false) }
+									{ self.view_image(ctx, i2.clone(), false) }
+									{ self.view_image(ctx, i3.clone(), true) }
 								</>
 							},
 							_ => html! {
 								<>
-									{ self.view_image(self.props.data.media()[0].clone(), false) }
-									{ self.view_image(self.props.data.media()[1].clone(), false) }
-									{ self.view_image(self.props.data.media()[2].clone(), false) }
-									{ self.view_image(self.props.data.media()[3].clone(), false) }
+									{ self.view_image(ctx, ctx.props().data.media()[0].clone(), false) }
+									{ self.view_image(ctx, ctx.props().data.media()[1].clone(), false) }
+									{ self.view_image(ctx, ctx.props().data.media()[2].clone(), false) }
+									{ self.view_image(ctx, ctx.props().data.media()[3].clone(), false) }
 								</>
 							}
 						}
@@ -137,17 +157,17 @@ impl SocialArticle {
 		}
 	}
 
-	fn view_image(&self, image: String, is_large_third: bool) -> Html {
+	fn view_image(&self, ctx: &Context<Self>, image: String, is_large_third: bool) -> Html {
 		let media_holder_classes = classes!(
 			"mediaHolder",
-			if self.is_compact() { Some("mediaHolderCompact") } else { None },
+			if self.is_compact(ctx) { Some("mediaHolderCompact") } else { None },
 			if is_large_third { Some("thirdImage") } else { None },
 		);
 
 		html! {
-			<div class=media_holder_classes>
+			<div class={media_holder_classes}>
 				<div class="is-hidden imgPlaceholder"/>
-				<img alt=self.props.data.id() src=image/>
+				<img alt={ctx.props().data.id()} src={image}/>
 			</div>
 		}
 	}
@@ -157,60 +177,49 @@ impl Component for SocialArticle {
 	type Message = Msg;
 	type Properties = Props;
 
-	fn create(props: Self::Properties, link: ComponentLink<Self>) -> Self {
+	fn create(_ctx: &Context<Self>) -> Self {
 		Self {
-			link,
-			props,
 			compact: None,
 		}
 	}
 
-	fn update(&mut self, msg: Self::Message) -> ShouldRender {
+	fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
 		match msg {
 			Msg::ToggleCompact => match self.compact {
 				Some(compact) => self.compact = Some(!compact),
-				None => self.compact = Some(!self.props.compact),
+				None => self.compact = Some(!ctx.props().compact),
 			}
 		};
 
 		true
 	}
 
-	fn change(&mut self, props: Self::Properties) -> ShouldRender {
-		if props.compact != self.props.compact {
-			self.props.compact = props.compact;
-			true
-		}else {
-			false
-		}
-	}
-
-	fn view(&self) -> Html {
+	fn view(&self, ctx: &Context<Self>) -> Html {
 		html! {
 			<article class="article">
 				<div class="media">
 					<figure class="media-left">
 						<p class="image is-64x64">
-							<img src=self.props.data.author_avatar_url().clone() alt=format!("{}'s avatar", &self.props.data.author_username())/>
+							<img src={ctx.props().data.author_avatar_url().clone()} alt={format!("{}'s avatar", &ctx.props().data.author_username())}/>
 						</p>
 					</figure>
 					<div class="media-content">
 						<div class="content">
 							<div class="articleHeader">
-								<a class="names" href=self.props.data.author_url() target="_blank" rel="noopener noreferrer">
-									<strong>{ self.props.data.author_name() }</strong>
-									<small>{ format!("@{}", self.props.data.author_username()) }</small>
+								<a class="names" href={ctx.props().data.author_url()} target="_blank" rel="noopener noreferrer">
+									<strong>{ ctx.props().data.author_name() }</strong>
+									<small>{ format!("@{}", ctx.props().data.author_username()) }</small>
 								</a>
 								<span class="timestamp">
 									<small title="'actualArticle.creationDate'">{ "just now" }</small>
 								</span>
 							</div>
-							<p class="articleParagraph">{ self.props.data.text() }</p>
+							<p class="articleParagraph">{ ctx.props().data.text() }</p>
 						</div>
-						{ self.view_nav() }
+						{ self.view_nav(ctx) }
 					</div>
 				</div>
-				{ self.view_media() }
+				{ self.view_media(ctx) }
 			</article>
 		}
 	}

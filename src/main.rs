@@ -1,6 +1,6 @@
 use std::rc::Rc;
 use yew::prelude::*;
-use yew::agent::{Dispatched, Dispatcher};
+use yew_agent::{Bridge, Bridged, Dispatched, Dispatcher};
 
 pub mod timeline;
 pub mod articles;
@@ -22,20 +22,12 @@ impl Component for Sidebar {
 	type Message = ();
 	type Properties = ();
 
-	fn create(_props: Self::Properties, _link: ComponentLink<Self>) -> Self {
+	fn create(_ctx: &Context<Self>) -> Self {
 		Self {}
 	}
 
-	fn update(&mut self, _msg: Self::Message) -> ShouldRender {
-		false
-	}
-
-	fn change(&mut self, _props: Self::Properties) -> ShouldRender {
-		false
-	}
-
 	//TODO Fix top button click moving bottom ones
-	fn view(&self) -> Html {
+	fn view(&self, _ctx: &Context<Self>) -> Html {
 		html! {
 			<nav id="sidebar">
 				<div id="sidebarButtons">
@@ -59,7 +51,6 @@ impl Component for Sidebar {
 }
 
 struct Model {
-	//link: ComponentLink<Self>,
 	boot_articles: Option<Vec<Rc<dyn SocialArticleData>>>,
 	twitter: Box<dyn Bridge<TwitterAgent>>,
 	pixiv: Dispatcher<PixivAgent>,
@@ -76,17 +67,16 @@ impl Component for Model {
 	type Message = Msg;
 	type Properties = ();
 
-	fn create(_props: Self::Properties, link: ComponentLink<Self>) -> Self {
+	fn create(ctx: &Context<Self>) -> Self {
 		Self {
-			//link,
 			boot_articles: None,
-			twitter: TwitterAgent::bridge(link.callback(Msg::TwitterResponse)),
+			twitter: TwitterAgent::bridge(ctx.link().callback(Msg::TwitterResponse)),
 			pixiv: PixivAgent::dispatcher(),
 			default_endpoint: None,
 		}
 	}
 
-	fn update(&mut self, msg: Self::Message) -> ShouldRender {
+	fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
 		match msg {
 			Msg::FetchedBootArticles(articles) => {
 				match &mut self.boot_articles {
@@ -110,12 +100,8 @@ impl Component for Model {
 		}
 	}
 
-	fn change(&mut self, _props: Self::Properties) -> ShouldRender {
-		false
-	}
-
-	fn view(&self) -> Html {
-		let pathname_opt = match yew::web_sys::window().map(|w| w.location()) {
+	fn view(&self, _ctx: &Context<Self>) -> Html {
+		let pathname_opt = match web_sys::window().map(|w| w.location()) {
 			Some(location) => match location.pathname() {
 				Ok(pathname_opt) => Some(pathname_opt),
 				Err(_) => None
@@ -123,11 +109,11 @@ impl Component for Model {
 			None => None,
 		};
 		let boot_timeline = match &self.boot_articles {
-			Some(articles) => html!{ <Timeline name="Boot Articles" articles=articles.clone()/>},
+			Some(articles) => html!{ <Timeline name="Boot Articles" articles={articles.clone()}/>},
 			None => {
 				/*match pathname_opt.as_ref() {
 					Some(pathname) => if let Some(id) = pathname.strip_prefix("/twitter/status/").map(str::to_owned) {
-						self.link.send_future(async move {
+						ctx.link().send_future(async move {
 							match fetch_tweet(&id).await {
 								Ok(tweet) => Msg::FetchedBootArticles(vec!(tweet)),
 								Err(err) => {
@@ -137,7 +123,7 @@ impl Component for Model {
 							}
 						});
 					} else if let Some(username) = pathname.strip_prefix("/twitter/user/").map(str::to_owned) {
-						self.link.send_future(async move {
+						ctx.link().send_future(async move {
 							let url = format!("/proxy/twitter/user/{}", &username);
 							match fetch_tweets(&url).await {
 								Ok(vec_tweets) => Msg::FetchedBootArticles(vec_tweets),
@@ -177,30 +163,30 @@ impl Component for Model {
 fn main() {
 	wasm_logger::init(wasm_logger::Config::new(log::Level::Trace));
 
-	match yew::web_sys::window()
+	match web_sys::window()
 		.map(|w| w.location())
 		.map(|l| l.href()) {
 		Some(Ok(href)) => match href.as_str() {
 			"https://www.pixiv.net/bookmark_new_illust.php" => {
-				yew::initialize();
-				let element = yew::utils::document()
+				let element = gloo_utils::document()
 					.query_selector("#root > div:last-child > div:nth-child(2)")
 					.expect("can't get mount node for rendering")
 					.expect("can't unwrap mount node");
-				App::<FavViewer>::new().mount(element);
-				yew::run_loop();
+				yew::start_app_in_element::<FavViewer>(element);
 			}
-			_ => yew::start_app::<Model>(),
+			_ => {
+				yew::start_app::<Model>();
+			},
 		},
 		None => log::error!("Failed to get location.href."),
 		Some(Err(err)) => log::error!("Failed to get location.href.\n{}", &err.as_string().unwrap_or("Failed to parse the error.".to_string())),
 	};
 }
 
-//TODO Update to 0.19.3
+//TODO Reduce agent param names
+//TODO Add timeline to pixiv
 //TODO Choose endpoints
 //TODO Update multiple timelines with the same endpoint
-//TODO Reduce agent param names
 //TODO Add image article
 //TODO Filters
 //TODO Rate limits

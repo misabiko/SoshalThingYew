@@ -1,7 +1,6 @@
 use std::{rc::Rc, collections::HashSet};
 use wasm_bindgen::prelude::*;
-use yew::worker::*;
-use yew::agent::{Dispatched, Dispatcher};
+use yew_agent::{Agent, AgentLink, Context, HandlerId, Bridged, Dispatched, Dispatcher};
 use yewtil::future::LinkFuture;
 
 use crate::articles::SocialArticleData;

@@ -1,7 +1,7 @@
 use std::rc::Rc;
 use std::collections::HashMap;
-use yew::worker::*;
 use wasm_bindgen::prelude::*;
+use yew_agent::{Agent, AgentLink, Context, HandlerId};
 
 use crate::articles::SocialArticleData;
 
@@ -15,7 +15,7 @@ pub trait Endpoint {
 
 pub type EndpointId = i32;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct TimelineEndpoints {
 	pub start: Vec<EndpointId>,
 	pub refresh: Vec<EndpointId>,

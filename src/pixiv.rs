@@ -1,6 +1,5 @@
 use std::rc::Rc;
-use yew::agent::{Dispatched, Dispatcher};
-use yew::worker::*;
+use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher};
 
 use crate::articles::SocialArticleData;
 use crate::endpoints::{EndpointAgent, Endpoint, EndpointRequest, EndpointId};
