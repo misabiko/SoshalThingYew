@@ -99,6 +99,7 @@ impl Component for Model {
 							id,
 							username: username.clone(),
 							agent: TwitterAgent::dispatcher(),
+							articles: Vec::new()
 						})
 					}))
 				);

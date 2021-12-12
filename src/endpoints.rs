@@ -11,7 +11,13 @@ pub trait Endpoint {
 
 	fn id(&self) -> &EndpointId;
 
+	fn add_articles(&mut self, articles: Vec<Rc<dyn SocialArticleData>>) {}
+
 	fn refresh(&mut self);
+
+	fn load_top(&mut self);
+
+	fn load_bottom(&mut self);
 }
 
 pub type EndpointId = i32;
@@ -38,6 +44,7 @@ pub enum Msg {
 
 pub enum Request {
 	Refresh,
+	LoadBottom,
 	InitTimeline(TimelineEndpoints),
 	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
 	FetchResponse(EndpointId, Result<Vec<Rc<dyn SocialArticleData>>>),
@@ -66,6 +73,8 @@ impl Agent for EndpointAgent {
 	fn update(&mut self, msg: Self::Message) {
 		match msg {
 			Msg::Refreshed(endpoint, articles) => {
+				self.endpoints.get_mut(&endpoint).unwrap().add_articles(articles.clone());
+
 				for (timeline_id, timeline) in &self.timelines {
 					 if timeline.refresh
 						.iter()
@@ -106,6 +115,18 @@ impl Agent for EndpointAgent {
 					Some(timeline) => {
 						for endpoint_key in &timeline.refresh {
 							self.endpoints.get_mut(&endpoint_key).unwrap().refresh();
+						}
+					}
+					None => {
+						log::warn!("No TimelineEndpoints found for {:?}", &id);
+					}
+				}
+			}
+			Request::LoadBottom => {
+				match self.timelines.get(&id) {
+					Some(timeline) => {
+						for endpoint_key in &timeline.refresh {
+							self.endpoints.get_mut(&endpoint_key).unwrap().load_bottom();
 						}
 					}
 					None => {

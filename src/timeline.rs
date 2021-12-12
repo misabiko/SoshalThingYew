@@ -51,6 +51,7 @@ pub struct Timeline {
 
 pub enum TimelineMsg {
 	Refresh,
+	LoadBottom,
 	Refreshed(Vec<Rc<dyn SocialArticleData>>),
 	RefreshFail,
 	EndpointResponse(EndpointResponse),
@@ -109,8 +110,12 @@ impl Component for Timeline {
 	fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
 		match msg {
 			TimelineMsg::Refresh => {
-				log::debug!("Timeline Refresh!");
 				self.endpoint_agent.send(EndpointRequest::Refresh);
+				false
+			}
+
+			TimelineMsg::LoadBottom => {
+				self.endpoint_agent.send(EndpointRequest::LoadBottom);
 				false
 			}
 
@@ -180,6 +185,11 @@ impl Component for Timeline {
 						<button onclick={ctx.link().callback(|_| TimelineMsg::Refresh)} title="Refresh">
 							<span class="icon">
 								<i class="fas fa-sync-alt fa-lg"/>
+							</span>
+						</button>
+						<button onclick={ctx.link().callback(|_| TimelineMsg::LoadBottom)} title="Load Bottom">
+							<span class="icon">
+								<i class="fas fa-arrow-down fa-lg"/>
 							</span>
 						</button>
 						<button onclick={ctx.link().callback(|_| TimelineMsg::ToggleOptions)} title="Expand options">

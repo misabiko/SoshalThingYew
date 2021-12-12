@@ -103,4 +103,12 @@ impl Endpoint for PixivEndpoint {
 	fn refresh(&mut self) {
 		//self.agent.
 	}
+
+	fn load_top(&mut self) {
+
+	}
+
+	fn load_bottom(&mut self) {
+
+	}
 }

@@ -38,6 +38,8 @@ struct UserTimelineQuery {
 	replies: Option<bool>,
 	rts: Option<bool>,
 	count: Option<i32>,
+	min_id: Option<u64>,
+	max_id: Option<u64>,
 }
 
 #[get("/twitter/user/{username}")]
@@ -50,7 +52,15 @@ async fn user_timeline(username: Path<String>, query: web::Query<UserTimelineQue
 	)
 	.with_page_size(query.count.unwrap_or(200));
 
-	let (_timeline, feed) = timeline.start().await.unwrap();
+	/*let (_timeline, feed) = if query.max_id.is_some() {
+		timeline.older(query.max_id).await.unwrap()
+	}else if query.min_id.is_some() {
+		timeline.newer(query.min_id).await.unwrap()
+	}else {
+		timeline.start().await.unwrap()
+	};*/
+	let feed = timeline.call(query.min_id, query.max_id).await.unwrap();
+
 	Ok(HttpResponse::Ok()
 		.append_header(("x-rate-limit-limit".to_owned(), feed.rate_limit_status.limit.clone()))
 		.append_header(("x-rate-limit-remaining".to_owned(), feed.rate_limit_status.remaining.clone()))
