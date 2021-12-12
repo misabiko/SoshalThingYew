@@ -1,9 +1,10 @@
 use actix_web::{get, web, App, HttpResponse, HttpServer, middleware::Logger, web::Path, Responder, http::header};
+use actix_identity::{Identity, CookieIdentityPolicy, IdentityService};
 use egg_mode::list::ListID;
 use serde::Deserialize;
 use std::sync::Mutex;
 use actix_files::NamedFile;
-//use std::path::PathBuf;
+use std::collections::HashMap;
 
 #[derive(serde::Deserialize)]
 struct Credentials {
@@ -14,7 +15,58 @@ struct Credentials {
 struct State {
 	con_token: egg_mode::KeyPair,
 	req_token: Mutex<Option<egg_mode::KeyPair>>,
-	token: Mutex<egg_mode::Token>,
+	bearer_token: egg_mode::Token,
+	tokens: Mutex<HashMap<u64, egg_mode::Token>>,
+}
+
+fn get_token<'a>(id: &'a Identity, tokens: &'a HashMap<u64, egg_mode::Token>, bearer_token: &'a egg_mode::Token) -> &'a egg_mode::Token {
+	match id.identity() {
+		Some(user_id_str) => match user_id_str.parse::<u64>() {
+			Ok(user_id) => match &tokens.get(&user_id) {
+				Some(access_token) => {
+					println!("Welcome! {}", &user_id);
+					*access_token
+				}
+				None => {
+					println!("Couldn't find token for {}", &user_id);
+					bearer_token
+				}
+			}
+			Err(err) => {
+				println!("{:?}", err);
+				bearer_token
+			}
+		}
+		None => {
+			println!("Welcome Anonymous!");
+			bearer_token
+		}
+	}
+}
+
+fn get_access_token<'a>(id: &'a Identity, tokens: &'a HashMap<u64, egg_mode::Token>) -> Option<&'a egg_mode::Token> {
+	match id.identity() {
+		Some(user_id_str) => match user_id_str.parse::<u64>() {
+			Ok(user_id) => match &tokens.get(&user_id) {
+				Some(access_token) => {
+					println!("Welcome! {}", &user_id);
+					Some(*access_token)
+				}
+				None => {
+					println!("Couldn't find token for {}", &user_id);
+					None
+				}
+			}
+			Err(err) => {
+				println!("{:?}", err);
+				None
+			}
+		}
+		None => {
+			println!("Welcome Anonymous!");
+			None
+		}
+	}
 }
 
 #[derive(Deserialize)]
@@ -23,8 +75,15 @@ struct ArtQuery {
 }
 
 #[get("/art")]
-async fn art(query: web::Query<ArtQuery>, data: web::Data<State>) -> HttpResponse {
-	let timeline = egg_mode::list::statuses(ListID::from_slug("misabiko", "art"), query.rts.unwrap_or_default(), &data.token.lock().unwrap());
+async fn art(id: Identity, query: web::Query<ArtQuery>, data: web::Data<State>) -> HttpResponse {
+	let tokens = &*data.tokens.lock().unwrap();
+	let token = get_token(&id, tokens, &data.bearer_token);
+
+	let timeline = egg_mode::list::statuses(
+		ListID::from_slug("misabiko", "art"),
+		query.rts.unwrap_or_default(),
+		token
+	);
 	let (_timeline, feed) = timeline.start().await.unwrap();
 
 	HttpResponse::Ok()
@@ -35,9 +94,12 @@ async fn art(query: web::Query<ArtQuery>, data: web::Data<State>) -> HttpRespons
 }
 
 #[get("twitter/list/{username}/{slug}")]
-async fn list(path: Path<(String, String)>, query: web::Query<ArtQuery>, data: web::Data<State>) -> HttpResponse {
+async fn list(id: Identity, path: Path<(String, String)>, query: web::Query<ArtQuery>, data: web::Data<State>) -> HttpResponse {
+	let tokens = &*data.tokens.lock().unwrap();
+	let token = get_token(&id, tokens, &data.bearer_token);
+
 	let (username, slug) = path.into_inner();
-	let timeline = egg_mode::list::statuses(ListID::from_slug(username, slug), query.rts.unwrap_or_default(), &data.token.lock().unwrap());
+	let timeline = egg_mode::list::statuses(ListID::from_slug(username, slug), query.rts.unwrap_or_default(), token);
 	let (_timeline, feed) = timeline.start().await.unwrap();
 
 	HttpResponse::Ok()
@@ -48,10 +110,11 @@ async fn list(path: Path<(String, String)>, query: web::Query<ArtQuery>, data: w
 }
 
 #[get("/twitter/status/{id}")]
-async fn status(id: Path<u64>, data: web::Data<State>) -> HttpResponse {
-	let token = &*data.token.lock().unwrap();
+async fn status(id: Identity, tweet_id: Path<u64>, data: web::Data<State>) -> HttpResponse {
+	let tokens = &*data.tokens.lock().unwrap();
+	let token = get_token(&id, tokens, &data.bearer_token);
 
-	match egg_mode::tweet::show(id.into_inner(), token).await {
+	match egg_mode::tweet::show(tweet_id.into_inner(), token).await {
 		egg_mode::error::Result::Ok(r) => HttpResponse::Ok()
 			.append_header(("x-rate-limit-limit".to_owned(), r.rate_limit_status.limit.clone()))
 			.append_header(("x-rate-limit-remaining".to_owned(), r.rate_limit_status.remaining.clone()))
@@ -71,8 +134,10 @@ struct UserTimelineQuery {
 }
 
 #[get("/twitter/user/{username}")]
-async fn user_timeline(username: Path<String>, query: web::Query<UserTimelineQuery>, data: web::Data<State>) -> HttpResponse {
-	let token = &*data.token.lock().unwrap();
+async fn user_timeline(id: Identity, username: Path<String>, query: web::Query<UserTimelineQuery>, data: web::Data<State>) -> HttpResponse {
+	let tokens = &*data.tokens.lock().unwrap();
+	let token = get_token(&id, tokens, &data.bearer_token);
+
 	let timeline = egg_mode::tweet::user_timeline(
 		egg_mode::user::UserID::ScreenName(username.into_inner().into()),
 		query.replies.unwrap_or(true),
@@ -107,25 +172,31 @@ struct HomeTimelineQuery {
 }
 
 #[get("/twitter/home")]
-async fn home_timeline(query: web::Query<HomeTimelineQuery>, data: web::Data<State>) -> HttpResponse {
-	let token = &*data.token.lock().unwrap();
-	let timeline = egg_mode::tweet::home_timeline(token)
-		.with_page_size(query.count.unwrap_or(200));
+async fn home_timeline(id: Identity, query: web::Query<HomeTimelineQuery>, data: web::Data<State>) -> HttpResponse {
+	let tokens = &*data.tokens.lock().unwrap();
+	let token_opt = get_access_token(&id, tokens);
 
-	let feed = timeline.call(query.min_id, query.max_id).await.unwrap();
+	if let Some(token) = token_opt {
+		let timeline = egg_mode::tweet::home_timeline(token)
+			.with_page_size(query.count.unwrap_or(200));
 
-	HttpResponse::Ok()
-		.append_header(("x-rate-limit-limit".to_owned(), feed.rate_limit_status.limit.clone()))
-		.append_header(("x-rate-limit-remaining".to_owned(), feed.rate_limit_status.remaining.clone()))
-		.append_header(("x-rate-limit-reset".to_owned(), feed.rate_limit_status.reset.clone()))
-		.json(&feed.response)
+		let feed = timeline.call(query.min_id, query.max_id).await.unwrap();
+
+		HttpResponse::Ok()
+			.append_header(("x-rate-limit-limit".to_owned(), feed.rate_limit_status.limit.clone()))
+			.append_header(("x-rate-limit-remaining".to_owned(), feed.rate_limit_status.remaining.clone()))
+			.append_header(("x-rate-limit-reset".to_owned(), feed.rate_limit_status.reset.clone()))
+			.json(&feed.response)
+	}else {
+		HttpResponse::Unauthorized().finish()
+	}
 }
 
 #[get("/twitter/login")]
 async fn twitter_login(data: web::Data<State>) -> HttpResponse {
 	let new_req_token = egg_mode::auth::request_token(&data.con_token, "http://localhost:8080/proxy/twitter/callback").await.unwrap();
-	println!("Request Token: {:?}", &new_req_token);
 	*data.req_token.lock().unwrap() = Some(new_req_token.clone());
+
 	let authorize_url = egg_mode::auth::authorize_url(&new_req_token);
 	println!("Redirecting to {}", &authorize_url);
 	HttpResponse::TemporaryRedirect()
@@ -140,14 +211,17 @@ struct LoginCallbackQuery {
 }
 
 #[get("/twitter/callback")]
-async fn twitter_login_callback(query: web::Query<LoginCallbackQuery>, data: web::Data<State>) -> HttpResponse {
+async fn twitter_login_callback(id: Identity, query: web::Query<LoginCallbackQuery>, data: web::Data<State>) -> HttpResponse {
 	if let Some(req_token) = &*data.req_token.lock().unwrap() {
-		println!("Using Request Token: {:?}", &req_token);
-		*data.token.lock().unwrap() = egg_mode::auth::access_token(
+		let (access_token, user_id, _username) = egg_mode::auth::access_token(
 			data.con_token.clone(),
 			&req_token,
 			query.oauth_verifier.clone(),
-		).await.unwrap().0;
+		).await.unwrap();
+
+		data.tokens.lock().unwrap().insert(user_id.clone(), access_token);
+		println!("Remembering id {}", &user_id);
+		id.remember(user_id.to_string());
 	}
 
 	HttpResponse::TemporaryRedirect()
@@ -218,7 +292,8 @@ async fn main() -> std::io::Result<()> {
 	let con_token = egg_mode::KeyPair::new(credentials.consumer_key, credentials.consumer_secret);
 	let data = web::Data::new(State {
 		req_token: Mutex::new(None),
-		token: Mutex::new(egg_mode::auth::bearer_token(&con_token).await.unwrap()),
+		bearer_token: egg_mode::auth::bearer_token(&con_token).await.unwrap(),
+		tokens: Mutex::new(HashMap::new()),
 		con_token,
 	});
 
@@ -226,21 +301,20 @@ async fn main() -> std::io::Result<()> {
 	env_logger::init();
 
 	HttpServer::new(move || {
-		//let cors = actix_cors::Cors::default()
-		//	.allowed_origin("https://www.pixiv.net")
-		//	.allowed_methods(vec!["GET"]);
-
 		App::new()
+			/*.wrap_fn(|req, srv| {
+				let fut = srv.call(req);
+				println!("Hi from start. You requested: {}", req.path());
+				async {
+					let mut res = fut.await?;
+					println!("Hi from response");
+					Ok(res)
+				}
+			})*/
+			.wrap(IdentityService::new(CookieIdentityPolicy::new(&[0; 32])
+				.secure(false)))
 			.wrap(Logger::default())
 			.app_data(data.clone())
-			//.service(
-			//	web::scope("/favviewer")
-			//		.wrap(cors)
-			//		.service(favviewer)
-			//)
-			//.service(index)
-			//.route("/{filename:.*}", web::get().to(static_files))
-			//.service(actix_files::Files::new("/", "dist/").index_file("index.html"))
 			.service(
 				web::scope("/proxy")
 					.service(art)

@@ -170,15 +170,16 @@ fn main() {
 
 //TODO Add sorting
 //TODO Add timeline to pixiv
+//TODO Masonry
 //TODO Choose endpoints
 //TODO Add image article
 //TODO Add timelines
 //TODO Filters
 //TODO Rate limits
 //TODO Pixiv articles
-//TODO Masonry
 //TODO Youtube articles
 //TODO Social timestamps
 //TODO Social expanded view
+//TODO HTTPS
 
 //TODO Show multiple article types in same timeline
