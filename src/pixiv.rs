@@ -2,7 +2,7 @@ use std::rc::Rc;
 use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher};
 
 use crate::articles::SocialArticleData;
-use crate::endpoints::{EndpointAgent, Endpoint, EndpointRequest, EndpointId};
+use crate::endpoints::{EndpointAgent, Endpoint, Request as EndpointRequest, EndpointId};
 
 pub struct PixivArticleData {
 	id: String
@@ -34,41 +34,39 @@ impl SocialArticleData for PixivArticleData {
 }
 
 pub struct PixivAgent {
-	link: AgentLink<Self>,
 	endpoint_agent: Dispatcher<EndpointAgent>,
 }
 
-pub enum AgentRequest {
+pub enum Request {
 	//UpdateRateLimit(RateLimit),
 	AddArticle(EndpointId, Rc<PixivArticleData>)
 }
 
-pub enum AgentOutput {
+pub enum Response {
 	//UpdatedRateLimit(RateLimit),
 }
 
-pub enum AgentMsg {
+pub enum Msg {
 	Init,
 }
 
 impl Agent for PixivAgent {
 	type Reach = Context<Self>;
-	type Message = AgentMsg;
-	type Input = AgentRequest;
+	type Message = Msg;
+	type Input = Request;
 	type Output = String;
 
 	fn create(link: AgentLink<Self>) -> Self {
-		link.send_message(AgentMsg::Init);
+		link.send_message(Msg::Init);
 
 		Self {
-			link,
 			endpoint_agent: EndpointAgent::dispatcher(),
 		}
 	}
 
 	fn update(&mut self, msg: Self::Message) {
 		match msg {
-			AgentMsg::Init => {
+			Msg::Init => {
 				EndpointAgent::dispatcher().send(EndpointRequest::AddEndpoint(Box::new(|id|
 					Box::new(PixivEndpoint {
 						id,
@@ -83,7 +81,7 @@ impl Agent for PixivAgent {
 
 	fn handle_input(&mut self, msg: Self::Input, _id: HandlerId) {
 		match msg {
-			AgentRequest::AddArticle(id, a) => self.endpoint_agent.send(EndpointRequest::AddArticle(id, a))
+			Request::AddArticle(id, a) => self.endpoint_agent.send(EndpointRequest::AddArticle(id, a))
 		}
 	}
 }

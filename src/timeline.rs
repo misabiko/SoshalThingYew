@@ -3,7 +3,7 @@ use yew::prelude::*;
 use yew_agent::{Bridge, Bridged};
 
 use crate::articles::{SocialArticleData, SocialArticle};
-use crate::endpoints::{EndpointAgent, EndpointRequest, EndpointResponse, TimelineEndpoints};
+use crate::endpoints::{EndpointAgent, Request as EndpointRequest, Response as EndpointResponse, TimelineEndpoints};
 
 struct ColumnContainer;
 

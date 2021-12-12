@@ -52,7 +52,9 @@ impl Component for Sidebar {
 
 struct Model {
 	boot_articles: Option<Vec<Rc<dyn SocialArticleData>>>,
+	#[allow(dead_code)]
 	twitter: Box<dyn Bridge<TwitterAgent>>,
+	#[allow(dead_code)]
 	pixiv: Dispatcher<PixivAgent>,
 	default_endpoint: Option<EndpointId>,
 }
@@ -183,7 +185,7 @@ fn main() {
 	};
 }
 
-//TODO Reduce agent param names
+//TODO Handle fetch failing
 //TODO Add timeline to pixiv
 //TODO Choose endpoints
 //TODO Update multiple timelines with the same endpoint

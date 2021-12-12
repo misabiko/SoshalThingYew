@@ -4,7 +4,7 @@ use yew_agent::{Agent, AgentLink, Context, HandlerId, Bridged, Dispatched, Dispa
 use yewtil::future::LinkFuture;
 
 use crate::articles::SocialArticleData;
-use crate::endpoints::{EndpointAgent, Endpoint, EndpointRequest, EndpointId};
+use crate::endpoints::{EndpointAgent, Endpoint, Request as EndpointRequest, EndpointId};
 
 #[derive(Clone, PartialEq)]
 pub struct TwitterUser {
@@ -121,16 +121,12 @@ pub struct TwitterAgent {
 	subscribers: HashSet<HandlerId>,
 }
 
-pub enum AgentRequest {
+pub enum Request {
 	//UpdateRateLimit(RateLimit),
 	FetchTweets(EndpointId, String),
 }
 
-pub enum AgentOutput {
-	//UpdatedRateLimit(RateLimit),
-}
-
-pub enum AgentMsg {
+pub enum Msg {
 	Init,
 	DefaultEndpoint(EndpointId),
 	FetchResponse(EndpointId, Result<Vec<Rc<dyn SocialArticleData>>, JsValue>)
@@ -142,13 +138,13 @@ pub enum Response {
 
 impl Agent for TwitterAgent {
 	type Reach = Context<Self>;
-	type Message = AgentMsg;
-	type Input = AgentRequest;
+	type Message = Msg;
+	type Input = Request;
 	type Output = Response;
 
 	fn create(link: AgentLink<Self>) -> Self {
 		log::debug!("Creating TwitterAgent");
-		link.send_message(AgentMsg::Init);
+		link.send_message(Msg::Init);
 
 		Self {
 			link,
@@ -180,8 +176,8 @@ impl Agent for TwitterAgent {
 
 	fn update(&mut self, msg: Self::Message) {
 		match msg {
-			AgentMsg::Init => {
-				let callback = self.link.callback(AgentMsg::DefaultEndpoint);
+			Msg::Init => {
+				let callback = self.link.callback(Msg::DefaultEndpoint);
 				self.endpoint_agent.send(
 					EndpointRequest::AddEndpoint(Box::new(move |id| {
 						log::debug!("Creating endpoint!");
@@ -193,23 +189,23 @@ impl Agent for TwitterAgent {
 					}))
 				)
 			},
-			AgentMsg::DefaultEndpoint(e) => {
+			Msg::DefaultEndpoint(e) => {
 				for sub in self.subscribers.iter() {
 					self.link.respond(*sub, Response::DefaultEndpoint(e));
 				}
 			}
-			AgentMsg::FetchResponse(id, r) => {
+			Msg::FetchResponse(id, r) => {
 				log::debug!("FetchResponse {}", &r.is_ok());
 				self.endpoint_agent.send(EndpointRequest::FetchResponse(id, r))
 			}
 		};
 	}
 
-	fn handle_input(&mut self, msg: Self::Input, id: HandlerId) {
+	fn handle_input(&mut self, msg: Self::Input, _id: HandlerId) {
 		match msg {
-			AgentRequest::FetchTweets(id, path) =>
+			Request::FetchTweets(id, path) =>
 				self.link.send_future(async move {
-					AgentMsg::FetchResponse(id, fetch_tweets(&path).await)
+					Msg::FetchResponse(id, fetch_tweets(&path).await)
 				})
 		}
 	}
@@ -268,6 +264,6 @@ impl Endpoint for ArtEndpoint {
 
 	fn refresh(&mut self) {
 		let id = self.id().clone();
-		self.agent.send(AgentRequest::FetchTweets(id, "/proxy/art".to_owned()))
+		self.agent.send(Request::FetchTweets(id, "/proxy/art".to_owned()))
 	}
 }
