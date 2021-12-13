@@ -69,12 +69,7 @@ impl Component for Model {
 				ctx.link().send_message(
 					Msg::AddEndpoint(Box::new(move |id| {
 						callback.emit(id);
-						Box::new(SingleTweetEndpoint {
-							id,
-							tweet_id: tweet_id.clone(),
-							article: None,
-							agent: TwitterAgent::dispatcher(),
-						})
+						Box::new(SingleTweetEndpoint::new(id, tweet_id.clone()))
 					}))
 				);
 			} else if let Some(username) = pathname.strip_prefix("/twitter/user/").map(str::to_owned) {
@@ -83,12 +78,7 @@ impl Component for Model {
 				ctx.link().send_message(
 					Msg::AddEndpoint(Box::new(move |id| {
 						callback.emit(id);
-						Box::new(UserTimelineEndpoint {
-							id,
-							username: username.clone(),
-							agent: TwitterAgent::dispatcher(),
-							articles: Vec::new()
-						})
+						Box::new(UserTimelineEndpoint::new(id, username.clone()))
 					}))
 				);
 			} else if pathname.starts_with("/twitter/home") {
@@ -96,11 +86,7 @@ impl Component for Model {
 				ctx.link().send_message(
 					Msg::AddEndpoint(Box::new(move |id| {
 						callback.emit(id);
-						Box::new(HomeTimelineEndpoint {
-							id,
-							agent: TwitterAgent::dispatcher(),
-							articles: Vec::new()
-						})
+						Box::new(HomeTimelineEndpoint::new(id))
 					}))
 				);
 			}else {
@@ -108,13 +94,7 @@ impl Component for Model {
 				ctx.link().send_message(
 					Msg::AddEndpoint(Box::new(move |id| {
 						callback.emit(id);
-						Box::new(ListEndpoint {
-							id,
-							username: "misabiko".to_owned(),
-							slug: "art".to_owned(),
-							articles: Vec::new(),
-							agent: TwitterAgent::dispatcher(),
-						})
+						Box::new(ListEndpoint::new(id, "misabiko".to_owned(), "art".to_owned()))
 					}))
 				);
 			},

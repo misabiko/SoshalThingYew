@@ -231,10 +231,21 @@ impl Agent for TwitterAgent {
 }
 
 pub struct UserTimelineEndpoint {
-	pub id: EndpointId,
-	pub username: String,
-	pub articles: Vec<Rc<dyn SocialArticleData>>,
-	pub agent: Dispatcher<TwitterAgent>
+	id: EndpointId,
+	username: String,
+	articles: Vec<Rc<dyn SocialArticleData>>,
+	agent: Dispatcher<TwitterAgent>
+}
+
+impl UserTimelineEndpoint {
+	pub fn new(id: EndpointId, username: String) -> Self {
+		Self {
+			id,
+			username,
+			articles: Vec::new(),
+			agent: TwitterAgent::dispatcher(),
+		}
+	}
 }
 
 impl Endpoint for UserTimelineEndpoint {
@@ -278,9 +289,19 @@ impl Endpoint for UserTimelineEndpoint {
 }
 
 pub struct HomeTimelineEndpoint {
-	pub id: EndpointId,
-	pub articles: Vec<Rc<dyn SocialArticleData>>,
-	pub agent: Dispatcher<TwitterAgent>
+	id: EndpointId,
+	articles: Vec<Rc<dyn SocialArticleData>>,
+	agent: Dispatcher<TwitterAgent>
+}
+
+impl HomeTimelineEndpoint {
+	pub fn new(id: EndpointId) -> Self {
+		Self {
+			id,
+			articles: Vec::new(),
+			agent: TwitterAgent::dispatcher(),
+		}
+	}
 }
 
 impl Endpoint for HomeTimelineEndpoint {
@@ -321,11 +342,23 @@ impl Endpoint for HomeTimelineEndpoint {
 }
 
 pub struct ListEndpoint {
-	pub id: EndpointId,
-	pub username: String,
-	pub slug: String,
-	pub articles: Vec<Rc<dyn SocialArticleData>>,
-	pub agent: Dispatcher<TwitterAgent>
+	id: EndpointId,
+	username: String,
+	slug: String,
+	articles: Vec<Rc<dyn SocialArticleData>>,
+	agent: Dispatcher<TwitterAgent>
+}
+
+impl ListEndpoint {
+	pub fn new(id: EndpointId, username: String, slug: String) -> Self {
+		Self {
+			id,
+			username,
+			slug,
+			articles: Vec::new(),
+			agent: TwitterAgent::dispatcher(),
+		}
+	}
 }
 
 impl Endpoint for ListEndpoint {
@@ -369,10 +402,21 @@ impl Endpoint for ListEndpoint {
 }
 
 pub struct SingleTweetEndpoint {
-	pub id: EndpointId,
-	pub tweet_id: u64,
-	pub article: Option<Rc<dyn SocialArticleData>>,
-	pub agent: Dispatcher<TwitterAgent>,
+	id: EndpointId,
+	tweet_id: u64,
+	article: Option<Rc<dyn SocialArticleData>>,
+	agent: Dispatcher<TwitterAgent>,
+}
+
+impl SingleTweetEndpoint {
+	pub fn new(id: EndpointId, tweet_id: u64) -> Self {
+		Self {
+			id,
+			tweet_id,
+			article: None,
+			agent: TwitterAgent::dispatcher(),
+		}
+	}
 }
 
 impl Endpoint for SingleTweetEndpoint {
