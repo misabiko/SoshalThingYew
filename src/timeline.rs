@@ -127,7 +127,7 @@ impl Component for Timeline {
 			compact: false,
 			endpoint_agent,
 			filters: vec![|a| a.media().len() > 0],
-			container: if ctx.props().main_timeline { Container::Row } else { Container::Column },
+			container: if ctx.props().main_timeline { Container::Masonry } else { Container::Column },
 			show_container_dropdown: false,
 			column_count: ctx.props().column_count.clone(),
 			width: 1,

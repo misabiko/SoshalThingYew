@@ -262,6 +262,8 @@ async fn main() -> std::io::Result<()> {
 	std::env::set_var("RUST_LOG", "actix_web=info");
 	env_logger::init();
 
+	//TODO Use cookie key
+	//TODO Set secure to true when HTTPS
 	HttpServer::new(move || {
 		App::new()
 			.wrap(IdentityService::new(CookieIdentityPolicy::new(&[0; 32])

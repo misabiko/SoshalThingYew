@@ -101,16 +101,63 @@ pub fn row_container(props: &Props) -> Html {
 	}
 }
 
+type RatioedArticle<'a> = (&'a Rc<dyn SocialArticleData>, u32);
+type Column<'a> = (u8, Vec<RatioedArticle<'a>>);
+
+//TODO Actually estimate article's size
+fn relative_height(article: &Rc<dyn SocialArticleData>) -> u32 {
+	1 + article.media().len() as u32
+}
+
+fn height(column: &Column) -> u32 {
+	if column.1.is_empty() {
+		0
+	}else {
+		column.1.iter()
+			.map(|r| r.1)
+			.sum::<u32>()
+	}
+}
+
+fn to_columns<'a>(articles: impl Iterator<Item = &'a Rc<dyn SocialArticleData>>, column_count: &'a u8) -> impl Iterator<Item = impl Iterator<Item = &'a Rc<dyn SocialArticleData>>> {
+	let ratioed_articles = articles.map(|a| (a, relative_height(&a)));
+
+	let mut columns = ratioed_articles.fold(
+		(0..*column_count)
+			.map(|i| (i, Vec::new()))
+			.collect::<Vec::<Column>>(),
+		|mut cols, article| {
+			cols.sort_by(|a, b| height(a).partial_cmp(&height(b)).unwrap());
+			cols[0].1.push(article);
+			cols
+		}
+	);
+
+	let rtl = false;
+	columns.sort_by(if rtl {
+		|a: &Column, b: &Column| b.0.partial_cmp(&a.0).unwrap()
+	}else {
+		|a: &Column, b: &Column| a.0.partial_cmp(&b.0).unwrap()
+	});
+
+	columns.into_iter().map(|c| c.1.into_iter().map(|r| r.0))
+}
+
 #[function_component(MasonryContainer)]
 pub fn masonry_container(props: &Props) -> Html {
+	let columns = to_columns(props.articles.iter(), &props.column_count);
+
 	html! {
 		<div class="articlesContainer masonryContainer">
-			{ for props.articles.iter().map(|data| html! {
-				<SocialArticle
-					compact={props.compact}
-					data={data.clone()}
-					style={format!("width: {}%", 100.0 / (props.column_count as f64))}
-				/>
+			{ for columns.enumerate().map(|(column_index, column)| html! {
+				<div class="masonryColumn" key={column_index}>
+					{ for column.map(|data| html! {
+						<SocialArticle
+							compact={props.compact}
+							data={data.clone()}
+						/>
+					})}
+				</div>
 			})}
 		</div>
 	}

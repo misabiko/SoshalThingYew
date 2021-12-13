@@ -15,7 +15,7 @@ use crate::sidebar::Sidebar;
 use crate::timeline::{Props as TimelineProps, Timeline};
 use crate::endpoints::{EndpointAgent, EndpointId, TimelineEndpoints, Endpoint, Request as EndpointRequest};
 use crate::favviewer::FavViewer;
-use crate::twitter::{TwitterAgent, UserTimelineEndpoint, HomeTimelineEndpoint, ListEndpoint, SingleTweetEndpoint};
+use crate::twitter::{TwitterAgent, UserTimelineEndpoint, HomeTimelineEndpoint, SingleTweetEndpoint};
 use crate::pixiv::PixivAgent;
 
 enum DisplayMode {
@@ -87,14 +87,6 @@ impl Component for Model {
 					Msg::AddEndpoint(Box::new(move |id| {
 						callback.emit(id);
 						Box::new(HomeTimelineEndpoint::new(id))
-					}))
-				);
-			}else {
-				let callback = ctx.link().callback(Msg::AddTimeline);
-				ctx.link().send_message(
-					Msg::AddEndpoint(Box::new(move |id| {
-						callback.emit(id);
-						Box::new(ListEndpoint::new(id, "misabiko".to_owned(), "art".to_owned()))
 					}))
 				);
 			},
@@ -204,8 +196,9 @@ fn main() {
 	};
 }
 
-//TODO Masonry
-//TODO Avoid refreshing endpoint every watch update
+//TODO Retweets
+//TODO Quotes
+//TODO Fix container dropdown
 //TODO Add timeline to pixiv
 //TODO Choose endpoints
 //TODO Add image article
@@ -215,6 +208,7 @@ fn main() {
 //TODO Pixiv articles
 //TODO Youtube articles
 //TODO Social expanded view
+//TODO Avoid refreshing endpoint every watch update
 //TODO HTTPS
 
 //TODO Show multiple article types in same timeline
