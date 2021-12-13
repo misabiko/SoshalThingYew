@@ -49,6 +49,18 @@ impl SocialArticleData for TweetArticleData {
 	fn author_url(&self) -> String {
 		format!("https://twitter.com/{}", &self.author.username)
 	}
+	fn like_count(&self) -> i64 {
+		self.like_count.clone()
+	}
+	fn repost_count(&self) -> i64 {
+		self.retweet_count.clone()
+	}
+	fn liked(&self) -> bool {
+		self.liked.clone()
+	}
+	fn reposted(&self) -> bool {
+		self.retweeted.clone()
+	}
 
 	fn media(&self) -> Vec<String> {
 		self.media.clone()

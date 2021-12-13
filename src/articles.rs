@@ -4,6 +4,7 @@ use js_sys::Date;
 
 pub struct SocialArticle {
 	compact: Option<bool>,
+	show_dropdown: bool,
 }
 
 #[derive(Properties, Clone)]
@@ -21,6 +22,7 @@ impl PartialEq<Props> for Props {
 
 pub enum Msg {
 	ToggleCompact,
+	ToggleDropdown,
 }
 
 pub trait SocialArticleData {
@@ -31,6 +33,10 @@ pub trait SocialArticleData {
 	fn author_name(&self) -> String;
 	fn author_avatar_url(&self) -> String;
 	fn author_url(&self) -> String;
+	fn like_count(&self) -> i64 { 0 }
+	fn repost_count(&self) -> i64 { 0 }
+	fn liked(&self) -> bool { false }
+	fn reposted(&self) -> bool { false }
 
 	fn media(&self) -> Vec<String>;
 }
@@ -86,17 +92,17 @@ impl SocialArticle {
 		html! {
 			<nav class="level is-mobile">
 				<div class="level-left">
-					<a class="level-item articleButton repostButton">
+					<a class={classes!("level-item", "articleButton", "repostButton", if ctx.props().data.reposted() { Some("repostedPostButton") } else { None })}>
 						<span class="icon">
 							<i class="fas fa-retweet"/>
 						</span>
-						<span>{"0"}</span>
+						<span>{ctx.props().data.repost_count()}</span>
 					</a>
-					<a class="level-item articleButton likeButton">
+					<a class={classes!("level-item", "articleButton", "likeButton", if ctx.props().data.liked() { Some("likedPostButton") } else { None })}>
 						<span class="icon">
-							<i class="far fa-heart"/>
+							<i class={classes!("fa-heart", if ctx.props().data.liked() { "fas" } else { "far" })}/>
 						</span>
-						<span>{"0"}</span>
+						<span>{ctx.props().data.like_count()}</span>
 					</a>
 					{
 						match ctx.props().data.media().len() {
@@ -112,7 +118,7 @@ impl SocialArticle {
 					}
 					<div class="dropdown">
 						<div class="dropdown-trigger">
-							<a class="level-item articleButton">
+							<a class="level-item articleButton" onclick={ctx.link().callback(|_| Msg::ToggleDropdown)}>
 								<span class="icon">
 									<i class="fas fa-ellipsis-h"/>
 								</span>
@@ -207,6 +213,7 @@ impl Component for SocialArticle {
 	fn create(_ctx: &Context<Self>) -> Self {
 		Self {
 			compact: None,
+			show_dropdown: false
 		}
 	}
 
@@ -215,7 +222,8 @@ impl Component for SocialArticle {
 			Msg::ToggleCompact => match self.compact {
 				Some(compact) => self.compact = Some(!compact),
 				None => self.compact = Some(!ctx.props().compact),
-			}
+			},
+			Msg::ToggleDropdown => self.show_dropdown = !self.show_dropdown
 		};
 
 		true
