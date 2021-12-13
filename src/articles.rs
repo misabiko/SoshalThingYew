@@ -1,5 +1,6 @@
 use std::rc::Rc;
 use yew::prelude::*;
+use js_sys::Date;
 
 pub struct SocialArticle {
 	compact: Option<bool>,
@@ -24,6 +25,7 @@ pub enum Msg {
 
 pub trait SocialArticleData {
 	fn id(&self) -> String;
+	fn creation_time(&self) -> Date;
 	fn text(&self) -> String;
 	fn author_username(&self) -> String;
 	fn author_name(&self) -> String;
@@ -36,12 +38,12 @@ pub trait SocialArticleData {
 impl PartialEq<dyn SocialArticleData> for dyn SocialArticleData {
 	fn eq(&self, other: &dyn SocialArticleData) -> bool {
 		self.id() == other.id() &&
-		self.text() == other.text() &&
-		self.author_username() == other.author_username() &&
-		self.author_name() == other.author_name() &&
-		self.author_avatar_url() == other.author_avatar_url() &&
-		self.author_url() == other.author_url() &&
-		self.media() == other.media()
+			self.text() == other.text() &&
+			self.author_username() == other.author_username() &&
+			self.author_name() == other.author_name() &&
+			self.author_avatar_url() == other.author_avatar_url() &&
+			self.author_url() == other.author_url() &&
+			self.media() == other.media()
 	}
 }
 
@@ -50,6 +52,31 @@ impl SocialArticle {
 		match self.compact {
 			Some(compact) => compact,
 			None => ctx.props().compact,
+		}
+	}
+
+	fn view_timestamp(&self, ctx: &Context<Self>) -> Html {
+		let time_since = Date::now() - ctx.props().data.creation_time().get_time();
+		let label = if time_since < 1000.0 {
+			"just now".to_owned()
+		} else if time_since < 60000.0 {
+			format!("{}s", (time_since / 1000.0).floor())
+		} else if time_since < 3600000.0 {
+			format!("{}m", (time_since / 60000.0).floor())
+		} else if time_since < 86400000.0 {
+			format!("{}h", (time_since / (3600000.0)).floor())
+		} else if time_since < 604800000.0 {
+			format!("{}d", (time_since / (86400000.0)).floor())
+		} else {
+			//format!("{} {}", monthAbbrevs[actualDate.getMonth()], actualDate.getDate())
+			//TODO Parse month timestamp
+			"long ago".to_owned()
+		};
+
+		html! {
+			<span class="timestamp">
+				<small title={ctx.props().data.creation_time().to_string().as_string()}>{ label }</small>
+			</span>
 		}
 	}
 
@@ -210,9 +237,7 @@ impl Component for SocialArticle {
 									<strong>{ ctx.props().data.author_name() }</strong>
 									<small>{ format!("@{}", ctx.props().data.author_username()) }</small>
 								</a>
-								<span class="timestamp">
-									<small title="'actualArticle.creationDate'">{ "just now" }</small>
-								</span>
+								{ self.view_timestamp(ctx) }
 							</div>
 							<p class="articleParagraph">{ ctx.props().data.text() }</p>
 						</div>

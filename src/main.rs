@@ -177,7 +177,6 @@ fn main() {
 //TODO Rate limits
 //TODO Pixiv articles
 //TODO Youtube articles
-//TODO Social timestamps
 //TODO Social expanded view
 //TODO HTTPS
 

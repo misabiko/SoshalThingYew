@@ -1,7 +1,8 @@
 use std::{rc::Rc, collections::HashSet};
-use wasm_bindgen::prelude::*;
 use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher};
 use yewtil::future::LinkFuture;
+use js_sys::Date;
+use wasm_bindgen::JsValue;
 
 use crate::articles::{sort_by_id, SocialArticleData};
 use crate::endpoints::{EndpointAgent, Endpoint, Request as EndpointRequest, EndpointId};
@@ -15,15 +16,23 @@ pub struct TwitterUser {
 }
 
 pub struct TweetArticleData {
-	id: String,
+	id: u64,
 	text: Option<String>,
 	author: TwitterUser,
-	media: Vec<String>
+	creation_time: Date,
+	liked: bool,
+	retweeted: bool,
+	like_count: i64,	//TODO Try casting i64 to i32
+	retweet_count: i64,
+	media: Vec<String>,
 }
 
 impl SocialArticleData for TweetArticleData {
 	fn id(&self) -> String {
-		self.id.clone()
+		self.id.clone().to_string()
+	}
+	fn creation_time(&self) -> Date {
+		self.creation_time.clone()
 	}
 	fn text(&self) -> String {
 		self.text.clone().unwrap_or("".to_owned())
@@ -81,7 +90,8 @@ impl From<&serde_json::Value> for TweetArticleData {
 		.get("media")
 		.and_then(|media| media.as_array());
 		TweetArticleData {
-			id: json["id"].as_u64().unwrap().to_string(),
+			id: json["id"].as_u64().unwrap(),
+			creation_time: json["created_at"].as_str().map(|datetime_str|Date::new(&JsValue::from_str(datetime_str))).unwrap(),
 			text: match json["full_text"].as_str() {
 				Some(text) => Some(text),
 				None => json["text"].as_str()
@@ -91,6 +101,10 @@ impl From<&serde_json::Value> for TweetArticleData {
 				name: json["user"]["name"].as_str().unwrap().to_owned(),
 				avatar_url: json["user"]["profile_image_url_https"].as_str().unwrap().to_owned(),
 			},
+			liked: json["favorited"].as_bool().unwrap_or_default(),
+			retweeted: json["retweeted"].as_bool().unwrap_or_default(),
+			like_count: json["favorite_count"].as_i64().unwrap(),
+			retweet_count: json["retweet_count"].as_i64().unwrap(),
 			media: match medias_opt {
 				Some(medias) => medias.iter()
 					.map(|m|

@@ -1,6 +1,5 @@
 use std::rc::Rc;
 use std::collections::HashMap;
-use wasm_bindgen::prelude::*;
 use yew_agent::{Agent, AgentLink, Context, HandlerId};
 
 use crate::error::{Result, Error};

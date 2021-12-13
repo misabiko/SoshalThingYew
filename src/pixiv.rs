@@ -1,16 +1,21 @@
 use std::rc::Rc;
 use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher};
+use js_sys::Date;
 
 use crate::articles::SocialArticleData;
 use crate::endpoints::{EndpointAgent, Endpoint, Request as EndpointRequest, EndpointId};
 
 pub struct PixivArticleData {
-	id: String
+	id: String,
+	creation_time: Date,
 }
 
 impl SocialArticleData for PixivArticleData {
 	fn id(&self) -> String {
 		self.id.clone()
+	}
+	fn creation_time(&self) -> Date {
+		self.creation_time.clone()
 	}
 	fn text(&self) -> String {
 		"同じキャラ描きまくってる".to_owned()
@@ -71,7 +76,8 @@ impl Agent for PixivAgent {
 					Box::new(PixivEndpoint {
 						id,
 						article: Rc::from(PixivArticleData {
-							id: "92885703".to_owned()
+							id: "92885703".to_owned(),
+							creation_time: Date::new_0(),
 						})
 					})
 				)));
