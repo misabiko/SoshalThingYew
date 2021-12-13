@@ -18,14 +18,21 @@ use crate::favviewer::FavViewer;
 use crate::twitter::{TwitterAgent, Response as TwitterResponse, fetch_tweet, UserTimelineEndpoint, HomeTimelineEndpoint};
 use crate::pixiv::PixivAgent;
 
+enum DisplayMode {
+	Single {
+		column_count: u8
+	},
+	Default
+}
+
 struct Model {
 	endpoint_agent: Dispatcher<EndpointAgent>,
+	display_mode: DisplayMode,
 	timelines: Vec<TimelineProps>,
 	#[allow(dead_code)]
 	twitter: Box<dyn Bridge<TwitterAgent>>,
 	#[allow(dead_code)]
 	pixiv: Dispatcher<PixivAgent>,
-	default_endpoint: Option<EndpointId>,
 }
 
 enum Msg {
@@ -39,12 +46,21 @@ impl Component for Model {
 	type Properties = ();
 
 	fn create(ctx: &Context<Self>) -> Self {
-		let pathname_opt = match web_sys::window().map(|w| w.location()) {
-			Some(location) => match location.pathname() {
+		let (pathname_opt, search_opt) = match web_sys::window().map(|w| w.location()) {
+			Some(location) => (match location.pathname() {
 				Ok(pathname_opt) => Some(pathname_opt),
-				Err(_) => None
-			},
-			None => None,
+				Err(err) => {
+					log::error!("Failed to get location.pathname.\n{:?}", err);
+					None
+				}
+			}, match location.search().and_then(|s| web_sys::UrlSearchParams::new_with_str(&s)) {
+				Ok(search_opt) => Some(search_opt),
+				Err(err) => {
+					log::error!("Failed to get location.search.\n{:?}", err);
+					None
+				}
+			}),
+			None => (None, None),
 		};
 
 		match pathname_opt.as_ref() {
@@ -88,12 +104,28 @@ impl Component for Model {
 			None => {}
 		};
 
+		let single_timeline_bool = search_opt.as_ref()
+			.and_then(|s| s.get("single_timeline"))
+			.and_then(|s| s.parse::<bool>().ok())
+			.unwrap_or_default();
+
+		let display_mode = if single_timeline_bool {
+			DisplayMode::Single {
+				column_count: search_opt.as_ref()
+					.and_then(|s| s.get("column_count"))
+					.and_then(|s| s.parse::<u8>().ok())
+					.unwrap_or(1),
+			}
+		}else {
+			DisplayMode::Default
+		};
+
 		Self {
+			display_mode,
 			timelines: Vec::new(),
 			endpoint_agent: EndpointAgent::dispatcher(),
 			twitter: TwitterAgent::bridge(ctx.link().callback(Msg::TwitterResponse)),
 			pixiv: PixivAgent::dispatcher(),
-			default_endpoint: None,
 		}
 	}
 
@@ -101,8 +133,9 @@ impl Component for Model {
 		match msg {
 			Msg::TwitterResponse(r) => match r {
 				TwitterResponse::DefaultEndpoint(e) => {
-					self.default_endpoint = Some(e);
-					true
+					/*self.default_endpoint = Some(e);
+					true*/
+					false
 				}
 			},
 			Msg::AddEndpoint(e) => {
@@ -124,22 +157,34 @@ impl Component for Model {
 	}
 
 	fn view(&self, _ctx: &Context<Self>) -> Html {
-		let home_timeline = match self.default_endpoint {
+		/*let home_timeline = match self.default_endpoint {
 			Some(e) => html! { <Timeline name="Home" endpoints={TimelineEndpoints {
 				start: vec![e],
 				refresh: vec![e],
 			}}/> },
 			None => html! {},
-		};
+		};*/
 
 		html! {
 			<>
 				<Sidebar/>
 				<div id="timelineContainer">
-					{for self.timelines.iter().map(|props| html! {
-						<Timeline ..props.clone()/>
-					})}
-					{ home_timeline }
+					{
+						match self.display_mode {
+							DisplayMode::Default => html! {
+								{for self.timelines.iter().map(|props| html! {
+									<Timeline ..props.clone()/>
+								})}
+							},
+							DisplayMode::Single {column_count} => if let Some(props) = self.timelines.first() {
+								html! {
+									<Timeline main_timeline=true {column_count} ..props.clone()/>
+								}
+							}else {
+								html! {}
+							}
+						}
+					}
 				</div>
 			</>
 		}

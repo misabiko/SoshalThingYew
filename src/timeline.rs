@@ -41,6 +41,10 @@ pub struct Props {
 	pub articles: Vec<Rc<dyn SocialArticleData>>,
 	#[prop_or_default]
 	pub endpoints: Option<TimelineEndpoints>,
+	#[prop_or_default]
+	pub main_timeline: bool,
+	#[prop_or(1)]
+	pub column_count: u8
 }
 
 impl Timeline {
@@ -123,9 +127,9 @@ impl Component for Timeline {
 			compact: false,
 			endpoint_agent,
 			filters: vec![|a| a.media().len() > 0],
-			container: Container::Column,
+			container: if ctx.props().main_timeline { Container::Row } else { Container::Column },
 			show_container_dropdown: false,
-			column_count: 1,
+			column_count: ctx.props().column_count.clone(),
 			width: 1,
 		}
 	}
@@ -209,7 +213,7 @@ impl Component for Timeline {
 			None
 		};
 		html! {
-			<div class={classes!("timeline"/*, "mainTimeline"*/)} {style}>
+			<div class={classes!("timeline", if ctx.props().main_timeline { Some("mainTimeline") } else { None })} {style}>
 				<div class="timelineHeader">
 					<div class="timelineLeftHeader">
 						<strong>{&ctx.props().name}</strong>
