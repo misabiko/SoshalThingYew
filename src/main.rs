@@ -196,6 +196,10 @@ fn main() {
 	};
 }
 
+//TODO Save timeline data
+//TODO Save fetched articles
+//TODO Autoscroll
+//TODO like/retweets
 //TODO Retweets
 //TODO Quotes
 //TODO Fix container dropdown

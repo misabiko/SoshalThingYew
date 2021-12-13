@@ -76,15 +76,13 @@ impl Agent for EndpointAgent {
 	fn update(&mut self, msg: Self::Message) {
 		match msg {
 			Msg::Refreshed(endpoint, articles) => {
+				log::debug!("{} articles for {}", &articles.len(), self.endpoints[&endpoint].name());
 				self.endpoints.get_mut(&endpoint).unwrap().add_articles(articles.clone());
 
 				for (timeline_id, timeline) in &self.timelines {
 					 if timeline.refresh
-						.iter()
-						.any(|e| e == &endpoint) || timeline.start
-						 .iter()
-						 .any(|e| e == &endpoint) {
-						 log::debug!("Response for timeline");
+						.iter().any(|e| e == &endpoint) || timeline.start
+						 .iter().any(|e| e == &endpoint) {
 						 self.link.respond(*timeline_id, Response::NewArticles(articles.clone()));
 					 }
 				}

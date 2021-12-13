@@ -27,6 +27,7 @@ impl PartialEq<Props> for Props {
 pub enum Msg {
 	ToggleCompact,
 	ToggleDropdown,
+	OnImageClick,
 }
 
 pub trait SocialArticleData {
@@ -120,7 +121,7 @@ impl SocialArticle {
 							}
 						}
 					}
-					<div class="dropdown">
+					<div class={classes!("dropdown", if self.show_dropdown { Some("is-active") } else { None })}>
 						<div class="dropdown-trigger">
 							<a class="level-item articleButton" onclick={ctx.link().callback(|_| Msg::ToggleDropdown)}>
 								<span class="icon">
@@ -204,7 +205,7 @@ impl SocialArticle {
 		html! {
 			<div class={media_holder_classes}>
 				<div class="is-hidden imgPlaceholder"/>
-				<img alt={ctx.props().data.id()} src={image}/>
+				<img alt={ctx.props().data.id()} src={image} onclick={ctx.link().callback(|_| Msg::OnImageClick)}/>
 			</div>
 		}
 	}
@@ -227,7 +228,8 @@ impl Component for SocialArticle {
 				Some(compact) => self.compact = Some(!compact),
 				None => self.compact = Some(!ctx.props().compact),
 			},
-			Msg::ToggleDropdown => self.show_dropdown = !self.show_dropdown
+			Msg::ToggleDropdown => self.show_dropdown = !self.show_dropdown,
+			Msg::OnImageClick => ctx.link().send_message(Msg::ToggleCompact)
 		};
 
 		true

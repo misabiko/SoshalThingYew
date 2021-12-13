@@ -69,7 +69,7 @@ impl SocialArticleData for TweetArticleData {
 pub async fn fetch_tweets(url: &str) -> Result<Vec<Rc<dyn SocialArticleData>>> {
 	let json_str = reqwest::Client::builder().build()?
 		.get(format!("http://localhost:8080{}", url))
-		.query(&[("rts", false), ("replies", false)])
+		//.query(&[("rts", false), ("replies", false)])
 		.send().await?
 		.text().await?
 		.to_string();
