@@ -14,9 +14,15 @@ pub trait Endpoint {
 
 	fn refresh(&mut self);
 
-	fn load_top(&mut self);
+	fn load_top(&mut self) {
+		log::debug!("{} doesn't implement load_top()", self.name());
+		self.refresh()
+	}
 
-	fn load_bottom(&mut self);
+	fn load_bottom(&mut self) {
+		log::debug!("{} doesn't implement load_bottom()", self.name());
+		self.refresh()
+	}
 }
 
 pub type EndpointId = i32;

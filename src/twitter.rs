@@ -85,11 +85,12 @@ pub async fn fetch_tweets(url: &str) -> Result<Vec<Rc<dyn SocialArticleData>>> {
 		.map_err(|err| Error::from(err))
 }
 
-pub async fn fetch_tweet(id: &str) -> Result<Rc<TweetArticleData>> {
-	let json_str = reqwest::get(format!("http://localhost:8080/proxy/twitter/status/{}", &id))
-		.await?
-		.text()
-		.await?;
+pub async fn fetch_tweet(url: &str) -> Result<Rc<dyn SocialArticleData>> {
+	let json_str = reqwest::Client::builder().build()?
+		.get(format!("http://localhost:8080{}", url))
+		.send().await?
+		.text().await?
+		.to_string();
 
 	let value: serde_json::Value = serde_json::from_str(&json_str).unwrap();
 	Ok(Rc::new(TweetArticleData::from(value)))
@@ -153,6 +154,7 @@ pub struct TwitterAgent {
 pub enum Request {
 	//UpdateRateLimit(RateLimit),
 	FetchTweets(EndpointId, String),
+	FetchTweet(EndpointId, String),
 }
 
 pub enum Msg {
@@ -193,7 +195,7 @@ impl Agent for TwitterAgent {
 	fn update(&mut self, msg: Self::Message) {
 		match msg {
 			Msg::Init => {
-				let callback = self.link.callback(Msg::DefaultEndpoint);
+				/*let callback = self.link.callback(Msg::DefaultEndpoint);
 				self.endpoint_agent.send(
 					EndpointRequest::AddEndpoint(Box::new(move |id| {
 						callback.emit(id);
@@ -202,7 +204,7 @@ impl Agent for TwitterAgent {
 							agent: TwitterAgent::dispatcher(),
 						})
 					}))
-				)
+				)*/
 			},
 			Msg::DefaultEndpoint(e) => {
 				for sub in self.subscribers.iter() {
@@ -219,6 +221,10 @@ impl Agent for TwitterAgent {
 			Request::FetchTweets(id, path) =>
 				self.link.send_future(async move {
 					Msg::FetchResponse(id, fetch_tweets(&path).await)
+				}),
+			Request::FetchTweet(id, path) =>
+				self.link.send_future(async move {
+					Msg::FetchResponse(id, fetch_tweet(&path).await.map(|a| vec![a]))
 				})
 		}
 	}
@@ -255,10 +261,6 @@ impl Endpoint for UserTimelineEndpoint {
 			id,
 			format!("/proxy/twitter/user/{}", &self.username)
 		))
-	}
-
-	fn load_top(&mut self) {
-
 	}
 
 	fn load_bottom(&mut self) {
@@ -302,10 +304,6 @@ impl Endpoint for HomeTimelineEndpoint {
 	fn refresh(&mut self) {
 		let id = self.id().clone();
 		self.agent.send(Request::FetchTweets(id, "/proxy/twitter/home?count=20".to_owned()))
-	}
-
-	fn load_top(&mut self) {
-
 	}
 
 	fn load_bottom(&mut self) {
@@ -356,10 +354,6 @@ impl Endpoint for ListEndpoint {
 		))
 	}
 
-	fn load_top(&mut self) {
-
-	}
-
 	fn load_bottom(&mut self) {
 		match self.articles.last() {
 			Some(last_id) => {
@@ -374,30 +368,37 @@ impl Endpoint for ListEndpoint {
 	}
 }
 
-pub struct ArtEndpoint {
-	agent: Dispatcher<TwitterAgent>,
-	id: EndpointId,
+pub struct SingleTweetEndpoint {
+	pub id: EndpointId,
+	pub tweet_id: u64,
+	pub article: Option<Rc<dyn SocialArticleData>>,
+	pub agent: Dispatcher<TwitterAgent>,
 }
 
-impl Endpoint for ArtEndpoint {
+impl Endpoint for SingleTweetEndpoint {
 	fn name(&self) -> String {
-		"Art Endpoint".to_owned()
+		format!("Single Tweet {}", &self.tweet_id).to_owned()
 	}
 
 	fn id(&self) -> &EndpointId {
 		&self.id
 	}
 
+	fn add_articles(&mut self, articles: Vec<Rc<dyn SocialArticleData>>)  {
+		if !articles.is_empty() {
+			if articles.len() > 1 {
+				log::warn!("SingleTweetEndpoint received multiple articles...");
+			}
+
+			self.article = Some(articles[0].clone());
+		}
+	}
+
 	fn refresh(&mut self) {
 		let id = self.id().clone();
-		self.agent.send(Request::FetchTweets(id, "/proxy/art".to_owned()))
-	}
-
-	fn load_top(&mut self) {
-
-	}
-
-	fn load_bottom(&mut self) {
-
+		self.agent.send(Request::FetchTweet(
+			id,
+			format!("/proxy/twitter/status/{}", &self.tweet_id)
+		))
 	}
 }

@@ -70,37 +70,24 @@ fn get_access_token<'a>(id: &'a Identity, tokens: &'a HashMap<u64, egg_mode::Tok
 }
 
 #[derive(Deserialize)]
-struct ArtQuery {
+struct TimelineQuery {
+	replies: Option<bool>,
 	rts: Option<bool>,
-}
-
-#[get("/art")]
-async fn art(id: Identity, query: web::Query<ArtQuery>, data: web::Data<State>) -> HttpResponse {
-	let tokens = &*data.tokens.lock().unwrap();
-	let token = get_token(&id, tokens, &data.bearer_token);
-
-	let timeline = egg_mode::list::statuses(
-		ListID::from_slug("misabiko", "art"),
-		query.rts.unwrap_or_default(),
-		token
-	);
-	let (_timeline, feed) = timeline.start().await.unwrap();
-
-	HttpResponse::Ok()
-		.append_header(("x-rate-limit-limit".to_owned(), feed.rate_limit_status.limit.clone()))
-		.append_header(("x-rate-limit-remaining".to_owned(), feed.rate_limit_status.remaining.clone()))
-		.append_header(("x-rate-limit-reset".to_owned(), feed.rate_limit_status.reset.clone()))
-		.json(&feed.response)
+	count: Option<i32>,
+	min_id: Option<u64>,
+	max_id: Option<u64>,
 }
 
 #[get("twitter/list/{username}/{slug}")]
-async fn list(id: Identity, path: Path<(String, String)>, query: web::Query<ArtQuery>, data: web::Data<State>) -> HttpResponse {
+async fn list(id: Identity, path: Path<(String, String)>, query: web::Query<TimelineQuery>, data: web::Data<State>) -> HttpResponse {
 	let tokens = &*data.tokens.lock().unwrap();
 	let token = get_token(&id, tokens, &data.bearer_token);
 
 	let (username, slug) = path.into_inner();
-	let timeline = egg_mode::list::statuses(ListID::from_slug(username, slug), query.rts.unwrap_or_default(), token);
-	let (_timeline, feed) = timeline.start().await.unwrap();
+	let timeline = egg_mode::list::statuses(ListID::from_slug(username, slug), query.rts.unwrap_or_default(), token)
+		.with_page_size(query.count.unwrap_or(200));
+
+	let feed = timeline.call(query.min_id, query.max_id).await.unwrap();
 
 	HttpResponse::Ok()
 		.append_header(("x-rate-limit-limit".to_owned(), feed.rate_limit_status.limit.clone()))
@@ -124,17 +111,8 @@ async fn status(id: Identity, tweet_id: Path<u64>, data: web::Data<State>) -> Ht
 	}
 }
 
-#[derive(Deserialize)]
-struct UserTimelineQuery {
-	replies: Option<bool>,
-	rts: Option<bool>,
-	count: Option<i32>,
-	min_id: Option<u64>,
-	max_id: Option<u64>,
-}
-
 #[get("/twitter/user/{username}")]
-async fn user_timeline(id: Identity, username: Path<String>, query: web::Query<UserTimelineQuery>, data: web::Data<State>) -> HttpResponse {
+async fn user_timeline(id: Identity, username: Path<String>, query: web::Query<TimelineQuery>, data: web::Data<State>) -> HttpResponse {
 	let tokens = &*data.tokens.lock().unwrap();
 	let token = get_token(&id, tokens, &data.bearer_token);
 
@@ -146,13 +124,6 @@ async fn user_timeline(id: Identity, username: Path<String>, query: web::Query<U
 	)
 	.with_page_size(query.count.unwrap_or(200));
 
-	/*let (_timeline, feed) = if query.max_id.is_some() {
-		timeline.older(query.max_id).await.unwrap()
-	}else if query.min_id.is_some() {
-		timeline.newer(query.min_id).await.unwrap()
-	}else {
-		timeline.start().await.unwrap()
-	};*/
 	let feed = timeline.call(query.min_id, query.max_id).await.unwrap();
 
 	HttpResponse::Ok()
@@ -162,17 +133,8 @@ async fn user_timeline(id: Identity, username: Path<String>, query: web::Query<U
 		.json(&feed.response)
 }
 
-#[derive(Deserialize)]
-struct HomeTimelineQuery {
-	//replies: Option<bool>,
-	//rts: Option<bool>,
-	count: Option<i32>,
-	min_id: Option<u64>,
-	max_id: Option<u64>,
-}
-
 #[get("/twitter/home")]
-async fn home_timeline(id: Identity, query: web::Query<HomeTimelineQuery>, data: web::Data<State>) -> HttpResponse {
+async fn home_timeline(id: Identity, query: web::Query<TimelineQuery>, data: web::Data<State>) -> HttpResponse {
 	let tokens = &*data.tokens.lock().unwrap();
 	let token_opt = get_access_token(&id, tokens);
 
@@ -302,22 +264,12 @@ async fn main() -> std::io::Result<()> {
 
 	HttpServer::new(move || {
 		App::new()
-			/*.wrap_fn(|req, srv| {
-				let fut = srv.call(req);
-				println!("Hi from start. You requested: {}", req.path());
-				async {
-					let mut res = fut.await?;
-					println!("Hi from response");
-					Ok(res)
-				}
-			})*/
 			.wrap(IdentityService::new(CookieIdentityPolicy::new(&[0; 32])
 				.secure(false)))
 			.wrap(Logger::default())
 			.app_data(data.clone())
 			.service(
 				web::scope("/proxy")
-					.service(art)
 					.service(status)
 					.service(user_timeline)
 					.service(home_timeline)

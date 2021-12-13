@@ -15,7 +15,7 @@ use crate::sidebar::Sidebar;
 use crate::timeline::{Props as TimelineProps, Timeline};
 use crate::endpoints::{EndpointAgent, EndpointId, TimelineEndpoints, Endpoint, Request as EndpointRequest};
 use crate::favviewer::FavViewer;
-use crate::twitter::{TwitterAgent, UserTimelineEndpoint, HomeTimelineEndpoint};
+use crate::twitter::{TwitterAgent, UserTimelineEndpoint, HomeTimelineEndpoint, ListEndpoint, SingleTweetEndpoint};
 use crate::pixiv::PixivAgent;
 
 enum DisplayMode {
@@ -63,17 +63,21 @@ impl Component for Model {
 		};
 
 		match pathname_opt.as_ref() {
-			Some(pathname) => /*if let Some(_id) = pathname.strip_prefix("/twitter/status/").map(str::to_owned) {
-				/*ctx.link().send_future(async move {
-					match fetch_tweet(&id).await {
-						Ok(tweet) => Msg::FetchedBootArticles(vec!(tweet)),
-						Err(err) => {
-							log::error!("Failed to fetch \"{}\"\n{:?}", &id, err);
-							Msg::FailedToFetch
-						}
-					}
-				});*/
-			} else */if let Some(username) = pathname.strip_prefix("/twitter/user/").map(str::to_owned) {
+			Some(pathname) => if let Some(tweet_id) = pathname.strip_prefix("/twitter/status/").and_then(|s| s.parse::<u64>().ok()) {
+				let callback = ctx.link().callback(Msg::AddTimeline);
+				log::debug!("Adding endpoint for {}", &tweet_id);
+				ctx.link().send_message(
+					Msg::AddEndpoint(Box::new(move |id| {
+						callback.emit(id);
+						Box::new(SingleTweetEndpoint {
+							id,
+							tweet_id: tweet_id.clone(),
+							article: None,
+							agent: TwitterAgent::dispatcher(),
+						})
+					}))
+				);
+			} else if let Some(username) = pathname.strip_prefix("/twitter/user/").map(str::to_owned) {
 				let callback = ctx.link().callback(Msg::AddTimeline);
 				log::debug!("Adding endpoint for {}", &username);
 				ctx.link().send_message(
@@ -96,6 +100,20 @@ impl Component for Model {
 							id,
 							agent: TwitterAgent::dispatcher(),
 							articles: Vec::new()
+						})
+					}))
+				);
+			}else {
+				let callback = ctx.link().callback(Msg::AddTimeline);
+				ctx.link().send_message(
+					Msg::AddEndpoint(Box::new(move |id| {
+						callback.emit(id);
+						Box::new(ListEndpoint {
+							id,
+							username: "misabiko".to_owned(),
+							slug: "art".to_owned(),
+							articles: Vec::new(),
+							agent: TwitterAgent::dispatcher(),
 						})
 					}))
 				);
@@ -208,7 +226,6 @@ fn main() {
 
 //TODO Masonry
 //TODO Avoid refreshing endpoint every watch update
-//TODO Merge ArtEndpoint into ListEndpoint
 //TODO Add timeline to pixiv
 //TODO Choose endpoints
 //TODO Add image article
