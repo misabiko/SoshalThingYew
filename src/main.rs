@@ -3,6 +3,7 @@ use yew_agent::{Bridge, Bridged, Dispatched, Dispatcher};
 
 pub mod error;
 pub mod timeline;
+pub mod containers;
 pub mod articles;
 pub mod endpoints;
 pub mod twitter;
@@ -11,7 +12,7 @@ mod sidebar;
 mod favviewer;
 
 use crate::sidebar::Sidebar;
-use crate::timeline::{TimelineProps, Timeline};
+use crate::timeline::{Props as TimelineProps, Timeline};
 use crate::endpoints::{EndpointAgent, EndpointId, TimelineEndpoints, Endpoint, Request as EndpointRequest};
 use crate::favviewer::FavViewer;
 use crate::twitter::{TwitterAgent, Response as TwitterResponse, fetch_tweet, UserTimelineEndpoint, HomeTimelineEndpoint};
@@ -168,8 +169,9 @@ fn main() {
 	};
 }
 
-//TODO Add timeline to pixiv
 //TODO Masonry
+//TODO Merge ArtEndpoint into ListEndpoint
+//TODO Add timeline to pixiv
 //TODO Choose endpoints
 //TODO Add image article
 //TODO Add timelines

@@ -11,12 +11,16 @@ pub struct SocialArticle {
 pub struct Props {
 	#[prop_or_default]
 	pub compact: bool,
+	#[prop_or_default]
+	pub style: Option<String>,
 	pub data: Rc<dyn SocialArticleData>,
 }
 
 impl PartialEq<Props> for Props {
 	fn eq(&self, other: &Props) -> bool {
-		self.compact == other.compact && &self.data == &other.data
+		self.compact == other.compact &&
+		self.style == other.style &&
+		&self.data == &other.data
 	}
 }
 
@@ -231,7 +235,7 @@ impl Component for SocialArticle {
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
 		html! {
-			<article class="article">
+			<article class="article" style={ctx.props().style.clone()}>
 				<div class="media">
 					<figure class="media-left">
 						<p class="image is-64x64">
