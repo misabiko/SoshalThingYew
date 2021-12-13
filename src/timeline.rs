@@ -2,9 +2,9 @@ use std::rc::Rc;
 use yew::prelude::*;
 use yew_agent::{Bridge, Bridged};
 use wasm_bindgen::JsCast;
-use web_sys::{EventTarget, HtmlInputElement};
+use web_sys::HtmlInputElement;
 
-use crate::articles::{SocialArticleData, SocialArticle, sort_by_id};
+use crate::articles::{SocialArticleData, sort_by_id};
 use crate::endpoints::{EndpointAgent, Request as EndpointRequest, Response as EndpointResponse, TimelineEndpoints};
 use crate::containers::{Container, view_container, Props as ContainerProps};
 

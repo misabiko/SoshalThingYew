@@ -39,16 +39,7 @@ impl SocialArticleData for PixivArticleData {
 }
 
 pub struct PixivAgent {
-	endpoint_agent: Dispatcher<EndpointAgent>,
-}
-
-pub enum Request {
-	//UpdateRateLimit(RateLimit),
-	AddArticle(EndpointId, Rc<PixivArticleData>)
-}
-
-pub enum Response {
-	//UpdatedRateLimit(RateLimit),
+	//endpoint_agent: Dispatcher<EndpointAgent>,
 }
 
 pub enum Msg {
@@ -58,14 +49,14 @@ pub enum Msg {
 impl Agent for PixivAgent {
 	type Reach = Context<Self>;
 	type Message = Msg;
-	type Input = Request;
-	type Output = String;
+	type Input = ();
+	type Output = ();
 
 	fn create(link: AgentLink<Self>) -> Self {
 		link.send_message(Msg::Init);
 
 		Self {
-			endpoint_agent: EndpointAgent::dispatcher(),
+			//endpoint_agent: EndpointAgent::dispatcher(),
 		}
 	}
 
@@ -78,23 +69,21 @@ impl Agent for PixivAgent {
 						article: Rc::from(PixivArticleData {
 							id: "92885703".to_owned(),
 							creation_time: Date::new_0(),
-						})
+						}),
+						endpoint_agent: EndpointAgent::dispatcher(),
 					})
 				)));
 			}
 		}
 	}
 
-	fn handle_input(&mut self, msg: Self::Input, _id: HandlerId) {
-		match msg {
-			Request::AddArticle(id, a) => self.endpoint_agent.send(EndpointRequest::AddArticle(id, a))
-		}
-	}
+	fn handle_input(&mut self, _msg: Self::Input, _id: HandlerId) {}
 }
 
 pub struct PixivEndpoint {
 	id: EndpointId,
 	article: Rc<dyn SocialArticleData>,
+	endpoint_agent: Dispatcher<EndpointAgent>,
 }
 
 impl Endpoint for PixivEndpoint {
@@ -107,7 +96,8 @@ impl Endpoint for PixivEndpoint {
 	}
 
 	fn refresh(&mut self) {
-		//self.agent.
+		let id = self.id().clone();
+		self.endpoint_agent.send(EndpointRequest::AddArticles(id, vec![self.article.clone()]));
 	}
 
 	fn load_top(&mut self) {

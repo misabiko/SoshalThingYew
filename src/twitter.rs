@@ -1,6 +1,5 @@
 use std::{rc::Rc, collections::HashSet};
 use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher};
-use yewtil::future::LinkFuture;
 use js_sys::Date;
 use wasm_bindgen::JsValue;
 
@@ -178,19 +177,6 @@ impl Agent for TwitterAgent {
 
 		Self {
 			link,
-			/*endpoints: vec![Rc::from(TwitterEndpoint {
-				article: Rc::from(TweetArticleData {
-					id: "1467723852239470594".to_owned(),
-					text: Some("🤞".to_owned()),
-					author: TwitterUser {
-						username: "Banya_Bana".to_owned(),
-						name: "BANYA".to_owned(),
-						avatar_url: "https://pbs.twimg.com/profile_images/1467723898095824898/HCM0q8Mh_200x200.jpg".to_owned(),
-					},
-					media: vec!["https://pbs.twimg.com/media/FF5m5NFaUAAAOGl?format=png".to_owned()]
-				})
-			})]*/
-			//endpoints: Vec::new(),
 			endpoint_agent: EndpointAgent::dispatcher(),
 			subscribers: HashSet::new(),
 		}

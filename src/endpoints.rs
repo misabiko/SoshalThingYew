@@ -10,7 +10,7 @@ pub trait Endpoint {
 
 	fn id(&self) -> &EndpointId;
 
-	fn add_articles(&mut self, articles: Vec<Rc<dyn SocialArticleData>>) {}
+	fn add_articles(&mut self, _articles: Vec<Rc<dyn SocialArticleData>>) {}
 
 	fn refresh(&mut self);
 
@@ -34,9 +34,7 @@ pub struct EndpointAgent {
 	timelines: HashMap<HandlerId, TimelineEndpoints>,
 }
 
-//TODO Use struct variants instead of tuples?
 pub enum Msg {
-	/// When an endpoint is done refreshing. Contains the endpoint key and articles
 	Refreshed(EndpointId, Vec<Rc<dyn SocialArticleData>>),
 	RefreshFail(Error),
 }
@@ -47,7 +45,7 @@ pub enum Request {
 	InitTimeline(TimelineEndpoints),
 	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
 	FetchResponse(EndpointId, Result<Vec<Rc<dyn SocialArticleData>>>),
-	AddArticle(EndpointId, Rc<dyn SocialArticleData>),
+	AddArticles(EndpointId, Vec<Rc<dyn SocialArticleData>>),
 }
 
 pub enum Response {
@@ -139,8 +137,8 @@ impl Agent for EndpointAgent {
 					Err(err) => self.link.send_message(Msg::RefreshFail(err))
 				};
 			}
-			Request::AddArticle(id, a)
-				=> self.link.send_message(Msg::Refreshed(id, vec![a]))
+			Request::AddArticles(id, articles)
+				=> self.link.send_message(Msg::Refreshed(id, articles))
 		}
 	}
 }

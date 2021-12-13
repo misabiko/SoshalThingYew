@@ -1,5 +1,5 @@
 use yew::prelude::*;
-use yew_agent::{Bridge, Bridged, Dispatched, Dispatcher};
+use yew_agent::{Dispatched, Dispatcher};
 
 pub mod error;
 pub mod timeline;
@@ -15,7 +15,7 @@ use crate::sidebar::Sidebar;
 use crate::timeline::{Props as TimelineProps, Timeline};
 use crate::endpoints::{EndpointAgent, EndpointId, TimelineEndpoints, Endpoint, Request as EndpointRequest};
 use crate::favviewer::FavViewer;
-use crate::twitter::{TwitterAgent, Response as TwitterResponse, fetch_tweet, UserTimelineEndpoint, HomeTimelineEndpoint};
+use crate::twitter::{TwitterAgent, UserTimelineEndpoint, HomeTimelineEndpoint};
 use crate::pixiv::PixivAgent;
 
 enum DisplayMode {
@@ -30,13 +30,12 @@ struct Model {
 	display_mode: DisplayMode,
 	timelines: Vec<TimelineProps>,
 	#[allow(dead_code)]
-	twitter: Box<dyn Bridge<TwitterAgent>>,
+	twitter: Dispatcher<TwitterAgent>,
 	#[allow(dead_code)]
 	pixiv: Dispatcher<PixivAgent>,
 }
 
 enum Msg {
-	TwitterResponse(TwitterResponse),
 	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
 	AddTimeline(EndpointId),
 }
@@ -64,7 +63,7 @@ impl Component for Model {
 		};
 
 		match pathname_opt.as_ref() {
-			Some(pathname) => if let Some(id) = pathname.strip_prefix("/twitter/status/").map(str::to_owned) {
+			Some(pathname) => /*if let Some(_id) = pathname.strip_prefix("/twitter/status/").map(str::to_owned) {
 				/*ctx.link().send_future(async move {
 					match fetch_tweet(&id).await {
 						Ok(tweet) => Msg::FetchedBootArticles(vec!(tweet)),
@@ -74,7 +73,7 @@ impl Component for Model {
 						}
 					}
 				});*/
-			} else if let Some(username) = pathname.strip_prefix("/twitter/user/").map(str::to_owned) {
+			} else */if let Some(username) = pathname.strip_prefix("/twitter/user/").map(str::to_owned) {
 				let callback = ctx.link().callback(Msg::AddTimeline);
 				log::debug!("Adding endpoint for {}", &username);
 				ctx.link().send_message(
@@ -124,20 +123,13 @@ impl Component for Model {
 			display_mode,
 			timelines: Vec::new(),
 			endpoint_agent: EndpointAgent::dispatcher(),
-			twitter: TwitterAgent::bridge(ctx.link().callback(Msg::TwitterResponse)),
+			twitter: TwitterAgent::dispatcher(),
 			pixiv: PixivAgent::dispatcher(),
 		}
 	}
 
 	fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
 		match msg {
-			Msg::TwitterResponse(r) => match r {
-				TwitterResponse::DefaultEndpoint(e) => {
-					/*self.default_endpoint = Some(e);
-					true*/
-					false
-				}
-			},
 			Msg::AddEndpoint(e) => {
 				self.endpoint_agent.send(EndpointRequest::AddEndpoint(e));
 				false
@@ -215,6 +207,7 @@ fn main() {
 }
 
 //TODO Masonry
+//TODO Avoid refreshing endpoint every watch update
 //TODO Merge ArtEndpoint into ListEndpoint
 //TODO Add timeline to pixiv
 //TODO Choose endpoints
