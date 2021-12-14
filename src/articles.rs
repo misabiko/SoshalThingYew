@@ -237,7 +237,7 @@ impl Component for SocialArticle {
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
 		html! {
-			<article class="article" style={ctx.props().style.clone()}>
+			<article class="article" articleId={ctx.props().data.id()} style={ctx.props().style.clone()}>
 				<div class="media">
 					<figure class="media-left">
 						<p class="image is-64x64">

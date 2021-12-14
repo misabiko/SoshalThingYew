@@ -15,7 +15,7 @@ use crate::sidebar::Sidebar;
 use crate::timeline::{Props as TimelineProps, Timeline};
 use crate::endpoints::{EndpointAgent, EndpointId, TimelineEndpoints, Endpoint, Request as EndpointRequest};
 use crate::twitter::{TwitterAgent, UserTimelineEndpoint, HomeTimelineEndpoint, SingleTweetEndpoint};
-use crate::pixiv::{PixivAgent, PixivEndpoint};
+use crate::pixiv::{PixivAgent, FollowEndpoint};
 
 #[derive(PartialEq, Clone)]
 enum DisplayMode {
@@ -117,7 +117,7 @@ impl Component for Model {
 				ctx.link().send_message(
 					Msg::AddEndpoint(Box::new(move |id| {
 						callback.emit(id);
-						Box::new(PixivEndpoint::new(id))
+						Box::new(FollowEndpoint::new(id))
 					}))
 				);
 			},
@@ -236,7 +236,7 @@ impl Component for Model {
 									<Timeline main_timeline=true {column_count} ..props.clone()>
 										<button title="Toggle FavViewer" onclick={ctx.link().callback(|_| Msg::ToggleFavViewer)}>
 											<span class="icon">
-												<i class="fas fa-ellipsis-v fa-lg"/>
+												<i class="fas fa-eye-slash fa-lg"/>
 											</span>
 										</button>
 									</Timeline>
