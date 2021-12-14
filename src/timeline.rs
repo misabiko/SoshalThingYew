@@ -44,7 +44,9 @@ pub struct Props {
 	#[prop_or_default]
 	pub main_timeline: bool,
 	#[prop_or(1)]
-	pub column_count: u8
+	pub column_count: u8,
+	#[prop_or_default]
+	pub children: Children,
 }
 
 impl Timeline {
@@ -217,6 +219,15 @@ impl Component for Timeline {
 				<div class="timelineHeader">
 					<div class="timelineLeftHeader">
 						<strong>{&ctx.props().name}</strong>
+						{ if ctx.props().children.is_empty() {
+							html! {}
+						}else {
+							html! {
+								<div class="timelineButtons">
+									{ for ctx.props().children.iter() }
+								</div>
+							}
+						} }
 					</div>
 					<div class="timelineButtons">
 						<button onclick={ctx.link().callback(|_| Msg::Refresh)} title="Refresh">

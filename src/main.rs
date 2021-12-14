@@ -1,5 +1,6 @@
 use yew::prelude::*;
 use yew_agent::{Dispatched, Dispatcher};
+use std::collections::HashMap;
 
 pub mod error;
 pub mod timeline;
@@ -9,12 +10,10 @@ pub mod endpoints;
 pub mod twitter;
 pub mod pixiv;
 mod sidebar;
-mod favviewer;
 
 use crate::sidebar::Sidebar;
 use crate::timeline::{Props as TimelineProps, Timeline};
 use crate::endpoints::{EndpointAgent, EndpointId, TimelineEndpoints, Endpoint, Request as EndpointRequest};
-use crate::favviewer::FavViewer;
 use crate::twitter::{TwitterAgent, UserTimelineEndpoint, HomeTimelineEndpoint, SingleTweetEndpoint};
 use crate::pixiv::{PixivAgent, PixivEndpoint};
 
@@ -40,11 +39,21 @@ struct Model {
 	twitter: Dispatcher<TwitterAgent>,
 	#[allow(dead_code)]
 	pixiv: Dispatcher<PixivAgent>,
+	style_html: HashMap<Style, Html>,
+	style: Option<Style>,
+	favviewer_button: Option<Html>,
 }
 
 enum Msg {
 	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
 	AddTimeline(String, EndpointId),
+	ToggleFavViewer,
+}
+
+#[derive(PartialEq, Eq, Hash)]
+enum Style {
+	Hidden,
+	Pixiv,
 }
 
 #[derive(Properties, PartialEq, Default)]
@@ -133,12 +142,42 @@ impl Component for Model {
 			DisplayMode::Default
 		};
 
+		let document_head = gloo_utils::document().head().expect("head element to be present");
+		let mut style_html = HashMap::new();
+		style_html.insert(Style::Pixiv, create_portal(html! {
+                <style>{"#root > :nth-child(2), .sc-1nr368f-2.bGUtlw { height: 100%; } .sc-jgyytr-1 {display: none}"}</style>
+			}, document_head.clone().into()
+		));
+		style_html.insert(Style::Hidden, create_portal(html! {
+                <style>{"#timelineContainer {display: none;}"}</style>
+			}, document_head.into()
+		));
+		let style = if ctx.props().favviewer {
+			Some(Style::Hidden)
+		}else {
+			None
+		};
+
+		let favviewer_button_mount = gloo_utils::document()
+			.query_selector(".sc-s8zj3z-6.kstoDd");
+		let favviewer_button = match favviewer_button_mount {
+			Ok(Some(mount)) => Some(create_portal(html! {
+				<a class="sc-d98f2c-0" onclick={ctx.link().callback(|_| Msg::ToggleFavViewer)}>
+					<span class="sc-93qi7v-2 ibdURy">{"FavViewer"}</span>
+				</a>
+			}, mount.into())),
+			_ => None
+		};
+
 		Self {
 			display_mode,
 			timelines: Vec::new(),
 			endpoint_agent: EndpointAgent::dispatcher(),
 			twitter: TwitterAgent::dispatcher(),
 			pixiv: PixivAgent::dispatcher(),
+			style_html,
+			style,
+			favviewer_button,
 		}
 	}
 
@@ -159,12 +198,30 @@ impl Component for Model {
 				}});
 				true
 			}
+			Msg::ToggleFavViewer => {
+				self.style = match &self.style {
+					None => None,
+					Some(Style::Hidden) => Some(Style::Pixiv),
+					Some(Style::Pixiv) => Some(Style::Hidden),
+				};
+				true
+			}
 		}
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
 		html! {
 			<>
+				{
+					match &self.favviewer_button {
+						Some(button) => button.clone(),
+						None => html! {}
+					}
+				}
+				{ match &self.style {
+					Some(style) => self.style_html[&style].clone(),
+					None => html! {}
+				}}
 				{ if ctx.props().favviewer { html! {} } else { html! {<Sidebar/>} }}
 				<div id="timelineContainer">
 					{
@@ -176,7 +233,13 @@ impl Component for Model {
 							},
 							DisplayMode::Single {column_count} => if let Some(props) = self.timelines.first() {
 								html! {
-									<Timeline main_timeline=true {column_count} ..props.clone()/>
+									<Timeline main_timeline=true {column_count} ..props.clone()>
+										<button title="Toggle FavViewer" onclick={ctx.link().callback(|_| Msg::ToggleFavViewer)}>
+											<span class="icon">
+												<i class="fas fa-ellipsis-v fa-lg"/>
+											</span>
+										</button>
+									</Timeline>
 								}
 							}else {
 								html! {}
@@ -197,11 +260,16 @@ fn main() {
 		.map(|l| l.href()) {
 		Some(Ok(href)) => match href.as_str() {
 			"https://www.pixiv.net/bookmark_new_illust.php" => {
-				let element = gloo_utils::document()
+				let mount_point = gloo_utils::document().create_element("div").expect("to create empty div");
+
+				gloo_utils::document()
 					.query_selector("#root > div:last-child > div:nth-child(2)")
 					.expect("can't get mount node for rendering")
-					.expect("can't unwrap mount node");
-				yew::start_app_with_props_in_element::<Model>(element, yew::props! { Props {
+					.expect("can't unwrap mount node")
+					.append_with_node_1(&mount_point)
+					.expect("can't append mount node");
+
+				yew::start_app_with_props_in_element::<Model>(mount_point, yew::props! { Props {
 					favviewer:true,
 					display_mode: DisplayMode::Single {
 						column_count: 5,
@@ -217,7 +285,6 @@ fn main() {
 	};
 }
 
-//TODO Add timeline to pixiv
 //TODO Save timeline data
 //TODO Save fetched articles
 //TODO Autoscroll

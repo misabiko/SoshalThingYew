@@ -103,14 +103,6 @@ impl Endpoint for PixivEndpoint {
 
 	fn refresh(&mut self) {
 		let id = self.id().clone();
-		self.endpoint_agent.send(EndpointRequest::AddArticles(id, vec![self.article.clone()]));
-	}
-
-	fn load_top(&mut self) {
-
-	}
-
-	fn load_bottom(&mut self) {
-
+		self.endpoint_agent.send(EndpointRequest::AddArticles(id, vec![self.article.clone(); 10]));
 	}
 }

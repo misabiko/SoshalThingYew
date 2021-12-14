@@ -18,7 +18,7 @@ yewtil = { version = "0.4.0", features = ["future"] }
 gloo-utils = "0.1.1"
 wasm-bindgen = "0.2.78"
 wasm-bindgen-futures = "0.4.28"
-web-sys = { version = "0.3.55", features = ["UrlSearchParams"] }
+web-sys = { version = "0.3.55", features = ["HtmlHeadElement", "UrlSearchParams"] }
 js-sys = "0.3.55"
 reqwest = { version = "0.11.6", features = ["json"] }
 serde_json = "1.0"
