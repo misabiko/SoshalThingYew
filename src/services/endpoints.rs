@@ -10,7 +10,16 @@ pub trait Endpoint {
 
 	fn id(&self) -> &EndpointId;
 
-	fn add_articles(&mut self, _articles: Vec<Rc<dyn SocialArticleData>>) {}
+	fn articles(&mut self) -> &mut Vec<Rc<dyn SocialArticleData>>;
+
+	fn add_articles(&mut self, articles: Vec<Rc<dyn SocialArticleData>>)  {
+		for a in articles {
+			if !self.articles().iter().any(|existing| existing.id() == a.id()) {
+				self.articles().push(a);
+			}
+		}
+		self.articles().sort_by(|a, b| b.id().partial_cmp(&a.id()).unwrap())
+	}
 
 	fn refresh(&mut self);
 

@@ -1,6 +1,5 @@
 use yew::prelude::*;
 use yew_agent::{Dispatched, Dispatcher};
-use std::collections::HashMap;
 
 pub mod error;
 pub mod timeline;
@@ -14,7 +13,7 @@ use crate::sidebar::Sidebar;
 use crate::timeline::{Props as TimelineProps, Timeline};
 use crate::services::{
 	endpoints::{EndpointAgent, EndpointId, TimelineEndpoints, Endpoint, Request as EndpointRequest},
-	twitter::{TwitterAgent, UserTimelineEndpoint, HomeTimelineEndpoint, SingleTweetEndpoint},
+	twitter::{TwitterAgent, endpoints::{UserTimelineEndpoint, HomeTimelineEndpoint, SingleTweetEndpoint}},
 	pixiv::{PixivAgent, FollowEndpoint},
 };
 use crate::favviewer::{PageInfo, pixiv::PixivPageInfo};

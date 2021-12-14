@@ -1,7 +1,6 @@
 use std::rc::Rc;
 use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher};
 use js_sys::Date;
-use wasm_bindgen::JsValue;
 
 use crate::articles::SocialArticleData;
 use crate::services::endpoints::{EndpointAgent, Endpoint, Request as EndpointRequest, EndpointId};
@@ -161,6 +160,10 @@ impl Endpoint for FollowEndpoint {
 
 	fn id(&self) -> &EndpointId {
 		&self.id
+	}
+
+	fn articles(&mut self) -> &mut Vec<Rc<dyn SocialArticleData>> {
+		&mut self.articles
 	}
 
 	fn refresh(&mut self) {
