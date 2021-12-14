@@ -6,16 +6,18 @@ pub mod error;
 pub mod timeline;
 pub mod containers;
 pub mod articles;
-pub mod endpoints;
-pub mod twitter;
-pub mod pixiv;
+pub mod services;
 mod sidebar;
+mod favviewer;
 
 use crate::sidebar::Sidebar;
 use crate::timeline::{Props as TimelineProps, Timeline};
-use crate::endpoints::{EndpointAgent, EndpointId, TimelineEndpoints, Endpoint, Request as EndpointRequest};
-use crate::twitter::{TwitterAgent, UserTimelineEndpoint, HomeTimelineEndpoint, SingleTweetEndpoint};
-use crate::pixiv::{PixivAgent, FollowEndpoint};
+use crate::services::{
+	endpoints::{EndpointAgent, EndpointId, TimelineEndpoints, Endpoint, Request as EndpointRequest},
+	twitter::{TwitterAgent, UserTimelineEndpoint, HomeTimelineEndpoint, SingleTweetEndpoint},
+	pixiv::{PixivAgent, FollowEndpoint},
+};
+use crate::favviewer::{PageInfo, pixiv::PixivPageInfo};
 
 #[derive(PartialEq, Clone)]
 enum DisplayMode {
@@ -46,83 +48,6 @@ enum Msg {
 	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
 	AddTimeline(String, EndpointId),
 	ToggleFavViewer,
-}
-
-#[derive(PartialEq, Eq, Hash)]
-enum Style {
-	Hidden,
-	Pixiv,
-}
-
-trait PageInfo {
-	fn style_html(&self) -> Html;
-
-	fn favviewer_button(&self) -> Html;
-
-	fn toggle_hidden(&mut self);
-
-	fn view(&self) -> Html {
-		html! {
-			<>
-				{ self.favviewer_button() }
-				{ self.style_html() }
-			</>
-		}
-	}
-}
-
-struct PixivPageInfo {
-	style_html: HashMap<Style, Html>,
-	style: Style,
-	favviewer_button: Html,
-}
-
-impl PixivPageInfo {
-	fn new(on_activator_click: Callback<web_sys::MouseEvent>) -> Self {
-		let document_head = gloo_utils::document().head().expect("head element to be present");
-		let mut style_html = HashMap::new();
-		style_html.insert(Style::Pixiv, create_portal(html! {
-                <style>{"#root {width: 100%} #root > :nth-child(2), .sc-1nr368f-2.bGUtlw { height: 100%; } .sc-jgyytr-1 {display: none}"}</style>
-			}, document_head.clone().into()
-		));
-		style_html.insert(Style::Hidden, create_portal(html! {
-                <style>{"#favviewer {display: none;} #root {width: 100%} "}</style>
-			}, document_head.into()
-		));
-
-		let favviewer_button_mount = gloo_utils::document()
-			.query_selector(".sc-s8zj3z-6.kstoDd")
-			.expect("couldn't query activator mount point")
-			.expect("couldn't find activator mount point");
-		let favviewer_button = create_portal(html! {
-				<a class="sc-d98f2c-0" onclick={on_activator_click}>
-					<span class="sc-93qi7v-2 ibdURy">{"FavViewer"}</span>
-				</a>
-			}, favviewer_button_mount.into());
-
-		Self {
-			style_html,
-			style: Style::Hidden,
-			favviewer_button,
-		}
-	}
-}
-
-impl PageInfo for PixivPageInfo {
-	fn style_html(&self) -> Html {
-		self.style_html[&self.style].clone()
-	}
-
-	fn favviewer_button(&self) -> Html {
-		self.favviewer_button.clone()
-	}
-
-	fn toggle_hidden(&mut self) {
-		self.style = match &self.style {
-			Style::Hidden => Style::Pixiv,
-			Style::Pixiv => Style::Hidden,
-		}
-	}
 }
 
 #[derive(Properties, PartialEq, Default)]

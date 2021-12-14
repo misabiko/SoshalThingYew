@@ -6,7 +6,7 @@ use web_sys::HtmlInputElement;
 use rand::{thread_rng, seq::SliceRandom};
 
 use crate::articles::{SocialArticleData, sort_by_id};
-use crate::endpoints::{EndpointAgent, Request as EndpointRequest, Response as EndpointResponse, TimelineEndpoints};
+use crate::services::endpoints::{EndpointAgent, Request as EndpointRequest, Response as EndpointResponse, TimelineEndpoints};
 use crate::containers::{Container, view_container, Props as ContainerProps};
 
 pub struct Timeline {

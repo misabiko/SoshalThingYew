@@ -4,7 +4,7 @@ use js_sys::Date;
 use wasm_bindgen::JsValue;
 
 use crate::articles::SocialArticleData;
-use crate::endpoints::{EndpointAgent, Endpoint, Request as EndpointRequest, EndpointId};
+use crate::services::endpoints::{EndpointAgent, Endpoint, Request as EndpointRequest, EndpointId};
 
 pub struct PixivArticleData {
 	id: u32,
