@@ -286,6 +286,7 @@ fn main() {
 	};
 }
 
+//TODO Sort
 //TODO Decouple hostpage stuff
 //TODO Save timeline data
 //TODO Save fetched articles

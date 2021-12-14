@@ -3,6 +3,7 @@ use yew::prelude::*;
 use yew_agent::{Bridge, Bridged};
 use wasm_bindgen::JsCast;
 use web_sys::HtmlInputElement;
+use rand::{thread_rng, seq::SliceRandom};
 
 use crate::articles::{SocialArticleData, sort_by_id};
 use crate::endpoints::{EndpointAgent, Request as EndpointRequest, Response as EndpointResponse, TimelineEndpoints};
@@ -18,6 +19,7 @@ pub struct Timeline {
 	show_container_dropdown: bool,
 	column_count: u8,
 	width: u8,
+	sorted: bool,
 }
 
 pub enum Msg {
@@ -32,6 +34,7 @@ pub enum Msg {
 	ToggleContainerDropdown,
 	ChangeColumnCount(u8),
 	ChangeWidth(u8),
+	Shuffle,
 }
 
 #[derive(Properties, Clone, PartialEq)]
@@ -133,6 +136,7 @@ impl Component for Timeline {
 			show_container_dropdown: false,
 			column_count: ctx.props().column_count.clone(),
 			width: 1,
+			sorted: true,
 		}
 	}
 
@@ -198,6 +202,12 @@ impl Component for Timeline {
 				self.width = new_width;
 				true
 			}
+
+			Msg::Shuffle => {
+				self.articles.shuffle(&mut thread_rng());
+				self.sorted = false;
+				true
+			}
 		}
 	}
 
@@ -207,7 +217,9 @@ impl Component for Timeline {
 			articles = articles.into_iter().filter(filter).collect();
 		}
 
-		articles.sort_by(sort_by_id);
+		if self.sorted {
+			articles.sort_by(sort_by_id);
+		}
 
 		let style = if self.width > 1 {
 			Some(format!("width: {}px", (self.width as i32) * 500))
@@ -230,6 +242,11 @@ impl Component for Timeline {
 						} }
 					</div>
 					<div class="timelineButtons">
+						<button onclick={ctx.link().callback(|_| Msg::Shuffle)} title="Shuffle">
+							<span class="icon">
+								<i class="fas fa-random fa-lg"/>
+							</span>
+						</button>
 						<button onclick={ctx.link().callback(|_| Msg::Refresh)} title="Refresh">
 							<span class="icon">
 								<i class="fas fa-sync-alt fa-lg"/>
