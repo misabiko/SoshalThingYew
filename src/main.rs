@@ -145,11 +145,11 @@ impl Component for Model {
 		let document_head = gloo_utils::document().head().expect("head element to be present");
 		let mut style_html = HashMap::new();
 		style_html.insert(Style::Pixiv, create_portal(html! {
-                <style>{"#root > :nth-child(2), .sc-1nr368f-2.bGUtlw { height: 100%; } .sc-jgyytr-1 {display: none}"}</style>
+                <style>{"#root {width: 100%} #root > :nth-child(2), .sc-1nr368f-2.bGUtlw { height: 100%; } .sc-jgyytr-1 {display: none}"}</style>
 			}, document_head.clone().into()
 		));
 		style_html.insert(Style::Hidden, create_portal(html! {
-                <style>{"#timelineContainer {display: none;}"}</style>
+                <style>{"#favviewer {display: none;} #root {width: 100%} "}</style>
 			}, document_head.into()
 		));
 		let style = if ctx.props().favviewer {
@@ -261,6 +261,7 @@ fn main() {
 		Some(Ok(href)) => match href.as_str() {
 			"https://www.pixiv.net/bookmark_new_illust.php" => {
 				let mount_point = gloo_utils::document().create_element("div").expect("to create empty div");
+				mount_point.set_id("favviewer");
 
 				gloo_utils::document()
 					.query_selector("#root > div:last-child > div:nth-child(2)")
