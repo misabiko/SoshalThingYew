@@ -196,6 +196,7 @@ fn main() {
 	};
 }
 
+//TODO Add timeline to pixiv
 //TODO Save timeline data
 //TODO Save fetched articles
 //TODO Autoscroll
@@ -203,7 +204,6 @@ fn main() {
 //TODO Retweets
 //TODO Quotes
 //TODO Fix container dropdown
-//TODO Add timeline to pixiv
 //TODO Choose endpoints
 //TODO Add image article
 //TODO Add timelines

@@ -1,27 +1,22 @@
-const importObject = {
-	imports: {
-		imported_func: function(arg) {
-			console.log(arg);
-		}
-	}
-};
-
-const response = null;
-const bytes = null;
-const results = null;
-
-const wasmPath = chrome.runtime.getURL("index-780e0c641604af13_bg.wasm");
-console.log("myPath: " + wasmPath);
-
 (async () => {
-	const src = chrome.runtime.getURL("/dist/index-780e0c641604af13.js");
+	const index = await fetch(chrome.runtime.getURL("/dist/generated_files.json"))
+		.then(r => r.json());
+
+	const fontawesome = document.createElement("script");
+	fontawesome.src = "https://kit.fontawesome.com/67998b1eca.js";
+	fontawesome.crossOrigin = "anonymous";
+
+	const bulma = document.createElement("link");
+	bulma.rel = "stylesheet";
+	bulma.href = "https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css";
+
+	const css = document.createElement("link");
+	css.rel = "stylesheet";
+	css.href = chrome.runtime.getURL("/dist/" + index[".css"]);
+
+	document.head.append(fontawesome, bulma, css);
+
+	const src = chrome.runtime.getURL("/dist/" + index[".js"]);
 	const contentMain = await import(src);
 	contentMain.default();
 })();
-/*fetch(wasmPath).then(response =>
-	response.arrayBuffer()
-).then(bytes =>
-	WebAssembly.instantiate(bytes, importObject)
-).then(results => {
-	results.instance.exports.exported_func();
-});*/

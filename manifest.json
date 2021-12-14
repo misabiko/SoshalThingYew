@@ -11,7 +11,7 @@
 		}
 	],
 	"web_accessible_resources": [{
-		"resources": ["/dist/index-780e0c641604af13.js", "/dist/index-*"],
+		"resources": ["/dist/generated_files.json", "/dist/index-*"],
 		"matches": ["https://*.pixiv.net/*"]
 	}]
 }
