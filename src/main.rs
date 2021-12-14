@@ -16,13 +16,20 @@ use crate::timeline::{Props as TimelineProps, Timeline};
 use crate::endpoints::{EndpointAgent, EndpointId, TimelineEndpoints, Endpoint, Request as EndpointRequest};
 use crate::favviewer::FavViewer;
 use crate::twitter::{TwitterAgent, UserTimelineEndpoint, HomeTimelineEndpoint, SingleTweetEndpoint};
-use crate::pixiv::PixivAgent;
+use crate::pixiv::{PixivAgent, PixivEndpoint};
 
+#[derive(PartialEq, Clone)]
 enum DisplayMode {
 	Single {
 		column_count: u8
 	},
 	Default
+}
+
+impl Default for DisplayMode {
+	fn default() -> Self {
+		DisplayMode::Default
+	}
 }
 
 struct Model {
@@ -37,12 +44,19 @@ struct Model {
 
 enum Msg {
 	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
-	AddTimeline(EndpointId),
+	AddTimeline(String, EndpointId),
+}
+
+#[derive(Properties, PartialEq, Default)]
+struct Props {
+	favviewer: bool,
+	#[prop_or_default]
+	display_mode: Option<DisplayMode>
 }
 
 impl Component for Model {
 	type Message = Msg;
-	type Properties = ();
+	type Properties = Props;
 
 	fn create(ctx: &Context<Self>) -> Self {
 		let (pathname_opt, search_opt) = match web_sys::window().map(|w| w.location()) {
@@ -64,7 +78,7 @@ impl Component for Model {
 
 		match pathname_opt.as_ref() {
 			Some(pathname) => if let Some(tweet_id) = pathname.strip_prefix("/twitter/status/").and_then(|s| s.parse::<u64>().ok()) {
-				let callback = ctx.link().callback(Msg::AddTimeline);
+				let callback = ctx.link().callback(|id|Msg::AddTimeline("Tweet".to_owned(), id));
 				log::debug!("Adding endpoint for {}", &tweet_id);
 				ctx.link().send_message(
 					Msg::AddEndpoint(Box::new(move |id| {
@@ -73,7 +87,7 @@ impl Component for Model {
 					}))
 				);
 			} else if let Some(username) = pathname.strip_prefix("/twitter/user/").map(str::to_owned) {
-				let callback = ctx.link().callback(Msg::AddTimeline);
+				let callback = ctx.link().callback(|id| Msg::AddTimeline("User".to_owned(), id));
 				log::debug!("Adding endpoint for {}", &username);
 				ctx.link().send_message(
 					Msg::AddEndpoint(Box::new(move |id| {
@@ -82,11 +96,19 @@ impl Component for Model {
 					}))
 				);
 			} else if pathname.starts_with("/twitter/home") {
-				let callback = ctx.link().callback(Msg::AddTimeline);
+				let callback = ctx.link().callback( |id| Msg::AddTimeline("Home".to_owned(), id));
 				ctx.link().send_message(
 					Msg::AddEndpoint(Box::new(move |id| {
 						callback.emit(id);
 						Box::new(HomeTimelineEndpoint::new(id))
+					}))
+				);
+			} else {
+				let callback = ctx.link().callback(|id| Msg::AddTimeline("Pixiv".to_owned(), id));
+				ctx.link().send_message(
+					Msg::AddEndpoint(Box::new(move |id| {
+						callback.emit(id);
+						Box::new(PixivEndpoint::new(id))
 					}))
 				);
 			},
@@ -98,7 +120,9 @@ impl Component for Model {
 			.and_then(|s| s.parse::<bool>().ok())
 			.unwrap_or_default();
 
-		let display_mode = if single_timeline_bool {
+		let display_mode = if let Some(display_mode) = &ctx.props().display_mode {
+			(*display_mode).clone()
+		} else if single_timeline_bool {
 			DisplayMode::Single {
 				column_count: search_opt.as_ref()
 					.and_then(|s| s.get("column_count"))
@@ -124,10 +148,10 @@ impl Component for Model {
 				self.endpoint_agent.send(EndpointRequest::AddEndpoint(e));
 				false
 			}
-			Msg::AddTimeline(id) => {
+			Msg::AddTimeline(name, id) => {
 				log::debug!("Adding new timeline for {}", &id);
 				self.timelines.push(yew::props! { TimelineProps {
-					name: "Added Timeline",
+					name,
 					endpoints: TimelineEndpoints {
 						start: vec![id],
 						refresh: vec![id],
@@ -138,18 +162,10 @@ impl Component for Model {
 		}
 	}
 
-	fn view(&self, _ctx: &Context<Self>) -> Html {
-		/*let home_timeline = match self.default_endpoint {
-			Some(e) => html! { <Timeline name="Home" endpoints={TimelineEndpoints {
-				start: vec![e],
-				refresh: vec![e],
-			}}/> },
-			None => html! {},
-		};*/
-
+	fn view(&self, ctx: &Context<Self>) -> Html {
 		html! {
 			<>
-				<Sidebar/>
+				{ if ctx.props().favviewer { html! {} } else { html! {<Sidebar/>} }}
 				<div id="timelineContainer">
 					{
 						match self.display_mode {
@@ -185,7 +201,12 @@ fn main() {
 					.query_selector("#root > div:last-child > div:nth-child(2)")
 					.expect("can't get mount node for rendering")
 					.expect("can't unwrap mount node");
-				yew::start_app_in_element::<FavViewer>(element);
+				yew::start_app_with_props_in_element::<Model>(element, yew::props! { Props {
+					favviewer:true,
+					display_mode: DisplayMode::Single {
+						column_count: 5,
+					}
+				}});
 			}
 			_ => {
 				yew::start_app::<Model>();

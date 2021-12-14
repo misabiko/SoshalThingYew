@@ -64,14 +64,7 @@ impl Agent for PixivAgent {
 		match msg {
 			Msg::Init => {
 				EndpointAgent::dispatcher().send(EndpointRequest::AddEndpoint(Box::new(|id|
-					Box::new(PixivEndpoint {
-						id,
-						article: Rc::from(PixivArticleData {
-							id: "92885703".to_owned(),
-							creation_time: Date::new_0(),
-						}),
-						endpoint_agent: EndpointAgent::dispatcher(),
-					})
+					Box::new(PixivEndpoint::new(id))
 				)));
 			}
 		}
@@ -84,6 +77,19 @@ pub struct PixivEndpoint {
 	id: EndpointId,
 	article: Rc<dyn SocialArticleData>,
 	endpoint_agent: Dispatcher<EndpointAgent>,
+}
+
+impl PixivEndpoint {
+	pub fn new(id: EndpointId) -> Self {
+		Self {
+			id,
+			article: Rc::from(PixivArticleData {
+				id: "92885703".to_owned(),
+				creation_time: Date::new_0(),
+			}),
+			endpoint_agent: EndpointAgent::dispatcher(),
+		}
+	}
 }
 
 impl Endpoint for PixivEndpoint {
