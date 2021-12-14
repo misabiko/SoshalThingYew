@@ -11,7 +11,11 @@
 		}
 	],
 	"web_accessible_resources": [{
-		"resources": ["/dist/generated_files.json", "/dist/index-*"],
+		"resources": [
+			"/generated_files.json",
+			"/dist/index-*",
+			"/node_modules/@fortawesome/fontawesome-free/webfonts/*"
+		],
 		"matches": ["https://*.pixiv.net/*"]
 	}]
 }

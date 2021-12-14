@@ -1,10 +1,6 @@
 (async () => {
-	const index = await fetch(chrome.runtime.getURL("/dist/generated_files.json"))
+	const index = await fetch(chrome.runtime.getURL("/generated_files.json"))
 		.then(r => r.json());
-
-	const fontawesome = document.createElement("script");
-	fontawesome.src = "https://kit.fontawesome.com/67998b1eca.js";
-	fontawesome.crossOrigin = "anonymous";
 
 	const bulma = document.createElement("link");
 	bulma.rel = "stylesheet";
@@ -14,7 +10,7 @@
 	css.rel = "stylesheet";
 	css.href = chrome.runtime.getURL("/dist/" + index[".css"]);
 
-	document.head.append(fontawesome, bulma, css);
+	document.head.append(bulma, css);
 
 	const src = chrome.runtime.getURL("/dist/" + index[".js"]);
 	const contentMain = await import(src);
