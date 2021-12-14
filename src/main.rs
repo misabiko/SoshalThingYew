@@ -258,8 +258,9 @@ fn main() {
 	match web_sys::window()
 		.map(|w| w.location())
 		.map(|l| l.href()) {
-		Some(Ok(href)) => match href.as_str() {
-			"https://www.pixiv.net/bookmark_new_illust.php" => {
+		Some(Ok(href)) => {
+			let href = href.as_str();
+			if href.contains("pixiv.net/bookmark_new_illust") {
 				let mount_point = gloo_utils::document().create_element("div").expect("to create empty div");
 				mount_point.set_id("favviewer");
 
@@ -276,16 +277,16 @@ fn main() {
 						column_count: 5,
 					}
 				}});
-			}
-			_ => {
+			}else {
 				yew::start_app::<Model>();
-			},
+			}
 		},
 		None => log::error!("Failed to get location.href."),
 		Some(Err(err)) => log::error!("Failed to get location.href.\n{}", &err.as_string().unwrap_or("Failed to parse the error.".to_string())),
 	};
 }
 
+//TODO Decouple hostpage stuff
 //TODO Save timeline data
 //TODO Save fetched articles
 //TODO Autoscroll
@@ -298,7 +299,6 @@ fn main() {
 //TODO Add timelines
 //TODO Filters
 //TODO Rate limits
-//TODO Pixiv articles
 //TODO Youtube articles
 //TODO Social expanded view
 //TODO Avoid refreshing endpoint every watch update
