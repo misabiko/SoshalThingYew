@@ -39,9 +39,7 @@ struct Model {
 	twitter: Dispatcher<TwitterAgent>,
 	#[allow(dead_code)]
 	pixiv: Dispatcher<PixivAgent>,
-	style_html: HashMap<Style, Html>,
-	style: Option<Style>,
-	favviewer_button: Option<Html>,
+	page_info: Option<Box<dyn PageInfo>>,
 }
 
 enum Msg {
@@ -54,6 +52,77 @@ enum Msg {
 enum Style {
 	Hidden,
 	Pixiv,
+}
+
+trait PageInfo {
+	fn style_html(&self) -> Html;
+
+	fn favviewer_button(&self) -> Html;
+
+	fn toggle_hidden(&mut self);
+
+	fn view(&self) -> Html {
+		html! {
+			<>
+				{ self.favviewer_button() }
+				{ self.style_html() }
+			</>
+		}
+	}
+}
+
+struct PixivPageInfo {
+	style_html: HashMap<Style, Html>,
+	style: Style,
+	favviewer_button: Html,
+}
+
+impl PixivPageInfo {
+	fn new(on_activator_click: Callback<web_sys::MouseEvent>) -> Self {
+		let document_head = gloo_utils::document().head().expect("head element to be present");
+		let mut style_html = HashMap::new();
+		style_html.insert(Style::Pixiv, create_portal(html! {
+                <style>{"#root {width: 100%} #root > :nth-child(2), .sc-1nr368f-2.bGUtlw { height: 100%; } .sc-jgyytr-1 {display: none}"}</style>
+			}, document_head.clone().into()
+		));
+		style_html.insert(Style::Hidden, create_portal(html! {
+                <style>{"#favviewer {display: none;} #root {width: 100%} "}</style>
+			}, document_head.into()
+		));
+
+		let favviewer_button_mount = gloo_utils::document()
+			.query_selector(".sc-s8zj3z-6.kstoDd")
+			.expect("couldn't query activator mount point")
+			.expect("couldn't find activator mount point");
+		let favviewer_button = create_portal(html! {
+				<a class="sc-d98f2c-0" onclick={on_activator_click}>
+					<span class="sc-93qi7v-2 ibdURy">{"FavViewer"}</span>
+				</a>
+			}, favviewer_button_mount.into());
+
+		Self {
+			style_html,
+			style: Style::Hidden,
+			favviewer_button,
+		}
+	}
+}
+
+impl PageInfo for PixivPageInfo {
+	fn style_html(&self) -> Html {
+		self.style_html[&self.style].clone()
+	}
+
+	fn favviewer_button(&self) -> Html {
+		self.favviewer_button.clone()
+	}
+
+	fn toggle_hidden(&mut self) {
+		self.style = match &self.style {
+			Style::Hidden => Style::Pixiv,
+			Style::Pixiv => Style::Hidden,
+		}
+	}
 }
 
 #[derive(Properties, PartialEq, Default)]
@@ -126,7 +195,7 @@ impl Component for Model {
 
 		let single_timeline_bool = search_opt.as_ref()
 			.and_then(|s| s.get("single_timeline"))
-			.and_then(|s| s.parse::<bool>().ok())
+			.and_then(|s| s.parse().ok())
 			.unwrap_or_default();
 
 		let display_mode = if let Some(display_mode) = &ctx.props().display_mode {
@@ -135,39 +204,14 @@ impl Component for Model {
 			DisplayMode::Single {
 				column_count: search_opt.as_ref()
 					.and_then(|s| s.get("column_count"))
-					.and_then(|s| s.parse::<u8>().ok())
+					.and_then(|s| s.parse().ok())
 					.unwrap_or(1),
 			}
 		}else {
 			DisplayMode::Default
 		};
 
-		let document_head = gloo_utils::document().head().expect("head element to be present");
-		let mut style_html = HashMap::new();
-		style_html.insert(Style::Pixiv, create_portal(html! {
-                <style>{"#root {width: 100%} #root > :nth-child(2), .sc-1nr368f-2.bGUtlw { height: 100%; } .sc-jgyytr-1 {display: none}"}</style>
-			}, document_head.clone().into()
-		));
-		style_html.insert(Style::Hidden, create_portal(html! {
-                <style>{"#favviewer {display: none;} #root {width: 100%} "}</style>
-			}, document_head.into()
-		));
-		let style = if ctx.props().favviewer {
-			Some(Style::Hidden)
-		}else {
-			None
-		};
-
-		let favviewer_button_mount = gloo_utils::document()
-			.query_selector(".sc-s8zj3z-6.kstoDd");
-		let favviewer_button = match favviewer_button_mount {
-			Ok(Some(mount)) => Some(create_portal(html! {
-				<a class="sc-d98f2c-0" onclick={ctx.link().callback(|_| Msg::ToggleFavViewer)}>
-					<span class="sc-93qi7v-2 ibdURy">{"FavViewer"}</span>
-				</a>
-			}, mount.into())),
-			_ => None
-		};
+		let page_info = Some(Box::new(PixivPageInfo::new(ctx.link().callback(|_| Msg::ToggleFavViewer))) as Box<dyn PageInfo>);
 
 		Self {
 			display_mode,
@@ -175,9 +219,7 @@ impl Component for Model {
 			endpoint_agent: EndpointAgent::dispatcher(),
 			twitter: TwitterAgent::dispatcher(),
 			pixiv: PixivAgent::dispatcher(),
-			style_html,
-			style,
-			favviewer_button,
+			page_info,
 		}
 	}
 
@@ -199,12 +241,12 @@ impl Component for Model {
 				true
 			}
 			Msg::ToggleFavViewer => {
-				self.style = match &self.style {
-					None => None,
-					Some(Style::Hidden) => Some(Style::Pixiv),
-					Some(Style::Pixiv) => Some(Style::Hidden),
-				};
-				true
+				if let Some(page_info) = &mut self.page_info {
+					page_info.toggle_hidden();
+					true
+				}else {
+					false
+				}
 			}
 		}
 	}
@@ -213,15 +255,12 @@ impl Component for Model {
 		html! {
 			<>
 				{
-					match &self.favviewer_button {
-						Some(button) => button.clone(),
-						None => html! {}
-					}
+					self.page_info
+						.as_ref()
+						.map(Box::as_ref)
+						.map(PageInfo::view)
+						.unwrap_or_default()
 				}
-				{ match &self.style {
-					Some(style) => self.style_html[&style].clone(),
-					None => html! {}
-				}}
 				{ if ctx.props().favviewer { html! {} } else { html! {<Sidebar/>} }}
 				<div id="timelineContainer">
 					{
@@ -287,7 +326,6 @@ fn main() {
 }
 
 //TODO Sort
-//TODO Decouple hostpage stuff
 //TODO Save timeline data
 //TODO Save fetched articles
 //TODO Autoscroll
