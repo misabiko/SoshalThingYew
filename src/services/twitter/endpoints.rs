@@ -1,14 +1,14 @@
 use std::rc::Rc;
 use yew_agent::{Dispatched, Dispatcher};
 
-use crate::articles::{SocialArticleData};
+use crate::articles::{ArticleData};
 use crate::services::twitter::{TwitterAgent, Request as TwitterRequest};
 use crate::services::endpoints::{Endpoint, EndpointId};
 
 pub struct UserTimelineEndpoint {
 	id: EndpointId,
 	username: String,
-	articles: Vec<Rc<dyn SocialArticleData>>,
+	articles: Vec<Rc<dyn ArticleData>>,
 	agent: Dispatcher<TwitterAgent>
 }
 
@@ -32,7 +32,7 @@ impl Endpoint for UserTimelineEndpoint {
 		&self.id
 	}
 
-	fn articles(&mut self) -> &mut Vec<Rc<dyn SocialArticleData>> {
+	fn articles(&mut self) -> &mut Vec<Rc<dyn ArticleData>> {
 		&mut self.articles
 	}
 
@@ -60,7 +60,7 @@ impl Endpoint for UserTimelineEndpoint {
 
 pub struct HomeTimelineEndpoint {
 	id: EndpointId,
-	articles: Vec<Rc<dyn SocialArticleData>>,
+	articles: Vec<Rc<dyn ArticleData>>,
 	agent: Dispatcher<TwitterAgent>
 }
 
@@ -83,7 +83,7 @@ impl Endpoint for HomeTimelineEndpoint {
 		&self.id
 	}
 
-	fn articles(&mut self) -> &mut Vec<Rc<dyn SocialArticleData>> {
+	fn articles(&mut self) -> &mut Vec<Rc<dyn ArticleData>> {
 		&mut self.articles
 	}
 
@@ -110,7 +110,7 @@ pub struct ListEndpoint {
 	id: EndpointId,
 	username: String,
 	slug: String,
-	articles: Vec<Rc<dyn SocialArticleData>>,
+	articles: Vec<Rc<dyn ArticleData>>,
 	agent: Dispatcher<TwitterAgent>
 }
 
@@ -135,7 +135,7 @@ impl Endpoint for ListEndpoint {
 		&self.id
 	}
 
-	fn articles(&mut self) -> &mut Vec<Rc<dyn SocialArticleData>> {
+	fn articles(&mut self) -> &mut Vec<Rc<dyn ArticleData>> {
 		&mut self.articles
 	}
 
@@ -164,7 +164,7 @@ impl Endpoint for ListEndpoint {
 pub struct SingleTweetEndpoint {
 	id: EndpointId,
 	tweet_id: u64,
-	articles: Vec<Rc<dyn SocialArticleData>>,
+	articles: Vec<Rc<dyn ArticleData>>,
 	agent: Dispatcher<TwitterAgent>,
 }
 
@@ -188,7 +188,7 @@ impl Endpoint for SingleTweetEndpoint {
 		&self.id
 	}
 
-	fn articles(&mut self) -> &mut Vec<Rc<dyn SocialArticleData>> {
+	fn articles(&mut self) -> &mut Vec<Rc<dyn ArticleData>> {
 		&mut self.articles
 	}
 

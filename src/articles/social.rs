@@ -1,61 +1,17 @@
-use std::rc::Rc;
 use yew::prelude::*;
 use js_sys::Date;
+
+use crate::articles::Props;
 
 pub struct SocialArticle {
 	compact: Option<bool>,
 	show_dropdown: bool,
 }
 
-#[derive(Properties, Clone)]
-pub struct Props {
-	#[prop_or_default]
-	pub compact: bool,
-	#[prop_or_default]
-	pub style: Option<String>,
-	pub data: Rc<dyn SocialArticleData>,
-}
-
-impl PartialEq<Props> for Props {
-	fn eq(&self, other: &Props) -> bool {
-		self.compact == other.compact &&
-		self.style == other.style &&
-		&self.data == &other.data
-	}
-}
-
 pub enum Msg {
 	ToggleCompact,
 	ToggleDropdown,
 	OnImageClick,
-}
-
-pub trait SocialArticleData {
-	fn id(&self) -> String;
-	fn creation_time(&self) -> Date;
-	fn text(&self) -> String;
-	fn author_username(&self) -> String;
-	fn author_name(&self) -> String;
-	fn author_avatar_url(&self) -> String;
-	fn author_url(&self) -> String;
-	fn like_count(&self) -> i64 { 0 }
-	fn repost_count(&self) -> i64 { 0 }
-	fn liked(&self) -> bool { false }
-	fn reposted(&self) -> bool { false }
-
-	fn media(&self) -> Vec<String>;
-}
-
-impl PartialEq<dyn SocialArticleData> for dyn SocialArticleData {
-	fn eq(&self, other: &dyn SocialArticleData) -> bool {
-		self.id() == other.id() &&
-			self.text() == other.text() &&
-			self.author_username() == other.author_username() &&
-			self.author_name() == other.author_name() &&
-			self.author_avatar_url() == other.author_avatar_url() &&
-			self.author_url() == other.author_url() &&
-			self.media() == other.media()
-	}
 }
 
 impl SocialArticle {
@@ -262,8 +218,4 @@ impl Component for SocialArticle {
 			</article>
 		}
 	}
-}
-
-pub fn sort_by_id(a: &Rc<dyn SocialArticleData>, b: &Rc<dyn SocialArticleData>) -> std::cmp::Ordering {
-	b.id().partial_cmp(&a.id()).unwrap()
 }

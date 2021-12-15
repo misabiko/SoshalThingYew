@@ -5,7 +5,7 @@ use wasm_bindgen::JsValue;
 
 pub mod endpoints;
 
-use crate::articles::{SocialArticleData};
+use crate::articles::{ArticleData};
 use crate::services::endpoints::{EndpointAgent, Request as EndpointRequest, EndpointId};
 use crate::error::{Result, Error};
 
@@ -28,7 +28,7 @@ pub struct TweetArticleData {
 	media: Vec<String>,
 }
 
-impl SocialArticleData for TweetArticleData {
+impl ArticleData for TweetArticleData {
 	fn id(&self) -> String {
 		self.id.clone().to_string()
 	}
@@ -68,7 +68,7 @@ impl SocialArticleData for TweetArticleData {
 	}
 }
 
-pub async fn fetch_tweets(url: &str) -> Result<Vec<Rc<dyn SocialArticleData>>> {
+pub async fn fetch_tweets(url: &str) -> Result<Vec<Rc<dyn ArticleData>>> {
 	let json_str = reqwest::Client::builder().build()?
 		.get(format!("http://localhost:8080{}", url))
 		//.query(&[("rts", false), ("replies", false)])
@@ -81,13 +81,13 @@ pub async fn fetch_tweets(url: &str) -> Result<Vec<Rc<dyn SocialArticleData>>> {
 			value
 			.as_array().unwrap()
 			.iter()
-			.map(|json| Rc::new(TweetArticleData::from(json)) as Rc<dyn SocialArticleData>)
+			.map(|json| Rc::new(TweetArticleData::from(json)) as Rc<dyn ArticleData>)
 			.collect()
 		)
 		.map_err(|err| Error::from(err))
 }
 
-pub async fn fetch_tweet(url: &str) -> Result<Rc<dyn SocialArticleData>> {
+pub async fn fetch_tweet(url: &str) -> Result<Rc<dyn ArticleData>> {
 	let json_str = reqwest::Client::builder().build()?
 		.get(format!("http://localhost:8080{}", url))
 		.send().await?
@@ -162,7 +162,7 @@ pub enum Request {
 pub enum Msg {
 	Init,
 	DefaultEndpoint(EndpointId),
-	FetchResponse(EndpointId, Result<Vec<Rc<dyn SocialArticleData>>>)
+	FetchResponse(EndpointId, Result<Vec<Rc<dyn ArticleData>>>)
 }
 
 pub enum Response {

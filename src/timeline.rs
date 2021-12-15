@@ -5,33 +5,37 @@ use wasm_bindgen::JsCast;
 use web_sys::HtmlInputElement;
 use rand::{thread_rng, seq::SliceRandom};
 
-use crate::articles::{SocialArticleData, sort_by_id};
+use crate::articles::{ArticleComponent, ArticleData, sort_by_id};
 use crate::services::endpoints::{EndpointAgent, Request as EndpointRequest, Response as EndpointResponse, TimelineEndpoints};
 use crate::containers::{Container, view_container, Props as ContainerProps};
 
 pub struct Timeline {
-	articles: Vec<Rc<dyn SocialArticleData>>,	//TODO Use rc::Weak
+	articles: Vec<Rc<dyn ArticleData>>,	//TODO Use rc::Weak
 	options_shown: bool,
 	compact: bool,
 	endpoint_agent: Box<dyn Bridge<EndpointAgent>>,
-	filters: Vec<fn(&Rc<dyn SocialArticleData>) -> bool>,
+	filters: Vec<fn(&Rc<dyn ArticleData>) -> bool>,
 	container: Container,
 	show_container_dropdown: bool,
+	show_article_component_dropdown: bool,
 	column_count: u8,
 	width: u8,
 	sorted: bool,
+	article_component: ArticleComponent,
 }
 
 pub enum Msg {
 	Refresh,
 	LoadBottom,
-	Refreshed(Vec<Rc<dyn SocialArticleData>>),
+	Refreshed(Vec<Rc<dyn ArticleData>>),
 	RefreshFail,
 	EndpointResponse(EndpointResponse),
 	ToggleOptions,
 	ToggleCompact,
 	ChangeContainer(Container),
 	ToggleContainerDropdown,
+	ChangeArticleComponent(ArticleComponent),
+	ToggleArticleComponentDropdown,
 	ChangeColumnCount(u8),
 	ChangeWidth(u8),
 	Shuffle,
@@ -41,7 +45,7 @@ pub enum Msg {
 pub struct Props {
 	pub name: String,
 	#[prop_or_default]
-	pub articles: Vec<Rc<dyn SocialArticleData>>,
+	pub articles: Vec<Rc<dyn ArticleData>>,
 	#[prop_or_default]
 	pub endpoints: Option<TimelineEndpoints>,
 	#[prop_or_default]
@@ -50,70 +54,6 @@ pub struct Props {
 	pub column_count: u8,
 	#[prop_or_default]
 	pub children: Children,
-}
-
-impl Timeline {
-	fn view_options(&self, ctx: &Context<Self>) -> Html {
-		let on_column_count_input = ctx.link().batch_callback(|e: InputEvent|
-				e.target()
-					.and_then(|t| t.dyn_into::<HtmlInputElement>().ok())
-					.and_then(|i| i.value().parse::<u8>().ok())
-					.map(|v| Msg::ChangeColumnCount(v))
-		);
-		let on_width_input = ctx.link().batch_callback(|e: InputEvent|
-			e.target()
-				.and_then(|t| t.dyn_into::<HtmlInputElement>().ok())
-				.and_then(|i| i.value().parse::<u8>().ok())
-				.map(|v| Msg::ChangeWidth(v))
-		);
-		if self.options_shown {
-			html! {
-				<div class="timelineOptions">
-					<div class="control">
-						<label class="label">{"Column Count"}</label>
-						<input type="number" value={self.column_count.clone().to_string()} min=1 oninput={on_column_count_input}/>
-					</div>
-					<div class="control">
-						<label class="label">{"Timeline Width"}</label>
-						<input type="number" value={self.width.clone().to_string()} min=1 oninput={on_width_input}/>
-					</div>
-					<div class="control">
-						<div class={classes!("dropdown", if self.show_container_dropdown { Some("is-active") } else { None })}>
-							<div class="dropdown-trigger">
-								<button class="button" onclick={ctx.link().callback(|_| Msg::ToggleContainerDropdown)}>
-									<span>{self.container.name()}</span>
-									<span class="icon is-small">
-										<i class="fas fa-angle-down"/>
-									</span>
-								</button>
-							</div>
-							<div class="dropdown-menu">
-								<div class="dropdown-content">
-									<button class="dropdown-item"
-										onclick={ctx.link().callback(|_| Msg::ChangeContainer(Container::Column))}
-									> {"Column"} </button>
-									<button class="dropdown-item"
-										onclick={ctx.link().callback(|_| Msg::ChangeContainer(Container::Row))}
-									> {"Row"} </button>
-									<button class="dropdown-item"
-										onclick={ctx.link().callback(|_| Msg::ChangeContainer(Container::Masonry))}
-									> {"Masonry"} </button>
-								</div>
-							</div>
-						</div>
-					</div>
-					<div class="control">
-						<label class="checkbox">
-							<input type="checkbox" checked={self.compact} onclick={ctx.link().callback(|_| Msg::ToggleCompact)}/>
-							{ "Compact articles" }
-						</label>
-					</div>
-				</div>
-			}
-		} else {
-			html! {}
-		}
-	}
 }
 
 impl Component for Timeline {
@@ -134,9 +74,11 @@ impl Component for Timeline {
 			filters: vec![|a| a.media().len() > 0],
 			container: if ctx.props().main_timeline { Container::Masonry } else { Container::Column },
 			show_container_dropdown: false,
+			show_article_component_dropdown: false,
 			column_count: ctx.props().column_count.clone(),
 			width: 1,
 			sorted: true,
+			article_component: ArticleComponent::Social,
 		}
 	}
 
@@ -190,6 +132,16 @@ impl Component for Timeline {
 
 			Msg::ToggleContainerDropdown => {
 				self.show_container_dropdown = !self.show_container_dropdown;
+				true
+			}
+
+			Msg::ChangeArticleComponent(c) => {
+				self.article_component = c;
+				true
+			}
+
+			Msg::ToggleArticleComponentDropdown => {
+				self.show_article_component_dropdown = !self.show_article_component_dropdown;
 				true
 			}
 
@@ -268,9 +220,96 @@ impl Component for Timeline {
 				{ view_container(&self.container, yew::props! {ContainerProps {
 					compact: self.compact,
 					column_count: self.column_count,
+					article_component: self.article_component.clone(),
 					articles
 				}}) }
 			</div>
+		}
+	}
+}
+
+impl Timeline {
+	fn view_options(&self, ctx: &Context<Self>) -> Html {
+		let on_column_count_input = ctx.link().batch_callback(|e: InputEvent|
+			e.target()
+				.and_then(|t| t.dyn_into::<HtmlInputElement>().ok())
+				.and_then(|i| i.value().parse::<u8>().ok())
+				.map(|v| Msg::ChangeColumnCount(v))
+		);
+		let on_width_input = ctx.link().batch_callback(|e: InputEvent|
+			e.target()
+				.and_then(|t| t.dyn_into::<HtmlInputElement>().ok())
+				.and_then(|i| i.value().parse::<u8>().ok())
+				.map(|v| Msg::ChangeWidth(v))
+		);
+		if self.options_shown {
+			html! {
+				<div class="timelineOptions">
+					<div class="control">
+						<label class="label">{"Column Count"}</label>
+						<input type="number" value={self.column_count.clone().to_string()} min=1 oninput={on_column_count_input}/>
+					</div>
+					<div class="control">
+						<label class="label">{"Timeline Width"}</label>
+						<input type="number" value={self.width.clone().to_string()} min=1 oninput={on_width_input}/>
+					</div>
+					<div class="control">
+						<div class={classes!("dropdown", if self.show_container_dropdown { Some("is-active") } else { None })}>
+							<div class="dropdown-trigger">
+								<button class="button" onclick={ctx.link().callback(|_| Msg::ToggleContainerDropdown)}>
+									<span>{self.container.name()}</span>
+									<span class="icon is-small">
+										<i class="fas fa-angle-down"/>
+									</span>
+								</button>
+							</div>
+							<div class="dropdown-menu">
+								<div class="dropdown-content">
+									<button class="dropdown-item"
+										onclick={ctx.link().callback(|_| Msg::ChangeContainer(Container::Column))}
+									> {"Column"} </button>
+									<button class="dropdown-item"
+										onclick={ctx.link().callback(|_| Msg::ChangeContainer(Container::Row))}
+									> {"Row"} </button>
+									<button class="dropdown-item"
+										onclick={ctx.link().callback(|_| Msg::ChangeContainer(Container::Masonry))}
+									> {"Masonry"} </button>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="control">
+						<div class={classes!("dropdown", if self.show_article_component_dropdown { Some("is-active") } else { None })}>
+							<div class="dropdown-trigger">
+								<button class="button" onclick={ctx.link().callback(|_| Msg::ToggleArticleComponentDropdown)}>
+									<span>{self.article_component.name()}</span>
+									<span class="icon is-small">
+										<i class="fas fa-angle-down"/>
+									</span>
+								</button>
+							</div>
+							<div class="dropdown-menu">
+								<div class="dropdown-content">
+									<button class="dropdown-item"
+										onclick={ctx.link().callback(|_| Msg::ChangeArticleComponent(ArticleComponent::Social))}
+									> {"Social"} </button>
+									<button class="dropdown-item"
+										onclick={ctx.link().callback(|_| Msg::ChangeArticleComponent(ArticleComponent::Gallery))}
+									> {"Gallery"} </button>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="control">
+						<label class="checkbox">
+							<input type="checkbox" checked={self.compact} onclick={ctx.link().callback(|_| Msg::ToggleCompact)}/>
+							{ "Compact articles" }
+						</label>
+					</div>
+				</div>
+			}
+		} else {
+			html! {}
 		}
 	}
 }

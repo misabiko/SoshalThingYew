@@ -2,7 +2,7 @@ use std::rc::Rc;
 use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher};
 use js_sys::Date;
 
-use crate::articles::SocialArticleData;
+use crate::articles::ArticleData;
 use crate::services::endpoints::{EndpointAgent, Endpoint, Request as EndpointRequest, EndpointId};
 
 pub struct PixivArticleData {
@@ -14,7 +14,7 @@ pub struct PixivArticleData {
 	author_avatar_url: String,
 }
 
-impl SocialArticleData for PixivArticleData {
+impl ArticleData for PixivArticleData {
 	fn id(&self) -> String {
 		self.id.clone().to_string()
 	}
@@ -79,7 +79,7 @@ impl Agent for PixivAgent {
 
 pub struct FollowEndpoint {
 	id: EndpointId,
-	articles: Vec<Rc<dyn SocialArticleData>>,
+	articles: Vec<Rc<dyn ArticleData>>,
 	endpoint_agent: Dispatcher<EndpointAgent>,
 }
 
@@ -93,7 +93,7 @@ impl FollowEndpoint {
 	}
 }
 
-fn parse_article(element: web_sys::Element) -> Option<Rc<dyn SocialArticleData>> {
+fn parse_article(element: web_sys::Element) -> Option<Rc<dyn ArticleData>> {
 	let anchors = element.get_elements_by_tag_name("a");
 	let id = match anchors.get_with_index(0) {
 		Some(a) => match a.get_attribute("data-gtm-value") {
@@ -162,7 +162,7 @@ impl Endpoint for FollowEndpoint {
 		&self.id
 	}
 
-	fn articles(&mut self) -> &mut Vec<Rc<dyn SocialArticleData>> {
+	fn articles(&mut self) -> &mut Vec<Rc<dyn ArticleData>> {
 		&mut self.articles
 	}
 

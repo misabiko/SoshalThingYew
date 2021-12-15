@@ -105,7 +105,7 @@ impl Component for Model {
 						Box::new(HomeTimelineEndpoint::new(id))
 					}))
 				);
-			} else {
+			} else if ctx.props().favviewer {
 				let callback = ctx.link().callback(|id| Msg::AddTimeline("Pixiv".to_owned(), id));
 				ctx.link().send_message(
 					Msg::AddEndpoint(Box::new(move |id| {
@@ -135,7 +135,11 @@ impl Component for Model {
 			DisplayMode::Default
 		};
 
-		let page_info = Some(Box::new(PixivPageInfo::new(ctx.link().callback(|_| Msg::ToggleFavViewer))) as Box<dyn PageInfo>);
+		//TODO Detect current page
+		let page_info = match ctx.props().favviewer {
+			true => Some(Box::new(PixivPageInfo::new(ctx.link().callback(|_| Msg::ToggleFavViewer))) as Box<dyn PageInfo>),
+			false => None
+		};
 
 		Self {
 			display_mode,
@@ -235,7 +239,7 @@ fn main() {
 					.expect("can't append mount node");
 
 				yew::start_app_with_props_in_element::<Model>(mount_point, yew::props! { Props {
-					favviewer:true,
+					favviewer: true,
 					display_mode: DisplayMode::Single {
 						column_count: 5,
 					}
@@ -258,7 +262,6 @@ fn main() {
 //TODO Quotes
 //TODO Fix container dropdown
 //TODO Choose endpoints
-//TODO Add image article
 //TODO Add timelines
 //TODO Filters
 //TODO Rate limits

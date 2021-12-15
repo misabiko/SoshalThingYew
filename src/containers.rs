@@ -1,7 +1,7 @@
 use yew::prelude::*;
 use std::rc::Rc;
 
-use crate::articles::{SocialArticle, SocialArticleData};
+use crate::articles::{view_article, ArticleData, ArticleComponent};
 
 //TODO Make containers dynamic
 pub enum Container {
@@ -39,13 +39,15 @@ pub struct Props {
 	pub compact: bool,
 	#[prop_or(1)]
 	pub column_count: u8,
-	pub articles: Vec<Rc<dyn SocialArticleData>>
+	pub article_component: ArticleComponent,
+	pub articles: Vec<Rc<dyn ArticleData>>
 }
 
 impl PartialEq for Props {
 	fn eq(&self, other: &Self) -> bool {
 		self.compact == other.compact &&
 		self.column_count == other.column_count &&
+			self.article_component == other.article_component &&
 			self.articles.len() == other.articles.len() &&
 			!self.articles.iter().zip(other.articles.iter())
 				.any(|(ai, bi)| !Rc::ptr_eq(&ai, &bi))
@@ -78,9 +80,7 @@ impl Component for ColumnContainer {
 pub fn column_container(props: &Props) -> Html {
 	html! {
 		<div class="articlesContainer columnContainer">
-			{ for props.articles.iter().map(|data| html! {
-				<SocialArticle compact={props.compact} data={data.clone()}/>
-			})}
+			{ for props.articles.iter().map(|article| view_article(&props.article_component, article.clone()))}
 		</div>
 	}
 }
@@ -88,24 +88,25 @@ pub fn column_container(props: &Props) -> Html {
 //TODO Support rtl
 #[function_component(RowContainer)]
 pub fn row_container(props: &Props) -> Html {
+	/* html! {
+		<SocialArticle
+			compact={props.compact}
+			data={data.clone()}
+			style={format!("width: {}%", 100.0 / (props.column_count as f64))}
+		/>
+	}*/
 	html! {
 		<div class="articlesContainer rowContainer">
-			{ for props.articles.iter().map(|data| html! {
-				<SocialArticle
-					compact={props.compact}
-					data={data.clone()}
-					style={format!("width: {}%", 100.0 / (props.column_count as f64))}
-				/>
-			})}
+			{ for props.articles.iter().map(|article| view_article(&props.article_component, article.clone())) }
 		</div>
 	}
 }
 
-type RatioedArticle<'a> = (&'a Rc<dyn SocialArticleData>, u32);
+type RatioedArticle<'a> = (&'a Rc<dyn ArticleData>, u32);
 type Column<'a> = (u8, Vec<RatioedArticle<'a>>);
 
 //TODO Actually estimate article's size
-fn relative_height(article: &Rc<dyn SocialArticleData>) -> u32 {
+fn relative_height(article: &Rc<dyn ArticleData>) -> u32 {
 	1 + article.media().len() as u32
 }
 
@@ -119,7 +120,7 @@ fn height(column: &Column) -> u32 {
 	}
 }
 
-fn to_columns<'a>(articles: impl Iterator<Item = &'a Rc<dyn SocialArticleData>>, column_count: &'a u8) -> impl Iterator<Item = impl Iterator<Item = &'a Rc<dyn SocialArticleData>>> {
+fn to_columns<'a>(articles: impl Iterator<Item = &'a Rc<dyn ArticleData>>, column_count: &'a u8) -> impl Iterator<Item = impl Iterator<Item = &'a Rc<dyn ArticleData>>> {
 	let ratioed_articles = articles.map(|a| (a, relative_height(&a)));
 
 	let mut columns = ratioed_articles.fold(
@@ -151,12 +152,7 @@ pub fn masonry_container(props: &Props) -> Html {
 		<div class="articlesContainer masonryContainer">
 			{ for columns.enumerate().map(|(column_index, column)| html! {
 				<div class="masonryColumn" key={column_index}>
-					{ for column.map(|data| html! {
-						<SocialArticle
-							compact={props.compact}
-							data={data.clone()}
-						/>
-					})}
+					{ for column.map(|article| view_article(&props.article_component, article.clone()))}
 				</div>
 			})}
 		</div>

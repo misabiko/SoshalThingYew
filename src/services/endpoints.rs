@@ -3,16 +3,16 @@ use std::collections::HashMap;
 use yew_agent::{Agent, AgentLink, Context, HandlerId};
 
 use crate::error::{Result, Error};
-use crate::articles::SocialArticleData;
+use crate::articles::ArticleData;
 
 pub trait Endpoint {
 	fn name(&self) -> String;
 
 	fn id(&self) -> &EndpointId;
 
-	fn articles(&mut self) -> &mut Vec<Rc<dyn SocialArticleData>>;
+	fn articles(&mut self) -> &mut Vec<Rc<dyn ArticleData>>;
 
-	fn add_articles(&mut self, articles: Vec<Rc<dyn SocialArticleData>>)  {
+	fn add_articles(&mut self, articles: Vec<Rc<dyn ArticleData>>)  {
 		for a in articles {
 			if !self.articles().iter().any(|existing| existing.id() == a.id()) {
 				self.articles().push(a);
@@ -50,7 +50,7 @@ pub struct EndpointAgent {
 }
 
 pub enum Msg {
-	Refreshed(EndpointId, Vec<Rc<dyn SocialArticleData>>),
+	Refreshed(EndpointId, Vec<Rc<dyn ArticleData>>),
 	RefreshFail(Error),
 }
 
@@ -59,12 +59,12 @@ pub enum Request {
 	LoadBottom,
 	InitTimeline(TimelineEndpoints),
 	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
-	FetchResponse(EndpointId, Result<Vec<Rc<dyn SocialArticleData>>>),
-	AddArticles(EndpointId, Vec<Rc<dyn SocialArticleData>>),
+	FetchResponse(EndpointId, Result<Vec<Rc<dyn ArticleData>>>),
+	AddArticles(EndpointId, Vec<Rc<dyn ArticleData>>),
 }
 
 pub enum Response {
-	NewArticles(Vec<Rc<dyn SocialArticleData>>),
+	NewArticles(Vec<Rc<dyn ArticleData>>),
 }
 
 impl Agent for EndpointAgent {
