@@ -11,15 +11,6 @@ pub enum Msg {
 	OnImageClick,
 }
 
-impl GalleryArticle {
-	fn is_compact(&self, ctx: &Context<Self>) -> bool {
-		match self.compact {
-			Some(compact) => compact,
-			None => ctx.props().compact,
-		}
-	}
-}
-
 impl Component for GalleryArticle {
 	type Message = Msg;
 	type Properties = Props;

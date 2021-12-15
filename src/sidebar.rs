@@ -8,9 +8,14 @@ pub enum Msg {
 	ToggleExpanded,
 }
 
+#[derive(Properties, PartialEq, Clone)]
+pub struct Props {
+	pub add_timeline_callback: Callback<MouseEvent>,
+}
+
 impl Component for Sidebar {
 	type Message = Msg;
-	type Properties = ();
+	type Properties = Props;
 
 	fn create(_ctx: &Context<Self>) -> Self {
 		Self { expanded: false}
@@ -44,7 +49,7 @@ impl Component for Sidebar {
 								<i class="fas fa-angle-double-right fa-2x"/>
 							</span>
 						</button>
-						<button title="Add new timeline">
+						<button onclick={ctx.props().add_timeline_callback.clone()} title="Add new timeline">
 							<span class="icon">
 								<i class="fas fa-plus fa-2x"/>
 							</span>

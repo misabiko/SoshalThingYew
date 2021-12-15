@@ -8,6 +8,7 @@ pub mod articles;
 pub mod services;
 mod sidebar;
 mod favviewer;
+mod add_timeline;
 
 use crate::sidebar::Sidebar;
 use crate::timeline::{Props as TimelineProps, Timeline};
@@ -17,6 +18,7 @@ use crate::services::{
 	pixiv::{PixivAgent, FollowEndpoint},
 };
 use crate::favviewer::{PageInfo, pixiv::PixivPageInfo};
+use crate::add_timeline::AddTimelineModal;
 
 #[derive(PartialEq, Clone)]
 enum DisplayMode {
@@ -41,12 +43,15 @@ struct Model {
 	#[allow(dead_code)]
 	pixiv: Dispatcher<PixivAgent>,
 	page_info: Option<Box<dyn PageInfo>>,
+	show_add_timeline: bool,
 }
 
 enum Msg {
 	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
 	AddTimeline(String, EndpointId),
 	ToggleFavViewer,
+	SetAddTimelineModal(bool),
+	AddTimelineProps(TimelineProps),
 }
 
 #[derive(Properties, PartialEq, Default)]
@@ -148,6 +153,7 @@ impl Component for Model {
 			twitter: TwitterAgent::dispatcher(),
 			pixiv: PixivAgent::dispatcher(),
 			page_info,
+			show_add_timeline: false,
 		}
 	}
 
@@ -168,6 +174,12 @@ impl Component for Model {
 				}});
 				true
 			}
+			Msg::AddTimelineProps(props) => {
+				self.timelines.push(props);
+				self.show_add_timeline = false;
+
+				true
+			}
 			Msg::ToggleFavViewer => {
 				if let Some(page_info) = &mut self.page_info {
 					page_info.toggle_hidden();
@@ -176,6 +188,10 @@ impl Component for Model {
 					false
 				}
 			}
+			Msg::SetAddTimelineModal(value) => {
+				self.show_add_timeline = value;
+				true
+			},
 		}
 	}
 
@@ -183,13 +199,22 @@ impl Component for Model {
 		html! {
 			<>
 				{
+					match self.show_add_timeline {
+						true => html! {<AddTimelineModal
+							add_timeline_callback={ctx.link().callback(|props| Msg::AddTimelineProps(props))}
+							close_modal_callback={ctx.link().callback(|_| Msg::SetAddTimelineModal(false))}
+						/>},
+						false => html! {},
+					}
+				}
+				{
 					self.page_info
 						.as_ref()
 						.map(Box::as_ref)
 						.map(PageInfo::view)
 						.unwrap_or_default()
 				}
-				{ if ctx.props().favviewer { html! {} } else { html! {<Sidebar/>} }}
+				{ if ctx.props().favviewer { html! {} } else { html! {<Sidebar add_timeline_callback={ctx.link().callback(|_| Msg::SetAddTimelineModal(true))}/>} }}
 				<div id="timelineContainer">
 					{
 						match self.display_mode {
@@ -253,6 +278,7 @@ fn main() {
 	};
 }
 
+//TODO Choose endpoints
 //TODO Sort
 //TODO Save timeline data
 //TODO Save fetched articles
@@ -261,8 +287,6 @@ fn main() {
 //TODO Retweets
 //TODO Quotes
 //TODO Fix container dropdown
-//TODO Choose endpoints
-//TODO Add timelines
 //TODO Filters
 //TODO Rate limits
 //TODO Youtube articles
