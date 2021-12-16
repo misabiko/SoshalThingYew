@@ -163,7 +163,7 @@ impl Store for EndpointStore {
 				}
 			}
 			Action::RefreshFail(err) => {
-				log::error!("Failed to fetch \"/proxy/art\"\n{:?}", err);
+				log::error!("Failed to fetch:\n{:?}", err);
 			}
 			Action::AddEndpoint(endpoint) => {
 				self.endpoints.insert(self.endpoint_counter, endpoint(self.endpoint_counter));
