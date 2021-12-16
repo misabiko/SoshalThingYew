@@ -210,18 +210,22 @@ impl ChooseEndpoints {
 								let service_name = service.0.clone();
 								let service_name_2 = service.0.clone();
 								html! {
-								<button class="dropdown-item"
-									onclick={ctx.link().callback(move |_| Msg::SetFormService(service_name.clone()))}
-								> {service_name_2.clone()} </button>
+									<div class="dropdown-item">
+										<button
+											onclick={ctx.link().callback(move |_| Msg::SetFormService(service_name.clone()))}
+										> {service_name_2.clone()} </button>
+									</div>
 							}}) }
 						</Dropdown>
 						<label class="label">{ "Type" }</label>
 						<Dropdown current_label={DropdownLabel::Text(services[&form.service].index(form.endpoint_type.clone()).name.clone().to_string())}>
 							{ for services[&form.service].iter().enumerate().map(|(i, endpoint_con)| {
 								html! {
-								<button class="dropdown-item"
-									onclick={ctx.link().callback(move |_| Msg::SetFormType(i))}
-								> {endpoint_con.name.clone()} </button>
+									<div class="dropdown-item">
+										<button
+											onclick={ctx.link().callback(move |_| Msg::SetFormType(i))}
+										> {endpoint_con.name.clone()} </button>
+									</div>
 							}}) }
 						</Dropdown>
 						{ for services[&form.service].index(form.endpoint_type.clone()).param_template.iter().map(|param| {
@@ -262,9 +266,10 @@ impl ChooseEndpoints {
 						let id_c = id.clone();
 						let refresh_time_c = refresh_time.clone();
 						html! {
-						<button class="dropdown-item"
-							onclick={ctx.link().callback(move |_| Msg::AddTimelineEndpoint(refresh_time_c.clone(), id_c.clone()))}
-						> {view.name.clone()} </button>
+							<div class="dropdown-item">
+								<button onclick={ctx.link().callback(move |_| Msg::AddTimelineEndpoint(refresh_time_c.clone(), id_c.clone()))}
+								> {view.name.clone()} </button>
+							</div>
 					}}) }
 				</Dropdown>
 			}

@@ -280,25 +280,15 @@ impl Timeline {
 					</div>
 					<div class="control">
 						<Dropdown current_label={DropdownLabel::Text(self.container.name().to_string())}>
-							<button class="dropdown-item"
-								onclick={ctx.link().callback(|_| Msg::ChangeContainer(Container::Column))}
-							> {"Column"} </button>
-							<button class="dropdown-item"
-								onclick={ctx.link().callback(|_| Msg::ChangeContainer(Container::Row))}
-							> {"Row"} </button>
-							<button class="dropdown-item"
-								onclick={ctx.link().callback(|_| Msg::ChangeContainer(Container::Masonry))}
-							> {"Masonry"} </button>
+							<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeContainer(Container::Column))}> {"Column"} </a>
+							<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeContainer(Container::Row))}> {"Row"} </a>
+							<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeContainer(Container::Masonry))}> {"Masonry"} </a>
 						</Dropdown>
 					</div>
 					<div class="control">
 						<Dropdown current_label={DropdownLabel::Text(self.article_component.name().to_string())}>
-							<button class="dropdown-item"
-								onclick={ctx.link().callback(|_| Msg::ChangeArticleComponent(ArticleComponent::Social))}
-							> {"Social"} </button>
-							<button class="dropdown-item"
-								onclick={ctx.link().callback(|_| Msg::ChangeArticleComponent(ArticleComponent::Gallery))}
-							> {"Gallery"} </button>
+							<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeArticleComponent(ArticleComponent::Social))}> {"Social"} </a>
+							<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeArticleComponent(ArticleComponent::Gallery))}> {"Gallery"} </a>
 						</Dropdown>
 					</div>
 					<div class="control">

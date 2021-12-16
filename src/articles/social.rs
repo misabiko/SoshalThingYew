@@ -127,7 +127,7 @@ impl SocialArticle {
 							}
 						}
 					}
-					<Dropdown current_label={DropdownLabel::Icon("fas fa-ellipsis-h".to_owned())}>
+					<Dropdown current_label={DropdownLabel::Icon("fas fa-ellipsis-h".to_owned())} label_classes={classes!("articleButton")}>
 						<div class="dropdown-item"> {"Mark as red"} </div>
 						<div class="dropdown-item"> {"Hide"} </div>
 						<div class="dropdown-item" onclick={&ontoggle_compact}> { if self.is_compact(ctx) { "Show expanded" } else { "Show compact" } } </div>

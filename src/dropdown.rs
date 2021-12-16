@@ -17,6 +17,8 @@ pub enum DropdownLabel {
 #[derive(Properties, Clone, PartialEq)]
 pub struct Props {
 	pub current_label: DropdownLabel,
+	#[prop_or_default]
+	pub label_classes: Option<Classes>,
 	pub children: Children,
 }
 
@@ -43,7 +45,7 @@ impl Component for Dropdown {
 		html! {
 			<div class={classes!("dropdown", if self.expanded { Some("is-active") } else { None })}>
 				<div class="dropdown-trigger">
-					<button class="button" onclick={ctx.link().callback(|_| Msg::ToggleExpanded)}>
+					<button class={classes!("button", ctx.props().label_classes.clone())} onclick={ctx.link().callback(|_| Msg::ToggleExpanded)}>
 						{ match &ctx.props().current_label {
 							DropdownLabel::Text(text) => html! {
 								<>
@@ -63,9 +65,7 @@ impl Component for Dropdown {
 				</div>
 				<div class="dropdown-menu">
 					<div class="dropdown-content">
-						<div class="timelineButtons">
-							{ for ctx.props().children.iter() }
-						</div>
+						{ for ctx.props().children.iter() }
 					</div>
 				</div>
 			</div>
