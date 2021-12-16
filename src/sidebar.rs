@@ -59,7 +59,15 @@ impl Component for Sidebar {
 							</span>
 						</button>
 					</div>
-					<div/>
+					<div title="Github">
+						<a href="https://github.com/misabiko/SoshalThingYew">
+							<button>
+								<span class="icon">
+									<i class="fab fa-github fa-2x"/>
+								</span>
+							</button>
+						</a>
+					</div>
 				</div>
 			</nav>
 		}
