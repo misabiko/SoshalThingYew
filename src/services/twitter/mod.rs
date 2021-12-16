@@ -1,5 +1,5 @@
 use std::{rc::Rc, collections::HashSet};
-use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher, Bridge};
+use yew_agent::{Agent, AgentLink, Context, HandlerId, Bridge};
 use yew_agent::utils::store::{StoreWrapper, ReadOnly, Bridgeable};
 use js_sys::Date;
 use wasm_bindgen::JsValue;
@@ -7,8 +7,9 @@ use wasm_bindgen::JsValue;
 pub mod endpoints;
 
 use crate::articles::{ArticleData};
-use crate::services::endpoints::{EndpointStore, StoreRequest as EndpointRequest, EndpointId};
+use crate::services::endpoints::{EndpointStore, StoreRequest as EndpointRequest, EndpointId, EndpointConstructor};
 use crate::error::{Result, Error};
+use crate::services::twitter::endpoints::{UserTimelineEndpoint, HomeTimelineEndpoint, ListEndpoint, SingleTweetEndpoint};
 
 #[derive(Clone, PartialEq)]
 pub struct TwitterUser {
@@ -175,10 +176,32 @@ impl Agent for TwitterAgent {
 	type Output = Response;
 
 	fn create(link: AgentLink<Self>) -> Self {
-		log::debug!("Creating TwitterAgent");
+		let mut endpoint_store = EndpointStore::bridge(link.callback(Msg::EndpointStoreResponse));
+		endpoint_store.send(EndpointRequest::InitService("Twitter".to_owned(), vec![
+			EndpointConstructor {
+				name: "User Timeline",
+				param_template: vec!["username"],
+				callback: Rc::new(|id, _params| Box::new(UserTimelineEndpoint::new(id, "misabiko_".to_owned()))),
+			},
+			EndpointConstructor {
+				name: "Home Timeline",
+				param_template: vec![],
+				callback: Rc::new(|id, _params| Box::new(HomeTimelineEndpoint::new(id))),
+			},
+			EndpointConstructor {
+				name: "List",
+				param_template: vec!["username", "slug"],
+				callback: Rc::new(|id, _params| Box::new(ListEndpoint::new(id, "misabiko".to_owned(), "art".to_owned()))),
+			},
+			EndpointConstructor {
+				name: "Single Tweet",
+				param_template: vec!["id"],
+				callback: Rc::new(|id, _params| Box::new(SingleTweetEndpoint::new(id, 1471333597189931014))),
+			},
+		]));
 
 		Self {
-			endpoint_store: EndpointStore::bridge(link.callback(Msg::EndpointStoreResponse)),
+			endpoint_store,
 			link,
 			subscribers: HashSet::new(),
 		}

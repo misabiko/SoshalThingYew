@@ -8,6 +8,7 @@ pub mod containers;
 pub mod articles;
 pub mod services;
 pub mod modals;
+pub mod dropdown;
 mod sidebar;
 mod favviewer;
 
@@ -281,7 +282,12 @@ fn main() {
 	};
 }
 
-//TODO Choose endpoints
+//TODO Use dropdown everywhere
+//TODO Use endpoint params
+//TODO Remove endpoints
+//TODO Choose endpoint inside add timeline modal
+//TODO Have dropdown element collapse it
+//TODO Fix handler without callback thing
 //TODO Prompt on not logged in
 //TODO Sort
 //TODO Save timeline data

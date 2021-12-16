@@ -62,8 +62,13 @@ impl Agent for PixivAgent {
 	type Output = ();
 
 	fn create(link: AgentLink<Self>) -> Self {
+		let mut endpoint_store = EndpointStore::bridge(link.callback(Msg::EndpointStoreResponse));
+		endpoint_store.send(EndpointRequest::InitService("Pixiv".to_owned(), vec![
+
+		]));
+
 		Self {
-			endpoint_store: EndpointStore::bridge(link.callback(Msg::EndpointStoreResponse)),
+			endpoint_store,
 		}
 	}
 

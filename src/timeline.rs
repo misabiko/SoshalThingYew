@@ -1,10 +1,11 @@
 use std::rc::Rc;
 use yew::prelude::*;
-use yew_agent::{Bridge, Bridged};
+use yew_agent::Bridge;
 use yew_agent::utils::store::{StoreWrapper, ReadOnly, Bridgeable};
 use wasm_bindgen::JsCast;
 use web_sys::HtmlInputElement;
 use rand::{thread_rng, seq::SliceRandom};
+use std::cell::RefCell;
 
 use crate::articles::{ArticleComponent, ArticleData, sort_by_id};
 use crate::services::endpoints::{EndpointStore, TimelineEndpoints, StoreRequest as EndpointRequest};
@@ -12,7 +13,7 @@ use crate::containers::{Container, view_container, Props as ContainerProps};
 use crate::modals::ChooseEndpointModal;
 
 pub struct Timeline {
-	endpoints: Rc<TimelineEndpoints>,
+	endpoints: Rc<RefCell<TimelineEndpoints>>,
 	articles: Vec<Rc<dyn ArticleData>>,	//TODO Use rc::Weak
 	options_shown: bool,
 	compact: bool,
@@ -68,11 +69,11 @@ impl Component for Timeline {
 
 	fn create(ctx: &Context<Self>) -> Self {
 		let endpoints = match ctx.props().endpoints.clone() {
-			Some(endpoints) => Rc::new(endpoints),
-			None => Rc::new(TimelineEndpoints {
+			Some(endpoints) => Rc::new(RefCell::new(endpoints)),
+			None => Rc::new(RefCell::new(TimelineEndpoints {
 				start: Vec::new(),
 				refresh: Vec::new(),
-			})
+			}))
 		};
 
 		let mut endpoint_store = EndpointStore::bridge(ctx.link().callback(Msg::EndpointStoreResponse));
@@ -92,24 +93,18 @@ impl Component for Timeline {
 			width: 1,
 			sorted: true,
 			article_component: ArticleComponent::Social,
-			show_choose_endpoint: true,
+			show_choose_endpoint: false,
 		}
 	}
 
-	fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
+	fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
 		match msg {
 			Msg::Refresh => {
-				self.endpoint_store.send(EndpointRequest::Refresh(
-					Rc::downgrade(&self.endpoints),
-					ctx.link().callback(Msg::NewArticles)
-				));
+				self.endpoint_store.send(EndpointRequest::Refresh(Rc::downgrade(&self.endpoints)));
 				false
 			}
 			Msg::LoadBottom => {
-				self.endpoint_store.send(EndpointRequest::LoadBottom(
-					Rc::downgrade(&self.endpoints),
-					ctx.link().callback(Msg::NewArticles)
-				));
+				self.endpoint_store.send(EndpointRequest::LoadBottom(Rc::downgrade(&self.endpoints)));
 				false
 			}
 			Msg::Refreshed(articles) => {

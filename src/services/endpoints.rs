@@ -1,8 +1,9 @@
 use std::rc::{Rc, Weak};
 use std::collections::HashMap;
 use yew::prelude::*;
-use yew_agent::{Agent, AgentLink, Context, HandlerId};
+use yew_agent::AgentLink;
 use yew_agent::utils::store::{Store, StoreWrapper};
+use std::cell::RefCell;
 
 use crate::error::{Result, Error};
 use crate::articles::ArticleData;
@@ -51,30 +52,40 @@ pub enum RefreshTime {
 }
 
 pub enum StoreRequest {
-	InitTimeline(Rc<TimelineEndpoints>, Callback<Vec<Rc<dyn ArticleData>>>),
-	Refresh(Weak<TimelineEndpoints>, Callback<Vec<Rc<dyn ArticleData>>>),
-	LoadBottom(Weak<TimelineEndpoints>, Callback<Vec<Rc<dyn ArticleData>>>),
+	InitTimeline(Rc<RefCell<TimelineEndpoints>>, Callback<Vec<Rc<dyn ArticleData>>>),
+	Refresh(Weak<RefCell<TimelineEndpoints>>),
+	LoadBottom(Weak<RefCell<TimelineEndpoints>>),
 	FetchResponse(EndpointId, Result<Vec<Rc<dyn ArticleData>>>),
 	AddArticles(EndpointId, Vec<Rc<dyn ArticleData>>),
 	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
+	InitService(String, Vec<EndpointConstructor>),
 }
 
 pub enum Action {
-	InitTimeline(Rc<TimelineEndpoints>, Callback<Vec<Rc<dyn ArticleData>>>),
+	InitTimeline(Rc<RefCell<TimelineEndpoints>>, Callback<Vec<Rc<dyn ArticleData>>>),
 	Refresh(Vec<EndpointId>),
 	LoadBottom(Vec<EndpointId>),
 	Refreshed(EndpointId, Vec<Rc<dyn ArticleData>>),
 	RefreshFail(Error),
 	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
+	InitService(String, Vec<EndpointConstructor>),
 }
 
 type TimelineId = i32;
+
+#[derive(Clone)]
+pub struct EndpointConstructor {
+	pub name: &'static str,
+	pub param_template: Vec<&'static str>,
+	pub callback: Rc<dyn Fn(EndpointId, serde_json::Value) -> Box<dyn Endpoint>>
+}
 
 pub struct EndpointStore {
 	endpoint_counter: EndpointId,
 	pub endpoints: HashMap<EndpointId, Box<dyn Endpoint>>,
 	timeline_counter: TimelineId,
-	pub timelines: HashMap<TimelineId, (Weak<TimelineEndpoints>, Callback<Vec<Rc<dyn ArticleData>>>)>,
+	pub timelines: HashMap<TimelineId, (Weak<RefCell<TimelineEndpoints>>, Callback<Vec<Rc<dyn ArticleData>>>)>,
+	pub services: HashMap<String, Vec<EndpointConstructor>>,
 }
 
 impl Store for EndpointStore {
@@ -87,19 +98,20 @@ impl Store for EndpointStore {
 			endpoints: HashMap::new(),
 			timeline_counter: i32::MIN,
 			timelines: HashMap::new(),
+			services: HashMap::new(),
 		}
 	}
 
 	fn handle_input(&self, link: AgentLink<StoreWrapper<Self>>, msg: Self::Input) {
 		match msg {
 			StoreRequest::InitTimeline(endpoints, callback) => link.send_message(Action::InitTimeline(endpoints, callback)),
-			StoreRequest::Refresh(endpoints_weak, callback) => {
+			StoreRequest::Refresh(endpoints_weak) => {
 				let endpoints = endpoints_weak.upgrade().unwrap();
-				link.send_message(Action::Refresh(endpoints.refresh.clone()));
+				link.send_message(Action::Refresh(endpoints.borrow().refresh.clone()));
 			}
-			StoreRequest::LoadBottom(endpoints_weak, callback) => {
+			StoreRequest::LoadBottom(endpoints_weak) => {
 				let endpoints = endpoints_weak.upgrade().unwrap();
-				link.send_message(Action::LoadBottom(endpoints.refresh.clone()));
+				link.send_message(Action::LoadBottom(endpoints.borrow().refresh.clone()));
 			}
 			StoreRequest::FetchResponse(id, response) => {
 				match response {
@@ -111,6 +123,8 @@ impl Store for EndpointStore {
 				link.send_message(Action::Refreshed(id, articles)),
 			StoreRequest::AddEndpoint(endpoint) =>
 				link.send_message(Action::AddEndpoint(endpoint)),
+			StoreRequest::InitService(name, endpoint_types) =>
+				link.send_message(Action::InitService(name, endpoint_types)),
 		}
 	}
 
@@ -120,7 +134,7 @@ impl Store for EndpointStore {
 				self.timelines.insert(self.timeline_counter.clone(), (Rc::downgrade(&endpoints), callback));
 				self.timeline_counter += 1;
 
-				for endpoint_id in &endpoints.start {
+				for endpoint_id in &endpoints.borrow().start {
 					log::debug!("Refreshing {}", &self.endpoints[&endpoint_id].name());
 					self.endpoints.get_mut(&endpoint_id).unwrap().refresh();
 				}
@@ -139,11 +153,11 @@ impl Store for EndpointStore {
 				log::debug!("{} articles for {}", &articles.len(), self.endpoints[&endpoint_id].name());
 				self.endpoints.get_mut(&endpoint_id).unwrap().add_articles(articles.clone());
 
-				for (timeline_id, timeline) in &self.timelines {
+				for (_timeline_id, timeline) in &self.timelines {
 					//TODO Add RefreshTime enum
 					let timeline_strong = timeline.0.upgrade().unwrap();
-					if timeline_strong.refresh.iter().any(|e| e == &endpoint_id) ||
-						timeline_strong.start.iter().any(|e| e == &endpoint_id) {
+					if timeline_strong.borrow_mut().refresh.iter().any(|e| e == &endpoint_id) ||
+						timeline_strong.borrow_mut().start.iter().any(|e| e == &endpoint_id) {
 						timeline.1.emit(articles.clone());
 					}
 				}
@@ -154,6 +168,9 @@ impl Store for EndpointStore {
 			Action::AddEndpoint(endpoint) => {
 				self.endpoints.insert(self.endpoint_counter, endpoint(self.endpoint_counter));
 				self.endpoint_counter += 1;
+			}
+			Action::InitService(name, endpoint_types) => {
+				self.services.insert(name, endpoint_types);
 			}
 		}
 	}
