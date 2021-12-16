@@ -10,7 +10,8 @@ use std::cell::RefCell;
 use crate::articles::{ArticleComponent, ArticleData, sort_by_id};
 use crate::services::endpoints::{EndpointStore, TimelineEndpoints, StoreRequest as EndpointRequest};
 use crate::containers::{Container, view_container, Props as ContainerProps};
-use crate::modals::ChooseTimelineEndpointModal;
+use crate::modals::Modal;
+use crate::choose_endpoints::ChooseEndpoints;
 
 pub struct Timeline {
 	endpoints: Rc<RefCell<TimelineEndpoints>>,
@@ -191,10 +192,13 @@ impl Component for Timeline {
 			<div class={classes!("timeline", if ctx.props().main_timeline { Some("mainTimeline") } else { None })} {style}>
 				{
 					match self.show_choose_endpoint {
-						true => html! {<ChooseTimelineEndpointModal
-							timeline_endpoints={Rc::downgrade(&self.endpoints)}
-							close_modal_callback={ctx.link().callback(|_| Msg::SetChooseEndpointModal(false))}
-						/>},
+						true => html! {
+							<Modal modal_title="Choose Endpoints" close_modal_callback={ctx.link().callback(|_| Msg::SetChooseEndpointModal(false))}>
+								<ChooseEndpoints
+									timeline_endpoints={Rc::downgrade(&self.endpoints)}
+								/>
+							</Modal>
+						},
 						false => html! {},
 					}
 				}
