@@ -10,6 +10,7 @@ use crate::services::endpoints::{EndpointAgent, Request as EndpointRequest, Resp
 use crate::containers::{Container, view_container, Props as ContainerProps};
 
 pub struct Timeline {
+	endpoints: Rc<TimelineEndpoints>,
 	articles: Vec<Rc<dyn ArticleData>>,	//TODO Use rc::Weak
 	options_shown: bool,
 	compact: bool,
@@ -61,12 +62,16 @@ impl Component for Timeline {
 	type Properties = Props;
 
 	fn create(ctx: &Context<Self>) -> Self {
+		let endpoints = match ctx.props().endpoints.clone() {
+			Some(endpoints) => Rc::new(endpoints),
+			None => Rc::new(TimelineEndpoints {start: Vec::new(), refresh: Vec::new()})
+		};
+
 		let mut endpoint_agent = EndpointAgent::bridge(ctx.link().callback(Msg::EndpointResponse));
-		if let Some(endpoints) = ctx.props().endpoints.clone() {
-			endpoint_agent.send(EndpointRequest::InitTimeline(endpoints));
-		}
+		endpoint_agent.send(EndpointRequest::InitTimeline(endpoints.clone()));
 
 		Self {
+			endpoints,
 			articles: ctx.props().articles.clone(),
 			options_shown: false,
 			compact: false,

@@ -1,5 +1,6 @@
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
+
 use crate::timeline::{Props as TimelineProps};
 use crate::services::endpoints::TimelineEndpoints;
 

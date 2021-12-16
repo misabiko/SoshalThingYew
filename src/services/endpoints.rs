@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use std::collections::HashMap;
 use yew_agent::{Agent, AgentLink, Context, HandlerId};
 
@@ -46,7 +46,7 @@ pub struct EndpointAgent {
 	link: AgentLink<Self>,
 	endpoint_keys: EndpointId,
 	endpoints: HashMap<EndpointId, Box<dyn Endpoint>>,
-	timelines: HashMap<HandlerId, TimelineEndpoints>,
+	timelines: HashMap<HandlerId, Weak<TimelineEndpoints>>,
 }
 
 pub enum Msg {
@@ -57,7 +57,7 @@ pub enum Msg {
 pub enum Request {
 	Refresh,
 	LoadBottom,
-	InitTimeline(TimelineEndpoints),
+	InitTimeline(Rc<TimelineEndpoints>),
 	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
 	FetchResponse(EndpointId, Result<Vec<Rc<dyn ArticleData>>>),
 	AddArticles(EndpointId, Vec<Rc<dyn ArticleData>>),
@@ -84,16 +84,20 @@ impl Agent for EndpointAgent {
 
 	fn update(&mut self, msg: Self::Message) {
 		match msg {
-			Msg::Refreshed(endpoint, articles) => {
-				log::debug!("{} articles for {}", &articles.len(), self.endpoints[&endpoint].name());
-				self.endpoints.get_mut(&endpoint).unwrap().add_articles(articles.clone());
+			Msg::Refreshed(endpoint_id, articles) => {
+				log::debug!("{} articles for {}", &articles.len(), self.endpoints[&endpoint_id].name());
+				self.endpoints.get_mut(&endpoint_id).unwrap().add_articles(articles.clone());
 
-				for (timeline_id, timeline) in &self.timelines {
-					 if timeline.refresh
-						.iter().any(|e| e == &endpoint) || timeline.start
-						 .iter().any(|e| e == &endpoint) {
-						 self.link.respond(*timeline_id, Response::NewArticles(articles.clone()));
-					 }
+				for (timeline_id, timeline_weak) in &self.timelines {
+					match timeline_weak.upgrade() {
+						Some(strong) => {
+							if strong.refresh.iter().any(|e| e == &endpoint_id) ||
+								strong.start.iter().any(|e| e == &endpoint_id) {
+								self.link.respond(*timeline_id, Response::NewArticles(articles.clone()));
+							}
+						}
+						None => log::warn!("Couldn't upgrade timeline endpoints for {:?}", &timeline_id)
+					};
 				}
 			}
 			Msg::RefreshFail(err) => {
@@ -109,11 +113,11 @@ impl Agent for EndpointAgent {
 	fn handle_input(&mut self, msg: Self::Input, id: HandlerId) {
 		match msg {
 			Request::InitTimeline(endpoints) => {
-				self.timelines.insert(id, endpoints);
+				self.timelines.insert(id, Rc::downgrade(&endpoints));
 
-				for endpoint in &self.timelines[&id].start {
-					log::debug!("Refreshing {}", &self.endpoints[&endpoint].name());
-					self.endpoints.get_mut(&endpoint).unwrap().refresh();
+				for endpoint_id in &endpoints.start {
+					log::debug!("Refreshing {}", &self.endpoints[&endpoint_id].name());
+					self.endpoints.get_mut(&endpoint_id).unwrap().refresh();
 				}
 			}
 			Request::AddEndpoint(endpoint) => {
@@ -121,10 +125,10 @@ impl Agent for EndpointAgent {
 				self.endpoint_keys += 1;
 			}
 			Request::Refresh => {
-				match self.timelines.get(&id) {
+				match self.timelines.get(&id).and_then(Weak::upgrade) {
 					Some(timeline) => {
-						for endpoint_key in &timeline.refresh {
-							self.endpoints.get_mut(&endpoint_key).unwrap().refresh();
+						for endpoint_id in &timeline.refresh {
+							self.endpoints.get_mut(&endpoint_id).unwrap().refresh();
 						}
 					}
 					None => {
@@ -133,10 +137,10 @@ impl Agent for EndpointAgent {
 				}
 			}
 			Request::LoadBottom => {
-				match self.timelines.get(&id) {
+				match self.timelines.get(&id).and_then(Weak::upgrade) {
 					Some(timeline) => {
-						for endpoint_key in &timeline.refresh {
-							self.endpoints.get_mut(&endpoint_key).unwrap().load_bottom();
+						for endpoint_id in &timeline.refresh {
+							self.endpoints.get_mut(&endpoint_id).unwrap().load_bottom();
 						}
 					}
 					None => {

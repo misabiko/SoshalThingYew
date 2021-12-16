@@ -42,9 +42,7 @@ impl ArticleData for PixivArticleData {
 	}
 }
 
-pub struct PixivAgent {
-	//endpoint_agent: Dispatcher<EndpointAgent>,
-}
+pub struct PixivAgent;
 
 pub enum Msg {
 	Init,
@@ -56,23 +54,11 @@ impl Agent for PixivAgent {
 	type Input = ();
 	type Output = ();
 
-	fn create(link: AgentLink<Self>) -> Self {
-		link.send_message(Msg::Init);
-
-		Self {
-			//endpoint_agent: EndpointAgent::dispatcher(),
-		}
+	fn create(_link: AgentLink<Self>) -> Self {
+		Self {}
 	}
 
-	fn update(&mut self, msg: Self::Message) {
-		match msg {
-			Msg::Init => {
-				EndpointAgent::dispatcher().send(EndpointRequest::AddEndpoint(Box::new(|id|
-					Box::new(FollowEndpoint::new(id))
-				)));
-			}
-		}
-	}
+	fn update(&mut self, _msg: Self::Message) {}
 
 	fn handle_input(&mut self, _msg: Self::Input, _id: HandlerId) {}
 }

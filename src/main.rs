@@ -6,19 +6,19 @@ pub mod timeline;
 pub mod containers;
 pub mod articles;
 pub mod services;
+mod modals;
 mod sidebar;
 mod favviewer;
-mod add_timeline;
 
 use crate::sidebar::Sidebar;
 use crate::timeline::{Props as TimelineProps, Timeline};
 use crate::services::{
-	endpoints::{EndpointAgent, EndpointId, TimelineEndpoints, Endpoint, Request as EndpointRequest},
-	twitter::{TwitterAgent, endpoints::{UserTimelineEndpoint, HomeTimelineEndpoint, SingleTweetEndpoint}},
-	pixiv::{PixivAgent, FollowEndpoint},
+	endpoints::{Endpoint, EndpointAgent, EndpointId, Request as EndpointRequest, TimelineEndpoints},
+	pixiv::{FollowEndpoint, PixivAgent},
+	twitter::{endpoints::{HomeTimelineEndpoint, SingleTweetEndpoint, UserTimelineEndpoint}, TwitterAgent},
 };
 use crate::favviewer::{PageInfo, pixiv::PixivPageInfo};
-use crate::add_timeline::AddTimelineModal;
+use crate::modals::add_timeline::AddTimelineModal;
 
 #[derive(PartialEq, Clone)]
 enum DisplayMode {
@@ -279,6 +279,7 @@ fn main() {
 }
 
 //TODO Choose endpoints
+//TODO Prompt on not logged in
 //TODO Sort
 //TODO Save timeline data
 //TODO Save fetched articles

@@ -49,8 +49,8 @@ impl PartialEq for Props {
 		self.column_count == other.column_count &&
 			self.article_component == other.article_component &&
 			self.articles.len() == other.articles.len() &&
-			!self.articles.iter().zip(other.articles.iter())
-				.any(|(ai, bi)| !Rc::ptr_eq(&ai, &bi))
+			self.articles.iter().zip(other.articles.iter())
+				.all(|(ai, bi)| Rc::ptr_eq(&ai, &bi))
 	}
 }
 

@@ -37,8 +37,12 @@ impl Component for Sidebar {
 				{if self.expanded { html! {
 					<div class="sidebarMenu">
 						<div class="box">
-							{"Twitter"}
-							<a class="button" href="/proxy/twitter/login">{"Login"}</a>
+							<div class="block">
+								{"Twitter"}
+							</div>
+							<div class="block">
+								<a class="button" href="/proxy/twitter/login">{"Login"}</a>
+							</div>
 						</div>
 					</div>
 				}} else { html!{} }}
