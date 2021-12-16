@@ -21,6 +21,11 @@ impl UserTimelineEndpoint {
 			agent: TwitterAgent::dispatcher(),
 		}
 	}
+
+	pub fn from_json(id: EndpointId, value: serde_json::Value) -> Self {
+		log::info!("{:?}", &value);
+		Self::new(id, value["username"].as_str().unwrap().to_owned())
+	}
 }
 
 impl Endpoint for UserTimelineEndpoint {
@@ -124,6 +129,14 @@ impl ListEndpoint {
 			agent: TwitterAgent::dispatcher(),
 		}
 	}
+
+	pub fn from_json(id: EndpointId, value: serde_json::Value) -> Self {
+		Self::new(
+			id,
+			value["username"].as_str().unwrap().to_owned(),
+			value["slug"].as_str().unwrap().to_owned(),
+		)
+	}
 }
 
 impl Endpoint for ListEndpoint {
@@ -176,6 +189,13 @@ impl SingleTweetEndpoint {
 			articles: Vec::new(),
 			agent: TwitterAgent::dispatcher(),
 		}
+	}
+
+	pub fn from_json(id: EndpointId, value: serde_json::Value) -> Self {
+		Self::new(
+			id,
+			value["id"].as_u64().unwrap(),
+		)
 	}
 }
 

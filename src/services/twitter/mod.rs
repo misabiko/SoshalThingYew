@@ -181,7 +181,7 @@ impl Agent for TwitterAgent {
 			EndpointConstructor {
 				name: "User Timeline",
 				param_template: vec!["username"],
-				callback: Rc::new(|id, _params| Box::new(UserTimelineEndpoint::new(id, "misabiko_".to_owned()))),
+				callback: Rc::new(|id, params| Box::new(UserTimelineEndpoint::from_json(id, params))),
 			},
 			EndpointConstructor {
 				name: "Home Timeline",
@@ -191,12 +191,12 @@ impl Agent for TwitterAgent {
 			EndpointConstructor {
 				name: "List",
 				param_template: vec!["username", "slug"],
-				callback: Rc::new(|id, _params| Box::new(ListEndpoint::new(id, "misabiko".to_owned(), "art".to_owned()))),
+				callback: Rc::new(|id, params| Box::new(ListEndpoint::from_json(id, params))),
 			},
 			EndpointConstructor {
 				name: "Single Tweet",
 				param_template: vec!["id"],
-				callback: Rc::new(|id, _params| Box::new(SingleTweetEndpoint::new(id, 1471333597189931014))),
+				callback: Rc::new(|id, params| Box::new(SingleTweetEndpoint::from_json(id, params))),
 			},
 		]));
 

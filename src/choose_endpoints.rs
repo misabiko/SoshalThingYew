@@ -5,6 +5,9 @@ use std::rc::Weak;
 use std::collections::HashMap;
 use std::ops::Index;
 use std::cell::RefCell;
+use serde_json::json;
+use wasm_bindgen::JsCast;
+use web_sys::HtmlInputElement;
 
 use crate::services::endpoints::{StoreRequest as EndpointRequest, EndpointStore, TimelineEndpoints, EndpointId, RefreshTime, EndpointConstructor};
 use crate::dropdown::Dropdown;
@@ -36,6 +39,7 @@ pub enum Msg {
 	NewEndpoint(RefreshTime),
 	SetFormService(String),
 	SetFormType(usize),
+	SetFormParamValue(String, String),
 	CreateEndpoint,
 	AddTimelineEndpoint(RefreshTime, EndpointId),
 	RemoveTimelineEndpoint(RefreshTime, EndpointId),
@@ -127,6 +131,18 @@ impl Component for ChooseEndpoints {
 					false
 				}
 			}
+			Msg::SetFormParamValue(param, value) => {
+				if let Some(form) = &mut self.endpoint_form {
+					if form.params[&param] != value {
+						form.params[&param] = json!(value);
+						true
+					}else {
+						false
+					}
+				}else {
+					false
+				}
+			}
 			Msg::CreateEndpoint => {
 				let mut created = false;
 				if let Some(form) = &mut self.endpoint_form {
@@ -208,13 +224,21 @@ impl ChooseEndpoints {
 								> {endpoint_con.name.clone()} </button>
 							}}) }
 						</Dropdown>
-						{ for services[&form.service].index(form.endpoint_type.clone()).param_template.iter().map(|param| html! {
-							<div class="field">
-								<label class="label">{param.clone()}</label>
-								<div class="control">
-									<input type="text" class="input"/>
+						{ for services[&form.service].index(form.endpoint_type.clone()).param_template.iter().map(|param| {
+							let param_c = param.to_string();
+							let oninput = ctx.link().batch_callback(move |e: InputEvent|
+								e.target()
+									.and_then(|t| t.dyn_into::<HtmlInputElement>().ok())
+									.map(|i| Msg::SetFormParamValue(param_c.clone(), i.value()))
+							);
+							html! {
+								<div class="field">
+									<label class="label">{param.clone()}</label>
+									<div class="control">
+										<input type="text" class="input" {oninput}/>
+									</div>
 								</div>
-							</div>
+							}
 						})}
 						<button class="button" onclick={ctx.link().callback(|_| Msg::CreateEndpoint)}>{"Create"}</button>
 					</div>
