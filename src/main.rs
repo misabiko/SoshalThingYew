@@ -234,11 +234,18 @@ impl Component for Model {
 							DisplayMode::Single {column_count} => if let Some(props) = self.timelines.first() {
 								html! {
 									<Timeline main_timeline=true {column_count} ..props.clone()>
-										<button title="Toggle FavViewer" onclick={ctx.link().callback(|_| Msg::ToggleFavViewer)}>
-											<span class="icon">
-												<i class="fas fa-eye-slash fa-lg"/>
-											</span>
-										</button>
+										{
+											match ctx.props().favviewer {
+												true => html! {
+													<button title="Toggle FavViewer" onclick={ctx.link().callback(|_| Msg::ToggleFavViewer)}>
+														<span class="icon">
+															<i class="fas fa-eye-slash fa-lg"/>
+														</span>
+													</button>
+												},
+												false => html! {}
+											}
+										}
 									</Timeline>
 								}
 							}else {

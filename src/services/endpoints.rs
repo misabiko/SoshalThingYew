@@ -89,8 +89,8 @@ pub struct EndpointStore {
 }
 
 impl Store for EndpointStore {
-	type Action = Action;
 	type Input = StoreRequest;
+	type Action = Action;
 
 	fn new() -> Self {
 		Self {
