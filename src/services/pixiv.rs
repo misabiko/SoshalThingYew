@@ -4,7 +4,7 @@ use yew_agent::utils::store::{StoreWrapper, ReadOnly, Bridgeable};
 use js_sys::Date;
 
 use crate::articles::ArticleData;
-use crate::services::endpoints::{EndpointStore, Endpoint, StoreRequest as EndpointRequest, EndpointId};
+use crate::services::endpoints::{EndpointStore, Endpoint, StoreRequest as EndpointRequest, EndpointId, RefreshTime};
 
 pub struct PixivArticleData {
 	id: u32,
@@ -52,7 +52,7 @@ pub enum Msg {
 }
 
 pub enum Request {
-	AddArticles(EndpointId, Vec<Rc<dyn ArticleData>>),
+	AddArticles(RefreshTime, EndpointId, Vec<Rc<dyn ArticleData>>),
 }
 
 impl Agent for PixivAgent {
@@ -80,8 +80,8 @@ impl Agent for PixivAgent {
 
 	fn handle_input(&mut self, msg: Self::Input, _id: HandlerId) {
 		match msg {
-			Request::AddArticles(endpoint_id, articles) =>
-				self.endpoint_store.send(EndpointRequest::AddArticles(endpoint_id, articles)),
+			Request::AddArticles(refresh_time, endpoint_id, articles) =>
+				self.endpoint_store.send(EndpointRequest::AddArticles(refresh_time, endpoint_id, articles)),
 		};
 	}
 }
@@ -175,7 +175,7 @@ impl Endpoint for FollowEndpoint {
 		&mut self.articles
 	}
 
-	fn refresh(&mut self) {
+	fn refresh(&mut self, refresh_time: RefreshTime) {
 		let mut articles = Vec::new();
 		let posts_selector = gloo_utils::document()
 			.query_selector(".sc-9y4be5-1.jtUPOE");
@@ -189,6 +189,6 @@ impl Endpoint for FollowEndpoint {
 		}
 
 		let id = self.id().clone();
-		self.agent.send(Request::AddArticles(id, articles));
+		self.agent.send(Request::AddArticles(refresh_time, id, articles));
 	}
 }

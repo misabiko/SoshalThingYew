@@ -7,7 +7,7 @@ use wasm_bindgen::JsValue;
 pub mod endpoints;
 
 use crate::articles::{ArticleData};
-use crate::services::endpoints::{EndpointStore, StoreRequest as EndpointRequest, EndpointId, EndpointConstructor};
+use crate::services::endpoints::{EndpointStore, StoreRequest as EndpointRequest, EndpointId, EndpointConstructor, RefreshTime};
 use crate::error::{Result, Error};
 use crate::services::twitter::endpoints::{UserTimelineEndpoint, HomeTimelineEndpoint, ListEndpoint, SingleTweetEndpoint};
 
@@ -155,13 +155,13 @@ pub struct TwitterAgent {
 }
 
 pub enum Request {
-	FetchTweets(EndpointId, String),
-	FetchTweet(EndpointId, String),
+	FetchTweets(RefreshTime, EndpointId, String),
+	FetchTweet(RefreshTime, EndpointId, String),
 }
 
 pub enum Msg {
 	DefaultEndpoint(EndpointId),
-	FetchResponse(EndpointId, Result<Vec<Rc<dyn ArticleData>>>),
+	FetchResponse(RefreshTime, EndpointId, Result<Vec<Rc<dyn ArticleData>>>),
 	EndpointStoreResponse(ReadOnly<EndpointStore>),
 }
 
@@ -222,21 +222,21 @@ impl Agent for TwitterAgent {
 					self.link.respond(*sub, Response::DefaultEndpoint(e));
 				}
 			}
-			Msg::FetchResponse(id, r) =>
-				self.endpoint_store.send(EndpointRequest::FetchResponse(id, r)),
+			Msg::FetchResponse(refresh_time, id, r) =>
+				self.endpoint_store.send(EndpointRequest::FetchResponse(refresh_time, id, r)),
 			Msg::EndpointStoreResponse(_) => {}
 		};
 	}
 
 	fn handle_input(&mut self, msg: Self::Input, _id: HandlerId) {
 		match msg {
-			Request::FetchTweets(id, path) =>
+			Request::FetchTweets(refresh_time, id, path) =>
 				self.link.send_future(async move {
-					Msg::FetchResponse(id, fetch_tweets(&path).await)
+					Msg::FetchResponse(refresh_time, id, fetch_tweets(&path).await)
 				}),
-			Request::FetchTweet(id, path) =>
+			Request::FetchTweet(refresh_time, id, path) =>
 				self.link.send_future(async move {
-					Msg::FetchResponse(id, fetch_tweet(&path).await.map(|a| vec![a]))
+					Msg::FetchResponse(refresh_time, id, fetch_tweet(&path).await.map(|a| vec![a]))
 				})
 		}
 	}

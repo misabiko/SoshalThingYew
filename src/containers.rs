@@ -54,27 +54,6 @@ impl PartialEq for Props {
 	}
 }
 
-/*struct ColumnContainer;
-
-impl Component for ColumnContainer {
-	type Message = ();
-	type Properties = Props;
-
-	fn create(_ctx: &Context<Self>) -> Self {
-		Self {}
-	}
-
-	fn view(&self, ctx: &Context<Self>) -> Html {
-		html! {
-			<div class="articlesContainer columnContainer">
-				{ for ctx.props().articles.iter().map(|data| html! {
-					<SocialArticle compact={ctx.props().compact} data={data.clone()}/>
-				})}
-			</div>
-		}
-	}
-}*/
-
 
 #[function_component(ColumnContainer)]
 pub fn column_container(props: &Props) -> Html {
@@ -86,6 +65,7 @@ pub fn column_container(props: &Props) -> Html {
 }
 
 //TODO Support rtl
+//TODO Support compact and style
 #[function_component(RowContainer)]
 pub fn row_container(props: &Props) -> Html {
 	/* html! {

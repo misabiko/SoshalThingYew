@@ -3,7 +3,7 @@ use yew_agent::{Dispatched, Dispatcher};
 
 use crate::articles::{ArticleData};
 use crate::services::twitter::{TwitterAgent, Request as TwitterRequest};
-use crate::services::endpoints::{Endpoint, EndpointId};
+use crate::services::endpoints::{Endpoint, EndpointId, RefreshTime};
 
 pub struct UserTimelineEndpoint {
 	id: EndpointId,
@@ -23,7 +23,6 @@ impl UserTimelineEndpoint {
 	}
 
 	pub fn from_json(id: EndpointId, value: serde_json::Value) -> Self {
-		log::info!("{:?}", &value);
 		Self::new(id, value["username"].as_str().unwrap().to_owned())
 	}
 }
@@ -41,24 +40,26 @@ impl Endpoint for UserTimelineEndpoint {
 		&mut self.articles
 	}
 
-	fn refresh(&mut self) {
+	fn refresh(&mut self, refresh_time: RefreshTime) {
 		let id = self.id().clone();
 		self.agent.send(TwitterRequest::FetchTweets(
+			refresh_time,
 			id,
 			format!("/proxy/twitter/user/{}?count=20", &self.username)
 		))
 	}
 
-	fn load_bottom(&mut self) {
+	fn load_bottom(&mut self, refresh_time: RefreshTime) {
 		match self.articles.last() {
 			Some(last_id) => {
 				let id = self.id().clone();
 				self.agent.send(TwitterRequest::FetchTweets(
+					refresh_time,
 					id,
 					format!("/proxy/twitter/user/{}?max_id={}", &self.username, &last_id.id())
 				))
 			}
-			None => self.refresh()
+			None => self.refresh(refresh_time)
 		}
 	}
 }
@@ -92,21 +93,22 @@ impl Endpoint for HomeTimelineEndpoint {
 		&mut self.articles
 	}
 
-	fn refresh(&mut self) {
+	fn refresh(&mut self, refresh_time: RefreshTime) {
 		let id = self.id().clone();
-		self.agent.send(TwitterRequest::FetchTweets(id, "/proxy/twitter/home?count=20".to_owned()))
+		self.agent.send(TwitterRequest::FetchTweets(refresh_time, id, "/proxy/twitter/home?count=20".to_owned()))
 	}
 
-	fn load_bottom(&mut self) {
+	fn load_bottom(&mut self, refresh_time: RefreshTime) {
 		match self.articles.last() {
 			Some(last_id) => {
 				let id = self.id().clone();
 				self.agent.send(TwitterRequest::FetchTweets(
+					refresh_time,
 					id,
 					format!("/proxy/twitter/home?max_id={}", &last_id.id())
 				))
 			}
-			None => self.refresh()
+			None => self.refresh(refresh_time)
 		}
 	}
 }
@@ -152,24 +154,26 @@ impl Endpoint for ListEndpoint {
 		&mut self.articles
 	}
 
-	fn refresh(&mut self) {
+	fn refresh(&mut self, refresh_time: RefreshTime) {
 		let id = self.id().clone();
 		self.agent.send(TwitterRequest::FetchTweets(
+			refresh_time,
 			id,
 			format!("/proxy/twitter/list/{}/{}", &self.username, &self.slug)
 		))
 	}
 
-	fn load_bottom(&mut self) {
+	fn load_bottom(&mut self, refresh_time: RefreshTime) {
 		match self.articles.last() {
 			Some(last_id) => {
 				let id = self.id().clone();
 				self.agent.send(TwitterRequest::FetchTweets(
+					refresh_time,
 					id,
 					format!("/proxy/twitter/list/{}/{}?max_id={}", &self.username, &self.slug, &last_id.id())
 				))
 			}
-			None => self.refresh()
+			None => self.refresh(refresh_time)
 		}
 	}
 }
@@ -212,9 +216,10 @@ impl Endpoint for SingleTweetEndpoint {
 		&mut self.articles
 	}
 
-	fn refresh(&mut self) {
+	fn refresh(&mut self, refresh_time: RefreshTime) {
 		let id = self.id().clone();
 		self.agent.send(TwitterRequest::FetchTweet(
+			refresh_time,
 			id,
 			format!("/proxy/twitter/status/{}", &self.tweet_id)
 		))

@@ -24,16 +24,16 @@ pub trait Endpoint {
 		self.articles().sort_by(|a, b| b.id().partial_cmp(&a.id()).unwrap())
 	}
 
-	fn refresh(&mut self);
+	fn refresh(&mut self, refresh_time: RefreshTime);
 
-	fn load_top(&mut self) {
+	fn load_top(&mut self, refresh_time: RefreshTime) {
 		log::debug!("{} doesn't implement load_top()", self.name());
-		self.refresh()
+		self.refresh(refresh_time)
 	}
 
-	fn load_bottom(&mut self) {
+	fn load_bottom(&mut self, refresh_time: RefreshTime) {
 		log::debug!("{} doesn't implement load_bottom()", self.name());
-		self.refresh()
+		self.refresh(refresh_time)
 	}
 }
 
@@ -55,8 +55,8 @@ pub enum StoreRequest {
 	InitTimeline(Rc<RefCell<TimelineEndpoints>>, Callback<Vec<Rc<dyn ArticleData>>>),
 	Refresh(Weak<RefCell<TimelineEndpoints>>),
 	LoadBottom(Weak<RefCell<TimelineEndpoints>>),
-	FetchResponse(EndpointId, Result<Vec<Rc<dyn ArticleData>>>),
-	AddArticles(EndpointId, Vec<Rc<dyn ArticleData>>),
+	FetchResponse(RefreshTime, EndpointId, Result<Vec<Rc<dyn ArticleData>>>),
+	AddArticles(RefreshTime, EndpointId, Vec<Rc<dyn ArticleData>>),
 	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
 	InitService(String, Vec<EndpointConstructor>),
 }
@@ -65,7 +65,7 @@ pub enum Action {
 	InitTimeline(Rc<RefCell<TimelineEndpoints>>, Callback<Vec<Rc<dyn ArticleData>>>),
 	Refresh(HashSet<EndpointId>),
 	LoadBottom(HashSet<EndpointId>),
-	Refreshed(EndpointId, Vec<Rc<dyn ArticleData>>),
+	Refreshed(RefreshTime, EndpointId, Vec<Rc<dyn ArticleData>>),
 	RefreshFail(Error),
 	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
 	InitService(String, Vec<EndpointConstructor>),
@@ -113,14 +113,14 @@ impl Store for EndpointStore {
 				let endpoints = endpoints_weak.upgrade().unwrap();
 				link.send_message(Action::LoadBottom(endpoints.borrow().refresh.clone()));
 			}
-			StoreRequest::FetchResponse(id, response) => {
+			StoreRequest::FetchResponse(refresh_time, id, response) => {
 				match response {
-					Ok(vec_tweets) => link.send_message(Action::Refreshed(id, vec_tweets)),
+					Ok(vec_tweets) => link.send_message(Action::Refreshed(refresh_time, id, vec_tweets)),
 					Err(err) => link.send_message(Action::RefreshFail(err))
 				};
 			}
-			StoreRequest::AddArticles(id, articles) =>
-				link.send_message(Action::Refreshed(id, articles)),
+			StoreRequest::AddArticles(refresh_time, id, articles) =>
+				link.send_message(Action::Refreshed(refresh_time, id, articles)),
 			StoreRequest::AddEndpoint(endpoint) =>
 				link.send_message(Action::AddEndpoint(endpoint)),
 			StoreRequest::InitService(name, endpoint_types) =>
@@ -136,28 +136,32 @@ impl Store for EndpointStore {
 
 				for endpoint_id in &endpoints.borrow().start {
 					log::debug!("Refreshing {}", &self.endpoints[&endpoint_id].name());
-					self.endpoints.get_mut(&endpoint_id).unwrap().refresh();
+					self.endpoints.get_mut(&endpoint_id).unwrap().refresh(RefreshTime::Start);
 				}
 			}
 			Action::Refresh(endpoints) => {
 				for endpoint_id in endpoints {
-					self.endpoints.get_mut(&endpoint_id).unwrap().refresh();
+					self.endpoints.get_mut(&endpoint_id).unwrap().refresh(RefreshTime::OnRefresh);
 				}
 			}
 			Action::LoadBottom(endpoints) => {
 				for endpoint_id in endpoints {
-					self.endpoints.get_mut(&endpoint_id).unwrap().load_bottom();
+					self.endpoints.get_mut(&endpoint_id).unwrap().load_bottom(RefreshTime::OnRefresh);
 				}
 			}
-			Action::Refreshed(endpoint_id, articles) => {
+			Action::Refreshed(refresh_time, endpoint_id, articles) => {
 				log::debug!("{} articles for {}", &articles.len(), self.endpoints[&endpoint_id].name());
 				self.endpoints.get_mut(&endpoint_id).unwrap().add_articles(articles.clone());
 
 				for (_timeline_id, timeline) in &self.timelines {
-					//TODO Add RefreshTime enum
 					let timeline_strong = timeline.0.upgrade().unwrap();
-					if timeline_strong.borrow_mut().refresh.iter().any(|e| e == &endpoint_id) ||
-						timeline_strong.borrow_mut().start.iter().any(|e| e == &endpoint_id) {
+					let borrow = timeline_strong.borrow();
+					let endpoints = match &refresh_time {
+						RefreshTime::OnRefresh => &borrow.refresh,
+						RefreshTime::Start => &borrow.start,
+					};
+
+					if endpoints.iter().any(|e| e == &endpoint_id) {
 						timeline.1.emit(articles.clone());
 					}
 				}
