@@ -39,7 +39,7 @@ pub trait Endpoint {
 
 pub type EndpointId = i32;
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Default)]
 pub struct TimelineEndpoints {
 	pub start: Vec<EndpointId>,
 	pub refresh: Vec<EndpointId>,

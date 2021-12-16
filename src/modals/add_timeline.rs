@@ -1,11 +1,15 @@
-use web_sys::HtmlInputElement;
 use yew::prelude::*;
+use web_sys::HtmlInputElement;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 use crate::timeline::{Props as TimelineProps};
 use crate::services::endpoints::TimelineEndpoints;
+use crate::choose_endpoints::ChooseEndpoints;
 
 pub struct AddTimelineModal {
 	title_ref: NodeRef,
+	endpoints: Rc<RefCell<TimelineEndpoints>>,
 }
 
 pub enum Msg {
@@ -25,6 +29,7 @@ impl Component for AddTimelineModal {
 	fn create(_ctx: &Context<Self>) -> Self {
 		Self {
 			title_ref: NodeRef::default(),
+			endpoints: Rc::new(RefCell::new(TimelineEndpoints::default()))
 		}
 	}
 
@@ -37,11 +42,10 @@ impl Component for AddTimelineModal {
 				};
 				ctx.props().add_timeline_callback.emit(yew::props! { TimelineProps {
 					name,
-					endpoints: TimelineEndpoints {
-						start: Vec::new(),
-						refresh: Vec::new(),
-					}
-				}})
+					endpoints: self.endpoints.borrow().clone(),
+				}});
+
+				self.endpoints.replace(TimelineEndpoints::default());
 			}
 		};
 
@@ -69,6 +73,7 @@ impl Component for AddTimelineModal {
 									<input type="text" class="input" ref={self.title_ref.clone()} value="Timeline"/>
 								</div>
 							</div>
+							<ChooseEndpoints timeline_endpoints={Rc::downgrade(&self.endpoints)}/>
 						</div>
 						<footer class="card-footer">
 							<button

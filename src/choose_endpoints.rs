@@ -20,7 +20,7 @@ struct EndpointForm {
 	params: serde_json::Value,
 }
 
-pub struct ChooseEndpointModal {
+pub struct ChooseEndpoints {
 	endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
 	show_start_endpoint_dropdown: bool,
 	show_refresh_endpoint_dropdown: bool,
@@ -43,17 +43,15 @@ pub enum Msg {
 #[derive(Properties, Clone)]
 pub struct Props {
 	pub timeline_endpoints: Weak<RefCell<TimelineEndpoints>>,
-	pub close_modal_callback: Callback<MouseEvent>,
 }
 
 impl PartialEq for Props {
 	fn eq(&self, other: &Self) -> bool {
-		self.timeline_endpoints.ptr_eq(&other.timeline_endpoints) &&
-			self.close_modal_callback == other.close_modal_callback
+		self.timeline_endpoints.ptr_eq(&other.timeline_endpoints)
 	}
 }
 
-impl Component for ChooseEndpointModal {
+impl Component for ChooseEndpoints {
 	type Message = Msg;
 	type Properties = Props;
 
@@ -129,6 +127,7 @@ impl Component for ChooseEndpointModal {
 				}
 			}
 			Msg::CreateEndpoint => {
+				let mut created = false;
 				if let Some(form) = &mut self.endpoint_form {
 					let constructor = self.services[&form.service].index(form.endpoint_type.clone()).clone();
 					let refresh_time_c = form.refresh_time.clone();
@@ -138,10 +137,12 @@ impl Component for ChooseEndpointModal {
 						callback.emit(id);
 						(constructor.callback)(id, params.clone())
 					})));
-					true
-				}else {
-					false
+
+					created = true;
 				}
+
+				self.endpoint_form = None;
+				created
 			}
 			Msg::UpdateTimeline(refresh_time, id) => {
 				let timeline_endpoints = ctx.props().timeline_endpoints.upgrade().unwrap();
@@ -156,30 +157,15 @@ impl Component for ChooseEndpointModal {
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
 		html! {
-			<div class="modal is-active">
-				<div class="modal-background"/>
-				<div class="modal-content">
-					<div class="card">
-						<header class="card-header">
-							<p class="card-header-title">{"Choose Endpoint"}</p>
-							<button class="card-header-icon" onclick={ctx.props().close_modal_callback.clone()}>
-								<span class="icon">
-									<i class="fas fa-times"/>
-								</span>
-							</button>
-						</header>
-						<div class="card-content">
-							{ self.view_refresh_time_endpoints(ctx, RefreshTime::Start) }
-							{ self.view_refresh_time_endpoints(ctx, RefreshTime::OnRefresh) }
-						</div>
-					</div>
-				</div>
-			</div>
+			<>
+				{ self.view_refresh_time_endpoints(ctx, RefreshTime::Start) }
+				{ self.view_refresh_time_endpoints(ctx, RefreshTime::OnRefresh) }
+			</>
 		}
 	}
 }
 
-impl ChooseEndpointModal {
+impl ChooseEndpoints {
 	fn view_refresh_time_endpoints(&self, ctx: &Context<Self>, refresh_time: RefreshTime) -> Html {
 		let strong_endpoints = ctx.props().timeline_endpoints.upgrade().unwrap();
 		let endpoints_borrowed = strong_endpoints.borrow();

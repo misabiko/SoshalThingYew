@@ -1,6 +1,6 @@
 use yew::prelude::*;
-use yew_agent::{Dispatched, Dispatcher, Bridge};
-use yew_agent::utils::store::{StoreWrapper, ReadOnly, Bridgeable};
+use yew_agent::{Bridge, Dispatched, Dispatcher};
+use yew_agent::utils::store::{Bridgeable, ReadOnly, StoreWrapper};
 
 pub mod error;
 pub mod timeline;
@@ -11,11 +11,12 @@ pub mod modals;
 pub mod dropdown;
 mod sidebar;
 mod favviewer;
+pub mod choose_endpoints;
 
 use crate::sidebar::Sidebar;
 use crate::timeline::{Props as TimelineProps, Timeline};
 use crate::services::{
-	endpoints::{Endpoint, EndpointStore, EndpointId, StoreRequest as EndpointRequest, TimelineEndpoints},
+	endpoints::{Endpoint, EndpointId, EndpointStore, StoreRequest as EndpointRequest, TimelineEndpoints},
 	pixiv::{FollowEndpoint, PixivAgent},
 	twitter::{endpoints::{HomeTimelineEndpoint, SingleTweetEndpoint, UserTimelineEndpoint}, TwitterAgent},
 };
@@ -285,7 +286,6 @@ fn main() {
 //TODO Use dropdown everywhere
 //TODO Use endpoint params
 //TODO Remove endpoints
-//TODO Choose endpoint inside add timeline modal
 //TODO Have dropdown element collapse it
 //TODO Fix handler without callback thing
 //TODO Prompt on not logged in
