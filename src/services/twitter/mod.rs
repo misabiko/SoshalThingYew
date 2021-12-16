@@ -148,10 +148,17 @@ pub struct RateLimit {
 	pub reset: i32,
 }
 
+//TODO Receive TwitterUser
+pub enum AuthMode {
+	NotLoggedIn,
+	LoggedIn(TwitterUser)
+}
+
 pub struct TwitterAgent {
 	link: AgentLink<Self>,
 	endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
 	subscribers: HashSet<HandlerId>,
+	auth_mode: AuthMode,
 }
 
 pub enum Request {
@@ -204,15 +211,8 @@ impl Agent for TwitterAgent {
 			endpoint_store,
 			link,
 			subscribers: HashSet::new(),
+			auth_mode: AuthMode::NotLoggedIn,
 		}
-	}
-
-	fn connected(&mut self, id: HandlerId) {
-		self.subscribers.insert(id);
-	}
-
-	fn disconnected(&mut self, id: HandlerId) {
-		self.subscribers.remove(&id);
 	}
 
 	fn update(&mut self, msg: Self::Message) {
@@ -228,6 +228,10 @@ impl Agent for TwitterAgent {
 		};
 	}
 
+	fn connected(&mut self, id: HandlerId) {
+		self.subscribers.insert(id);
+	}
+
 	fn handle_input(&mut self, msg: Self::Input, _id: HandlerId) {
 		match msg {
 			Request::FetchTweets(refresh_time, id, path) =>
@@ -239,5 +243,9 @@ impl Agent for TwitterAgent {
 					Msg::FetchResponse(refresh_time, id, fetch_tweet(&path).await.map(|a| vec![a]))
 				})
 		}
+	}
+
+	fn disconnected(&mut self, id: HandlerId) {
+		self.subscribers.remove(&id);
 	}
 }

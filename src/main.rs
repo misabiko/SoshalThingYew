@@ -300,7 +300,6 @@ fn main() {
 	};
 }
 
-//TODO Prompt on not logged in
 //TODO Sort
 //TODO Save timeline data
 //TODO Save fetched articles
@@ -312,6 +311,7 @@ fn main() {
 //TODO Rate limits
 //TODO Youtube articles
 //TODO Social expanded view
+//TODO Prompt on not logged in
 //TODO Avoid refreshing endpoint every watch update
 //TODO HTTPS
 
