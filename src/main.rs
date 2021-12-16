@@ -286,7 +286,6 @@ fn main() {
 	};
 }
 
-//TODO Use dropdown everywhere
 //TODO Have dropdown element collapse it
 //TODO Fix handler without callback thing
 //TODO Prompt on not logged in

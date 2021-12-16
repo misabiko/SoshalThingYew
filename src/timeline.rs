@@ -12,6 +12,7 @@ use crate::services::endpoints::{EndpointStore, TimelineEndpoints, StoreRequest 
 use crate::containers::{Container, view_container, Props as ContainerProps};
 use crate::modals::Modal;
 use crate::choose_endpoints::ChooseEndpoints;
+use crate::dropdown::{Dropdown, DropdownLabel};
 
 pub struct Timeline {
 	endpoints: Rc<RefCell<TimelineEndpoints>>,
@@ -278,51 +279,27 @@ impl Timeline {
 						<input type="number" value={self.width.clone().to_string()} min=1 oninput={on_width_input}/>
 					</div>
 					<div class="control">
-						<div class={classes!("dropdown", if self.show_container_dropdown { Some("is-active") } else { None })}>
-							<div class="dropdown-trigger">
-								<button class="button" onclick={ctx.link().callback(|_| Msg::ToggleContainerDropdown)}>
-									<span>{self.container.name()}</span>
-									<span class="icon is-small">
-										<i class="fas fa-angle-down"/>
-									</span>
-								</button>
-							</div>
-							<div class="dropdown-menu">
-								<div class="dropdown-content">
-									<button class="dropdown-item"
-										onclick={ctx.link().callback(|_| Msg::ChangeContainer(Container::Column))}
-									> {"Column"} </button>
-									<button class="dropdown-item"
-										onclick={ctx.link().callback(|_| Msg::ChangeContainer(Container::Row))}
-									> {"Row"} </button>
-									<button class="dropdown-item"
-										onclick={ctx.link().callback(|_| Msg::ChangeContainer(Container::Masonry))}
-									> {"Masonry"} </button>
-								</div>
-							</div>
-						</div>
+						<Dropdown current_label={DropdownLabel::Text(self.container.name().to_string())}>
+							<button class="dropdown-item"
+								onclick={ctx.link().callback(|_| Msg::ChangeContainer(Container::Column))}
+							> {"Column"} </button>
+							<button class="dropdown-item"
+								onclick={ctx.link().callback(|_| Msg::ChangeContainer(Container::Row))}
+							> {"Row"} </button>
+							<button class="dropdown-item"
+								onclick={ctx.link().callback(|_| Msg::ChangeContainer(Container::Masonry))}
+							> {"Masonry"} </button>
+						</Dropdown>
 					</div>
 					<div class="control">
-						<div class={classes!("dropdown", if self.show_article_component_dropdown { Some("is-active") } else { None })}>
-							<div class="dropdown-trigger">
-								<button class="button" onclick={ctx.link().callback(|_| Msg::ToggleArticleComponentDropdown)}>
-									<span>{self.article_component.name()}</span>
-									<span class="icon is-small">
-										<i class="fas fa-angle-down"/>
-									</span>
-								</button>
-							</div>
-							<div class="dropdown-menu">
-								<div class="dropdown-content">
-									<button class="dropdown-item"
-										onclick={ctx.link().callback(|_| Msg::ChangeArticleComponent(ArticleComponent::Social))}
-									> {"Social"} </button>
-									<button class="dropdown-item"
-										onclick={ctx.link().callback(|_| Msg::ChangeArticleComponent(ArticleComponent::Gallery))}
-									> {"Gallery"} </button>
-								</div>
-							</div>
-						</div>
+						<Dropdown current_label={DropdownLabel::Text(self.article_component.name().to_string())}>
+							<button class="dropdown-item"
+								onclick={ctx.link().callback(|_| Msg::ChangeArticleComponent(ArticleComponent::Social))}
+							> {"Social"} </button>
+							<button class="dropdown-item"
+								onclick={ctx.link().callback(|_| Msg::ChangeArticleComponent(ArticleComponent::Gallery))}
+							> {"Gallery"} </button>
+						</Dropdown>
 					</div>
 					<div class="control">
 						<label class="checkbox">

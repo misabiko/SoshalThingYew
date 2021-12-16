@@ -10,7 +10,7 @@ use wasm_bindgen::JsCast;
 use web_sys::HtmlInputElement;
 
 use crate::services::endpoints::{StoreRequest as EndpointRequest, EndpointStore, TimelineEndpoints, EndpointId, RefreshTime, EndpointConstructor};
-use crate::dropdown::Dropdown;
+use crate::dropdown::{Dropdown, DropdownLabel};
 
 struct EndpointView {
 	name: String
@@ -205,7 +205,7 @@ impl ChooseEndpoints {
 				html! {
 					<div class="control">
 						<label class="label">{ "Service" }</label>
-						<Dropdown current_label={form.service.clone()}>
+						<Dropdown current_label={DropdownLabel::Text(form.service.clone())}>
 							{ for services.iter().map(|service| {
 								let service_name = service.0.clone();
 								let service_name_2 = service.0.clone();
@@ -216,7 +216,7 @@ impl ChooseEndpoints {
 							}}) }
 						</Dropdown>
 						<label class="label">{ "Type" }</label>
-						<Dropdown current_label={services[&form.service].index(form.endpoint_type.clone()).name.clone()}>
+						<Dropdown current_label={DropdownLabel::Text(services[&form.service].index(form.endpoint_type.clone()).name.clone().to_string())}>
 							{ for services[&form.service].iter().enumerate().map(|(i, endpoint_con)| {
 								html! {
 								<button class="dropdown-item"
@@ -256,22 +256,8 @@ impl ChooseEndpoints {
 		};
 
 		let existing_dropdown = if !self.endpoint_views.is_empty() {
-				/*<div class={classes!("dropdown", if self.show_start_endpoint_dropdown { Some("is-active") } else { None })}>
-						<div class="dropdown-trigger">
-							<button class="button" onclick={ctx.link().callback(|_| Msg::ToggleStartEndpointDropdown)}>
-								<span>{"Existing Endpoint"}</span>
-								<span class="icon is-small">
-									<i class="fas fa-angle-down"/>
-								</span>
-							</button>
-						</div>
-						<div class="dropdown-menu">
-							<div class="dropdown-content">
-							</div>
-						</div>
-				</div>*/
 			html! {
-				<Dropdown current_label={"Existing Endpoint"}>
+				<Dropdown current_label={DropdownLabel::Text("Existing Endpoint".to_owned())}>
 					{ for self.endpoint_views.iter().map(|(id, view)| {
 						let id_c = id.clone();
 						let refresh_time_c = refresh_time.clone();

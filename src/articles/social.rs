@@ -2,16 +2,66 @@ use yew::prelude::*;
 use js_sys::Date;
 
 use crate::articles::Props;
+use crate::dropdown::{Dropdown, DropdownLabel};
 
 pub struct SocialArticle {
 	compact: Option<bool>,
-	show_dropdown: bool,
 }
 
 pub enum Msg {
 	ToggleCompact,
-	ToggleDropdown,
 	OnImageClick,
+}
+
+impl Component for SocialArticle {
+	type Message = Msg;
+	type Properties = Props;
+
+	fn create(_ctx: &Context<Self>) -> Self {
+		Self {
+			compact: None,
+		}
+	}
+
+	fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
+		match msg {
+			Msg::ToggleCompact => match self.compact {
+				Some(compact) => self.compact = Some(!compact),
+				None => self.compact = Some(!ctx.props().compact),
+			},
+			Msg::OnImageClick => ctx.link().send_message(Msg::ToggleCompact)
+		};
+
+		true
+	}
+
+	fn view(&self, ctx: &Context<Self>) -> Html {
+		html! {
+			<article class="article" articleId={ctx.props().data.id()} style={ctx.props().style.clone()}>
+				<div class="media">
+					<figure class="media-left">
+						<p class="image is-64x64">
+							<img src={ctx.props().data.author_avatar_url().clone()} alt={format!("{}'s avatar", &ctx.props().data.author_username())}/>
+						</p>
+					</figure>
+					<div class="media-content">
+						<div class="content">
+							<div class="articleHeader">
+								<a class="names" href={ctx.props().data.author_url()} target="_blank" rel="noopener noreferrer">
+									<strong>{ ctx.props().data.author_name() }</strong>
+									<small>{ format!("@{}", ctx.props().data.author_username()) }</small>
+								</a>
+								{ self.view_timestamp(ctx) }
+							</div>
+							<p class="articleParagraph">{ ctx.props().data.text() }</p>
+						</div>
+						{ self.view_nav(ctx) }
+					</div>
+				</div>
+				{ self.view_media(ctx) }
+			</article>
+		}
+	}
 }
 
 impl SocialArticle {
@@ -77,32 +127,21 @@ impl SocialArticle {
 							}
 						}
 					}
-					<div class={classes!("dropdown", if self.show_dropdown { Some("is-active") } else { None })}>
-						<div class="dropdown-trigger">
-							<a class="level-item articleButton" onclick={ctx.link().callback(|_| Msg::ToggleDropdown)}>
-								<span class="icon">
-									<i class="fas fa-ellipsis-h"/>
-								</span>
-							</a>
-						</div>
-						<div class="dropdown-menu">
-							<div class="dropdown-content">
-								<div class="dropdown-item"> {"Mark as red"} </div>
-								<div class="dropdown-item"> {"Hide"} </div>
-								<div class="dropdown-item" onclick={&ontoggle_compact}> { if self.is_compact(ctx) { "Show expanded" } else { "Show compact" } } </div>
-								<div class="dropdown-item"> {"Log"} </div>
-								<div class="dropdown-item"> {"Fetch Status"} </div>
-								<div class="dropdown-item"> {"Expand"} </div>
-								<a
-									class="dropdown-item"
-									href={ format!("https://twitter.com/{}/status/{}", &ctx.props().data.author_username(), &ctx.props().data.id()) }
-									target="_blank" rel="noopener noreferrer"
-								>
-									{ "External Link" }
-								</a>
-							</div>
-						</div>
-					</div>
+					<Dropdown current_label={DropdownLabel::Icon("fas fa-ellipsis-h".to_owned())}>
+						<div class="dropdown-item"> {"Mark as red"} </div>
+						<div class="dropdown-item"> {"Hide"} </div>
+						<div class="dropdown-item" onclick={&ontoggle_compact}> { if self.is_compact(ctx) { "Show expanded" } else { "Show compact" } } </div>
+						<div class="dropdown-item"> {"Log"} </div>
+						<div class="dropdown-item"> {"Fetch Status"} </div>
+						<div class="dropdown-item"> {"Expand"} </div>
+						<a
+							class="dropdown-item"
+							href={ format!("https://twitter.com/{}/status/{}", &ctx.props().data.author_username(), &ctx.props().data.id()) }
+							target="_blank" rel="noopener noreferrer"
+						>
+							{ "External Link" }
+						</a>
+					</Dropdown>
 				</div>
 			</nav>
 		}
@@ -163,59 +202,6 @@ impl SocialArticle {
 				<div class="is-hidden imgPlaceholder"/>
 				<img alt={ctx.props().data.id()} src={image} onclick={ctx.link().callback(|_| Msg::OnImageClick)}/>
 			</div>
-		}
-	}
-}
-
-impl Component for SocialArticle {
-	type Message = Msg;
-	type Properties = Props;
-
-	fn create(_ctx: &Context<Self>) -> Self {
-		Self {
-			compact: None,
-			show_dropdown: false
-		}
-	}
-
-	fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
-		match msg {
-			Msg::ToggleCompact => match self.compact {
-				Some(compact) => self.compact = Some(!compact),
-				None => self.compact = Some(!ctx.props().compact),
-			},
-			Msg::ToggleDropdown => self.show_dropdown = !self.show_dropdown,
-			Msg::OnImageClick => ctx.link().send_message(Msg::ToggleCompact)
-		};
-
-		true
-	}
-
-	fn view(&self, ctx: &Context<Self>) -> Html {
-		html! {
-			<article class="article" articleId={ctx.props().data.id()} style={ctx.props().style.clone()}>
-				<div class="media">
-					<figure class="media-left">
-						<p class="image is-64x64">
-							<img src={ctx.props().data.author_avatar_url().clone()} alt={format!("{}'s avatar", &ctx.props().data.author_username())}/>
-						</p>
-					</figure>
-					<div class="media-content">
-						<div class="content">
-							<div class="articleHeader">
-								<a class="names" href={ctx.props().data.author_url()} target="_blank" rel="noopener noreferrer">
-									<strong>{ ctx.props().data.author_name() }</strong>
-									<small>{ format!("@{}", ctx.props().data.author_username()) }</small>
-								</a>
-								{ self.view_timestamp(ctx) }
-							</div>
-							<p class="articleParagraph">{ ctx.props().data.text() }</p>
-						</div>
-						{ self.view_nav(ctx) }
-					</div>
-				</div>
-				{ self.view_media(ctx) }
-			</article>
 		}
 	}
 }

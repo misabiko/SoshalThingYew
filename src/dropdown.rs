@@ -8,9 +8,15 @@ pub enum Msg {
 	ToggleExpanded,
 }
 
+#[derive(Clone, PartialEq)]
+pub enum DropdownLabel {
+	Text(String),
+	Icon(String),
+}
+
 #[derive(Properties, Clone, PartialEq)]
 pub struct Props {
-	pub current_label: String,
+	pub current_label: DropdownLabel,
 	pub children: Children,
 }
 
@@ -38,10 +44,21 @@ impl Component for Dropdown {
 			<div class={classes!("dropdown", if self.expanded { Some("is-active") } else { None })}>
 				<div class="dropdown-trigger">
 					<button class="button" onclick={ctx.link().callback(|_| Msg::ToggleExpanded)}>
-						<span>{ ctx.props().current_label.clone() }</span>
-						<span class="icon is-small">
-							<i class="fas fa-angle-down"/>
-						</span>
+						{ match &ctx.props().current_label {
+							DropdownLabel::Text(text) => html! {
+								<>
+									<span>{ text.clone() }</span>
+									<span class="icon is-small">
+										<i class="fas fa-angle-down"/>
+									</span>
+								</>
+							},
+							DropdownLabel::Icon(classes) => html! {
+								<span class="icon is-small">
+									<i class={classes.clone()}/>
+								</span>
+							},
+						} }
 					</button>
 				</div>
 				<div class="dropdown-menu">
