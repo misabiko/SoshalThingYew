@@ -1,5 +1,5 @@
 use std::rc::{Rc, Weak};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use yew::prelude::*;
 use yew_agent::AgentLink;
 use yew_agent::utils::store::{Store, StoreWrapper};
@@ -41,8 +41,8 @@ pub type EndpointId = i32;
 
 #[derive(Clone, PartialEq, Default)]
 pub struct TimelineEndpoints {
-	pub start: Vec<EndpointId>,
-	pub refresh: Vec<EndpointId>,
+	pub start: HashSet<EndpointId>,
+	pub refresh: HashSet<EndpointId>,
 }
 
 #[derive(Clone, PartialEq)]
@@ -63,8 +63,8 @@ pub enum StoreRequest {
 
 pub enum Action {
 	InitTimeline(Rc<RefCell<TimelineEndpoints>>, Callback<Vec<Rc<dyn ArticleData>>>),
-	Refresh(Vec<EndpointId>),
-	LoadBottom(Vec<EndpointId>),
+	Refresh(HashSet<EndpointId>),
+	LoadBottom(HashSet<EndpointId>),
 	Refreshed(EndpointId, Vec<Rc<dyn ArticleData>>),
 	RefreshFail(Error),
 	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),

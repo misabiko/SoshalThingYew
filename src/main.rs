@@ -1,6 +1,7 @@
 use yew::prelude::*;
 use yew_agent::{Bridge, Dispatched, Dispatcher};
 use yew_agent::utils::store::{Bridgeable, ReadOnly, StoreWrapper};
+use std::collections::HashSet;
 
 pub mod error;
 pub mod timeline;
@@ -169,11 +170,13 @@ impl Component for Model {
 			}
 			Msg::AddTimeline(name, id) => {
 				log::debug!("Adding new timeline for {}", &id);
+				let mut endpoints = HashSet::new();
+				endpoints.insert(id);
 				self.timelines.push(yew::props! { TimelineProps {
 					name,
 					endpoints: TimelineEndpoints {
-						start: vec![id],
-						refresh: vec![id],
+						start: endpoints.clone(),
+						refresh: endpoints,
 					}
 				}});
 				true
@@ -285,7 +288,6 @@ fn main() {
 
 //TODO Use dropdown everywhere
 //TODO Use endpoint params
-//TODO Remove endpoints
 //TODO Have dropdown element collapse it
 //TODO Fix handler without callback thing
 //TODO Prompt on not logged in

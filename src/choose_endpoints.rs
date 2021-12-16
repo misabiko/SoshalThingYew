@@ -37,7 +37,8 @@ pub enum Msg {
 	SetFormService(String),
 	SetFormType(usize),
 	CreateEndpoint,
-	UpdateTimeline(RefreshTime, EndpointId),
+	AddTimelineEndpoint(RefreshTime, EndpointId),
+	RemoveTimelineEndpoint(RefreshTime, EndpointId),
 }
 
 #[derive(Properties, Clone)]
@@ -131,7 +132,7 @@ impl Component for ChooseEndpoints {
 				if let Some(form) = &mut self.endpoint_form {
 					let constructor = self.services[&form.service].index(form.endpoint_type.clone()).clone();
 					let refresh_time_c = form.refresh_time.clone();
-					let callback = ctx.link().callback(move |id| Msg::UpdateTimeline(refresh_time_c.clone(), id));
+					let callback = ctx.link().callback(move |id| Msg::AddTimelineEndpoint(refresh_time_c.clone(), id));
 					let params = form.params.clone();
 					self.endpoint_store.send(EndpointRequest::AddEndpoint(Box::new(move |id| {
 						callback.emit(id);
@@ -144,11 +145,19 @@ impl Component for ChooseEndpoints {
 				self.endpoint_form = None;
 				created
 			}
-			Msg::UpdateTimeline(refresh_time, id) => {
+			Msg::AddTimelineEndpoint(refresh_time, id) => {
 				let timeline_endpoints = ctx.props().timeline_endpoints.upgrade().unwrap();
 				match refresh_time {
-					RefreshTime::Start => timeline_endpoints.borrow_mut().start.push(id.clone()),
-					RefreshTime::OnRefresh => timeline_endpoints.borrow_mut().refresh.push(id.clone()),
+					RefreshTime::Start => timeline_endpoints.borrow_mut().start.insert(id.clone()),
+					RefreshTime::OnRefresh => timeline_endpoints.borrow_mut().refresh.insert(id.clone()),
+				};
+				true
+			}
+			Msg::RemoveTimelineEndpoint(refresh_time, id) => {
+				let timeline_endpoints = ctx.props().timeline_endpoints.upgrade().unwrap();
+				match refresh_time {
+					RefreshTime::Start => timeline_endpoints.borrow_mut().start.remove(&id),
+					RefreshTime::OnRefresh => timeline_endpoints.borrow_mut().refresh.remove(&id),
 				};
 				true
 			}
@@ -244,7 +253,7 @@ impl ChooseEndpoints {
 						let refresh_time_c = refresh_time.clone();
 						html! {
 						<button class="dropdown-item"
-							onclick={ctx.link().callback(move |_| Msg::UpdateTimeline(refresh_time_c.clone(), id_c.clone()))}
+							onclick={ctx.link().callback(move |_| Msg::AddTimelineEndpoint(refresh_time_c.clone(), id_c.clone()))}
 						> {view.name.clone()} </button>
 					}}) }
 				</Dropdown>
@@ -256,7 +265,7 @@ impl ChooseEndpoints {
 		html! {
 			<div class="field">
 				<label class="label">{label}</label>
-				{ for endpoints_iter.map(|id| self.view_endpoint(id)) }
+				{ for endpoints_iter.map(|id| self.view_endpoint(ctx, &refresh_time, id)) }
 				<div class="control">
 					{ existing_dropdown }
 				</div>
@@ -265,9 +274,17 @@ impl ChooseEndpoints {
 		}
 	}
 
-	fn view_endpoint(&self, endpoint_id: &EndpointId) -> Html {
+	fn view_endpoint(&self, ctx: &Context<Self>, refresh_time: &RefreshTime, endpoint_id: &EndpointId) -> Html {
+		let refresh_time_c = refresh_time.clone();
+		let endpoint_id_c = endpoint_id.clone();
 		html! {
-			self.endpoint_views.get(endpoint_id).map(|e| e.name.clone()).unwrap_or_default()
+			<>
+				{ self.endpoint_views.get(endpoint_id).map(|e| e.name.clone()).unwrap_or_default() }
+				<button
+					class="button"
+					onclick={ctx.link().callback(move |_| Msg::RemoveTimelineEndpoint(refresh_time_c.clone(), endpoint_id_c.clone()))}
+				>{"Remove"}</button>
+			</>
 		}
 	}
 }

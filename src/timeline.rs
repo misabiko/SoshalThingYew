@@ -36,6 +36,7 @@ pub enum Msg {
 	Refreshed(Vec<Rc<dyn ArticleData>>),
 	RefreshFail,
 	NewArticles(Vec<Rc<dyn ArticleData>>),
+	ClearArticles,
 	EndpointStoreResponse(ReadOnly<EndpointStore>),
 	ToggleOptions,
 	ToggleCompact,
@@ -71,10 +72,7 @@ impl Component for Timeline {
 	fn create(ctx: &Context<Self>) -> Self {
 		let endpoints = match ctx.props().endpoints.clone() {
 			Some(endpoints) => Rc::new(RefCell::new(endpoints)),
-			None => Rc::new(RefCell::new(TimelineEndpoints {
-				start: Vec::new(),
-				refresh: Vec::new(),
-			}))
+			None => Rc::new(RefCell::new(TimelineEndpoints::default()))
 		};
 
 		let mut endpoint_store = EndpointStore::bridge(ctx.link().callback(Msg::EndpointStoreResponse));
@@ -120,6 +118,10 @@ impl Component for Timeline {
 						self.articles.push(a);
 					}
 				}
+				true
+			}
+			Msg::ClearArticles => {
+				self.articles.clear();
 				true
 			}
 			Msg::ToggleOptions => {
@@ -331,6 +333,9 @@ impl Timeline {
 					<div class="control">
 						<label class="label">{"Endpoint"}</label>
 						<button class="button" onclick={ctx.link().callback(|_| Msg::SetChooseEndpointModal(true))}>{"Change"}</button>
+					</div>
+					<div class="control">
+						<button class="button" onclick={ctx.link().callback(|_| Msg::ClearArticles)}>{"Clear Articles"}</button>
 					</div>
 				</div>
 			}
