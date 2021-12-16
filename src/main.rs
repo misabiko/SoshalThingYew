@@ -71,61 +71,11 @@ impl Component for Model {
 	type Properties = Props;
 
 	fn create(ctx: &Context<Self>) -> Self {
-		let (pathname_opt, search_opt) = match web_sys::window().map(|w| w.location()) {
-			Some(location) => (match location.pathname() {
-				Ok(pathname_opt) => Some(pathname_opt),
-				Err(err) => {
-					log::error!("Failed to get location.pathname.\n{:?}", err);
-					None
-				}
-			}, match location.search().and_then(|s| web_sys::UrlSearchParams::new_with_str(&s)) {
-				Ok(search_opt) => Some(search_opt),
-				Err(err) => {
-					log::error!("Failed to get location.search.\n{:?}", err);
-					None
-				}
-			}),
-			None => (None, None),
-		};
+		let (pathname_opt, search_opt) = parse_url();
 
-		match pathname_opt.as_ref() {
-			Some(pathname) => if let Some(tweet_id) = pathname.strip_prefix("/twitter/status/").and_then(|s| s.parse::<u64>().ok()) {
-				let callback = ctx.link().callback(|id|Msg::AddTimeline("Tweet".to_owned(), id));
-				log::debug!("Adding endpoint for {}", &tweet_id);
-				ctx.link().send_message(
-					Msg::AddEndpoint(Box::new(move |id| {
-						callback.emit(id);
-						Box::new(SingleTweetEndpoint::new(id, tweet_id.clone()))
-					}))
-				);
-			} else if let Some(username) = pathname.strip_prefix("/twitter/user/").map(str::to_owned) {
-				let callback = ctx.link().callback(|id| Msg::AddTimeline("User".to_owned(), id));
-				log::debug!("Adding endpoint for {}", &username);
-				ctx.link().send_message(
-					Msg::AddEndpoint(Box::new(move |id| {
-						callback.emit(id);
-						Box::new(UserTimelineEndpoint::new(id, username.clone()))
-					}))
-				);
-			} else if pathname.starts_with("/twitter/home") {
-				let callback = ctx.link().callback( |id| Msg::AddTimeline("Home".to_owned(), id));
-				ctx.link().send_message(
-					Msg::AddEndpoint(Box::new(move |id| {
-						callback.emit(id);
-						Box::new(HomeTimelineEndpoint::new(id))
-					}))
-				);
-			} else if ctx.props().favviewer {
-				let callback = ctx.link().callback(|id| Msg::AddTimeline("Pixiv".to_owned(), id));
-				ctx.link().send_message(
-					Msg::AddEndpoint(Box::new(move |id| {
-						callback.emit(id);
-						Box::new(FollowEndpoint::new(id))
-					}))
-				);
-			},
-			None => {}
-		};
+		if let Some(pathname) = pathname_opt {
+			parse_pathname(ctx, &pathname);
+		}
 
 		let single_timeline_bool = search_opt.as_ref()
 			.and_then(|s| s.get("single_timeline"))
@@ -256,6 +206,63 @@ impl Component for Model {
 				</div>
 			</>
 		}
+	}
+}
+
+fn parse_url() -> (Option<String>, Option<web_sys::UrlSearchParams>) {
+	match web_sys::window().map(|w| w.location()) {
+		Some(location) => (match location.pathname() {
+			Ok(pathname_opt) => Some(pathname_opt),
+			Err(err) => {
+				log::error!("Failed to get location.pathname.\n{:?}", err);
+				None
+			}
+		}, match location.search().and_then(|s| web_sys::UrlSearchParams::new_with_str(&s)) {
+			Ok(search_opt) => Some(search_opt),
+			Err(err) => {
+				log::error!("Failed to get location.search.\n{:?}", err);
+				None
+			}
+		}),
+		None => (None, None),
+	}
+}
+
+fn parse_pathname(ctx: &Context<Model>, pathname: &str) {
+	if let Some(tweet_id) = pathname.strip_prefix("/twitter/status/").and_then(|s| s.parse::<u64>().ok()) {
+		let callback = ctx.link().callback(|id|Msg::AddTimeline("Tweet".to_owned(), id));
+		log::debug!("Adding endpoint for {}", &tweet_id);
+		ctx.link().send_message(
+			Msg::AddEndpoint(Box::new(move |id| {
+				callback.emit(id);
+				Box::new(SingleTweetEndpoint::new(id, tweet_id.clone()))
+			}))
+		);
+	} else if let Some(username) = pathname.strip_prefix("/twitter/user/").map(str::to_owned) {
+		let callback = ctx.link().callback(|id| Msg::AddTimeline("User".to_owned(), id));
+		log::debug!("Adding endpoint for {}", &username);
+		ctx.link().send_message(
+			Msg::AddEndpoint(Box::new(move |id| {
+				callback.emit(id);
+				Box::new(UserTimelineEndpoint::new(id, username.clone()))
+			}))
+		);
+	} else if pathname.starts_with("/twitter/home") {
+		let callback = ctx.link().callback( |id| Msg::AddTimeline("Home".to_owned(), id));
+		ctx.link().send_message(
+			Msg::AddEndpoint(Box::new(move |id| {
+				callback.emit(id);
+				Box::new(HomeTimelineEndpoint::new(id))
+			}))
+		);
+	} else if ctx.props().favviewer {
+		let callback = ctx.link().callback(|id| Msg::AddTimeline("Pixiv".to_owned(), id));
+		ctx.link().send_message(
+			Msg::AddEndpoint(Box::new(move |id| {
+				callback.emit(id);
+				Box::new(FollowEndpoint::new(id))
+			}))
+		);
 	}
 }
 
