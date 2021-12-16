@@ -13,6 +13,8 @@ pub struct Props {
 	pub modal_title: String,
 	pub children: Children,
 	pub close_modal_callback: Callback<MouseEvent>,
+	#[prop_or_default]
+	pub footer: Html,
 }
 
 impl Component for Modal {
@@ -44,9 +46,14 @@ impl Component for Modal {
 						<div class="card-content">
 							{ for ctx.props().children.iter() }
 						</div>
+						<footer class="card-footer">
+							{ ctx.props().footer.clone() }
+						</footer>
 					</div>
 				</div>
 			</div>
 		}
 	}
 }
+
+//TODO Close when clicking outside

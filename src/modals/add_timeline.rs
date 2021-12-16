@@ -3,6 +3,7 @@ use web_sys::HtmlInputElement;
 use std::rc::Rc;
 use std::cell::RefCell;
 
+use crate::modals::Modal;
 use crate::timeline::{Props as TimelineProps};
 use crate::services::endpoints::TimelineEndpoints;
 use crate::choose_endpoints::ChooseEndpoints;
@@ -53,38 +54,25 @@ impl Component for AddTimelineModal {
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
+		let footer = html! {
+			<>
+				<button
+					class="button card-footer-item"
+					onclick={ctx.link().callback(|_| Msg::AddTimeline)}
+				>{"Add"}</button>
+				<button class="button card-footer-item" onclick={ctx.props().close_modal_callback.clone()}>{"Cancel"}</button>
+			</>
+		};
 		html! {
-			<div class="modal is-active">
-				<div class="modal-background"/>
-				<div class="modal-content">
-					<div class="card">
-						<header class="card-header">
-							<p class="card-header-title">{"Add Timeline"}</p>
-							<button class="card-header-icon">
-								<span class="icon">
-									<i class="fas fa-times"/>
-								</span>
-							</button>
-						</header>
-						<div class="card-content">
-							<div class="field">
-								<label class="label">{"Title"}</label>
-								<div class="control">
-									<input type="text" class="input" ref={self.title_ref.clone()} value="Timeline"/>
-								</div>
-							</div>
-							<ChooseEndpoints timeline_endpoints={Rc::downgrade(&self.endpoints)}/>
-						</div>
-						<footer class="card-footer">
-							<button
-								class="button card-footer-item"
-								onclick={ctx.link().callback(|_| Msg::AddTimeline)}
-							>{"Add"}</button>
-							<button class="button card-footer-item" onclick={ctx.props().close_modal_callback.clone()}>{"Cancel"}</button>
-						</footer>
+			<Modal modal_title="Add Timeline" close_modal_callback={ctx.props().close_modal_callback.clone()} {footer}>
+				<div class="field">
+					<label class="label">{"Title"}</label>
+					<div class="control">
+						<input type="text" class="input" ref={self.title_ref.clone()} value="Timeline"/>
 					</div>
 				</div>
-			</div>
+				<ChooseEndpoints timeline_endpoints={Rc::downgrade(&self.endpoints)}/>
+			</Modal>
 		}
 	}
 }

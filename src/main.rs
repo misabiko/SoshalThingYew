@@ -293,8 +293,6 @@ fn main() {
 	};
 }
 
-//TODO Have dropdown element collapse it
-//TODO Fix handler without callback thing
 //TODO Prompt on not logged in
 //TODO Sort
 //TODO Save timeline data
@@ -303,7 +301,6 @@ fn main() {
 //TODO like/retweets
 //TODO Retweets
 //TODO Quotes
-//TODO Fix container dropdown
 //TODO Filters
 //TODO Rate limits
 //TODO Youtube articles
@@ -312,3 +309,6 @@ fn main() {
 //TODO HTTPS
 
 //TODO Show multiple article types in same timeline
+
+//TODO Fix fontawesome sass warnings
+//TODO Fix handler without callback thing

@@ -72,3 +72,5 @@ impl Component for Dropdown {
 		}
 	}
 }
+
+//TODO Have dropdown element collapse it
