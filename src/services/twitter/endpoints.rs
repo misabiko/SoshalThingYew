@@ -3,13 +3,14 @@ use yew_agent::{Dispatched, Dispatcher};
 
 use crate::articles::{ArticleData};
 use crate::services::twitter::{TwitterAgent, Request as TwitterRequest};
-use crate::services::endpoints::{Endpoint, EndpointId, RefreshTime};
+use crate::services::endpoints::{Endpoint, EndpointId, RateLimit, RefreshTime};
 
 pub struct UserTimelineEndpoint {
 	id: EndpointId,
 	username: String,
 	articles: Vec<Rc<dyn ArticleData>>,
-	agent: Dispatcher<TwitterAgent>
+	agent: Dispatcher<TwitterAgent>,
+	ratelimit: RateLimit,
 }
 
 impl UserTimelineEndpoint {
@@ -19,6 +20,7 @@ impl UserTimelineEndpoint {
 			username,
 			articles: Vec::new(),
 			agent: TwitterAgent::dispatcher(),
+			ratelimit: RateLimit::default()
 		}
 	}
 
@@ -38,6 +40,14 @@ impl Endpoint for UserTimelineEndpoint {
 
 	fn articles(&mut self) -> &mut Vec<Rc<dyn ArticleData>> {
 		&mut self.articles
+	}
+
+	fn ratelimit(&self) -> Option<&RateLimit> {
+		Some(&self.ratelimit)
+	}
+
+	fn update_ratelimit(&mut self, ratelimit: RateLimit) {
+		self.ratelimit = ratelimit
 	}
 
 	fn refresh(&mut self, refresh_time: RefreshTime) {
@@ -67,7 +77,8 @@ impl Endpoint for UserTimelineEndpoint {
 pub struct HomeTimelineEndpoint {
 	id: EndpointId,
 	articles: Vec<Rc<dyn ArticleData>>,
-	agent: Dispatcher<TwitterAgent>
+	agent: Dispatcher<TwitterAgent>,
+	ratelimit: RateLimit,
 }
 
 impl HomeTimelineEndpoint {
@@ -76,6 +87,7 @@ impl HomeTimelineEndpoint {
 			id,
 			articles: Vec::new(),
 			agent: TwitterAgent::dispatcher(),
+			ratelimit: RateLimit::default()
 		}
 	}
 }
@@ -91,6 +103,14 @@ impl Endpoint for HomeTimelineEndpoint {
 
 	fn articles(&mut self) -> &mut Vec<Rc<dyn ArticleData>> {
 		&mut self.articles
+	}
+
+	fn ratelimit(&self) -> Option<&RateLimit> {
+		Some(&self.ratelimit)
+	}
+
+	fn update_ratelimit(&mut self, ratelimit: RateLimit) {
+		self.ratelimit = ratelimit
 	}
 
 	fn refresh(&mut self, refresh_time: RefreshTime) {
@@ -118,7 +138,8 @@ pub struct ListEndpoint {
 	username: String,
 	slug: String,
 	articles: Vec<Rc<dyn ArticleData>>,
-	agent: Dispatcher<TwitterAgent>
+	agent: Dispatcher<TwitterAgent>,
+	ratelimit: RateLimit,
 }
 
 impl ListEndpoint {
@@ -129,6 +150,7 @@ impl ListEndpoint {
 			slug,
 			articles: Vec::new(),
 			agent: TwitterAgent::dispatcher(),
+			ratelimit: RateLimit::default()
 		}
 	}
 
@@ -152,6 +174,14 @@ impl Endpoint for ListEndpoint {
 
 	fn articles(&mut self) -> &mut Vec<Rc<dyn ArticleData>> {
 		&mut self.articles
+	}
+
+	fn ratelimit(&self) -> Option<&RateLimit> {
+		Some(&self.ratelimit)
+	}
+
+	fn update_ratelimit(&mut self, ratelimit: RateLimit) {
+		self.ratelimit = ratelimit
 	}
 
 	fn refresh(&mut self, refresh_time: RefreshTime) {
@@ -183,6 +213,7 @@ pub struct SingleTweetEndpoint {
 	tweet_id: u64,
 	articles: Vec<Rc<dyn ArticleData>>,
 	agent: Dispatcher<TwitterAgent>,
+	ratelimit: RateLimit,
 }
 
 impl SingleTweetEndpoint {
@@ -192,6 +223,7 @@ impl SingleTweetEndpoint {
 			tweet_id,
 			articles: Vec::new(),
 			agent: TwitterAgent::dispatcher(),
+			ratelimit: RateLimit::default(),
 		}
 	}
 
@@ -214,6 +246,14 @@ impl Endpoint for SingleTweetEndpoint {
 
 	fn articles(&mut self) -> &mut Vec<Rc<dyn ArticleData>> {
 		&mut self.articles
+	}
+
+	fn ratelimit(&self) -> Option<&RateLimit> {
+		Some(&self.ratelimit)
+	}
+
+	fn update_ratelimit(&mut self, ratelimit: RateLimit) {
+		self.ratelimit = ratelimit
 	}
 
 	fn refresh(&mut self, refresh_time: RefreshTime) {

@@ -1,5 +1,5 @@
 use yew::prelude::*;
-use yew_agent::{Bridge, Dispatched, Dispatcher};
+use yew_agent::Bridge;
 use yew_agent::utils::store::{Bridgeable, ReadOnly, StoreWrapper};
 use std::collections::HashSet;
 
@@ -18,8 +18,8 @@ use crate::sidebar::Sidebar;
 use crate::timeline::{Props as TimelineProps, Timeline};
 use crate::services::{
 	endpoints::{Endpoint, EndpointId, EndpointStore, StoreRequest as EndpointRequest, TimelineEndpoints},
-	pixiv::{FollowEndpoint, PixivAgent},
-	twitter::{endpoints::{HomeTimelineEndpoint, SingleTweetEndpoint, UserTimelineEndpoint}, TwitterAgent},
+	pixiv::FollowEndpoint,
+	twitter::{endpoints::{HomeTimelineEndpoint, SingleTweetEndpoint, UserTimelineEndpoint}},
 };
 use crate::favviewer::{PageInfo, pixiv::PixivPageInfo};
 use crate::modals::AddTimelineModal;
@@ -42,10 +42,6 @@ struct Model {
 	endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
 	display_mode: DisplayMode,
 	timelines: Vec<TimelineProps>,
-	#[allow(dead_code)]
-	twitter: Dispatcher<TwitterAgent>,
-	#[allow(dead_code)]
-	pixiv: Dispatcher<PixivAgent>,
 	page_info: Option<Box<dyn PageInfo>>,
 	show_add_timeline: bool,
 }
@@ -105,8 +101,6 @@ impl Component for Model {
 			display_mode,
 			timelines: Vec::new(),
 			endpoint_store: EndpointStore::bridge(ctx.link().callback(Msg::EndpointStoreResponse)),
-			twitter: TwitterAgent::dispatcher(),
-			pixiv: PixivAgent::dispatcher(),
 			page_info,
 			show_add_timeline: false,
 		}
@@ -300,6 +294,8 @@ fn main() {
 	};
 }
 
+//TODO Rate limits
+//TODO Display timeline errors
 //TODO Sort
 //TODO Save timeline data
 //TODO Save fetched articles
@@ -308,8 +304,8 @@ fn main() {
 //TODO Retweets
 //TODO Quotes
 //TODO Filters
-//TODO Rate limits
 //TODO Youtube articles
+//TODO Notifications
 //TODO Social expanded view
 //TODO Prompt on not logged in
 //TODO Avoid refreshing endpoint every watch update

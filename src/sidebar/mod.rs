@@ -1,5 +1,9 @@
 use yew::prelude::*;
 
+mod ratelimits;
+
+use ratelimits::RateLimitView;
+
 pub struct Sidebar {
 	expanded: bool
 }
@@ -43,6 +47,9 @@ impl Component for Sidebar {
 							<div class="block">
 								<a class="button" href="/proxy/twitter/login">{"Login"}</a>
 							</div>
+						</div>
+						<div class="box">
+							<RateLimitView/>
 						</div>
 					</div>
 				}} else { html!{} }}

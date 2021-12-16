@@ -7,8 +7,8 @@ use wasm_bindgen::JsValue;
 pub mod endpoints;
 
 use crate::articles::{ArticleData};
-use crate::services::endpoints::{EndpointStore, StoreRequest as EndpointRequest, EndpointId, EndpointConstructor, RefreshTime};
-use crate::error::{Result, Error};
+use crate::services::endpoints::{EndpointStore, StoreRequest as EndpointRequest, EndpointId, EndpointConstructor, RefreshTime, RateLimit};
+use crate::error::{Error, FetchResult};
 use crate::services::twitter::endpoints::{UserTimelineEndpoint, HomeTimelineEndpoint, ListEndpoint, SingleTweetEndpoint};
 
 #[derive(Clone, PartialEq)]
@@ -70,34 +70,49 @@ impl ArticleData for TweetArticleData {
 	}
 }
 
-pub async fn fetch_tweets(url: &str) -> Result<Vec<Rc<dyn ArticleData>>> {
-	let json_str = reqwest::Client::builder().build()?
+pub async fn fetch_tweets(url: &str) -> FetchResult<Vec<Rc<dyn ArticleData>>> {
+	let response = reqwest::Client::builder().build()?
 		.get(format!("http://localhost:8080{}", url))
-		//.query(&[("rts", false), ("replies", false)])
-		.send().await?
-		.text().await?
-		.to_string();
+		.send().await?;
+
+	let headers = response.headers();
+	let ratelimit = RateLimit {
+		limit: headers["x-rate-limit-limit"].to_str()?.parse()?,
+		remaining: headers["x-rate-limit-remaining"].to_str()?.parse()?,
+		reset: headers["x-rate-limit-reset"].to_str()?.parse()?,
+	};
+
+	let json_str = response.text().await?.to_string();
+
 
 	serde_json::from_str(&json_str)
 		.map(|value: serde_json::Value|
-			value
+			(value
 			.as_array().unwrap()
 			.iter()
 			.map(|json| Rc::new(TweetArticleData::from(json)) as Rc<dyn ArticleData>)
-			.collect()
+			.collect(),
+			 Some(ratelimit))
 		)
 		.map_err(|err| Error::from(err))
 }
 
-pub async fn fetch_tweet(url: &str) -> Result<Rc<dyn ArticleData>> {
-	let json_str = reqwest::Client::builder().build()?
+pub async fn fetch_tweet(url: &str) -> FetchResult<Rc<dyn ArticleData>> {
+	let response = reqwest::Client::builder().build()?
 		.get(format!("http://localhost:8080{}", url))
-		.send().await?
-		.text().await?
-		.to_string();
+		.send().await?;
+
+	let headers = response.headers();
+	let ratelimit = RateLimit {
+		limit: headers["x-rate-limit-limit"].to_str()?.parse()?,
+		remaining: headers["x-rate-limit-remaining"].to_str()?.parse()?,
+		reset: headers["x-rate-limit-reset"].to_str()?.parse()?,
+	};
+
+	let json_str = response.text().await?.to_string();
 
 	let value: serde_json::Value = serde_json::from_str(&json_str).unwrap();
-	Ok(Rc::new(TweetArticleData::from(value)))
+	Ok((Rc::new(TweetArticleData::from(value)), Some(ratelimit)))
 }
 
 impl From<&serde_json::Value> for TweetArticleData {
@@ -142,12 +157,6 @@ impl From<serde_json::Value> for TweetArticleData {
 	}
 }
 
-pub struct RateLimit {
-	pub limit: i32,
-	pub remaining: i32,
-	pub reset: i32,
-}
-
 //TODO Receive TwitterUser
 pub enum AuthMode {
 	NotLoggedIn,
@@ -168,7 +177,7 @@ pub enum Request {
 
 pub enum Msg {
 	DefaultEndpoint(EndpointId),
-	FetchResponse(RefreshTime, EndpointId, Result<Vec<Rc<dyn ArticleData>>>),
+	FetchResponse(RefreshTime, EndpointId, FetchResult<Vec<Rc<dyn ArticleData>>>),
 	EndpointStoreResponse(ReadOnly<EndpointStore>),
 }
 
@@ -222,8 +231,9 @@ impl Agent for TwitterAgent {
 					self.link.respond(*sub, Response::DefaultEndpoint(e));
 				}
 			}
-			Msg::FetchResponse(refresh_time, id, r) =>
-				self.endpoint_store.send(EndpointRequest::FetchResponse(refresh_time, id, r)),
+			Msg::FetchResponse(refresh_time, id, r) => {
+				self.endpoint_store.send(EndpointRequest::FetchResponse(refresh_time, id, r));
+			}
 			Msg::EndpointStoreResponse(_) => {}
 		};
 	}
@@ -240,7 +250,7 @@ impl Agent for TwitterAgent {
 				}),
 			Request::FetchTweet(refresh_time, id, path) =>
 				self.link.send_future(async move {
-					Msg::FetchResponse(refresh_time, id, fetch_tweet(&path).await.map(|a| vec![a]))
+					Msg::FetchResponse(refresh_time, id, fetch_tweet(&path).await.map(|a| (vec![a.0], a.1)))
 				})
 		}
 	}

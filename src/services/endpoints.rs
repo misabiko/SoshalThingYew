@@ -5,8 +5,15 @@ use yew_agent::AgentLink;
 use yew_agent::utils::store::{Store, StoreWrapper};
 use std::cell::RefCell;
 
-use crate::error::{Result, Error};
+use crate::error::{Error, FetchResult};
 use crate::articles::ArticleData;
+
+#[derive(Clone, Debug, Default)]
+pub struct RateLimit {
+	pub limit: i32,
+	pub remaining: i32,
+	pub reset: i32,
+}
 
 pub trait Endpoint {
 	fn name(&self) -> String;
@@ -23,6 +30,10 @@ pub trait Endpoint {
 		}
 		self.articles().sort_by(|a, b| b.id().partial_cmp(&a.id()).unwrap())
 	}
+
+	fn ratelimit(&self) -> Option<&RateLimit> { None }
+
+	fn update_ratelimit(&mut self, _ratelimit: RateLimit) {}
 
 	fn refresh(&mut self, refresh_time: RefreshTime);
 
@@ -55,20 +66,22 @@ pub enum StoreRequest {
 	InitTimeline(Rc<RefCell<TimelineEndpoints>>, Callback<Vec<Rc<dyn ArticleData>>>),
 	Refresh(Weak<RefCell<TimelineEndpoints>>),
 	LoadBottom(Weak<RefCell<TimelineEndpoints>>),
-	FetchResponse(RefreshTime, EndpointId, Result<Vec<Rc<dyn ArticleData>>>),
+	FetchResponse(RefreshTime, EndpointId, FetchResult<Vec<Rc<dyn ArticleData>>>),
 	AddArticles(RefreshTime, EndpointId, Vec<Rc<dyn ArticleData>>),
 	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
 	InitService(String, Vec<EndpointConstructor>),
+	UpdateRateLimit(EndpointId, RateLimit),
 }
 
 pub enum Action {
 	InitTimeline(Rc<RefCell<TimelineEndpoints>>, Callback<Vec<Rc<dyn ArticleData>>>),
 	Refresh(HashSet<EndpointId>),
 	LoadBottom(HashSet<EndpointId>),
-	Refreshed(RefreshTime, EndpointId, Vec<Rc<dyn ArticleData>>),
+	Refreshed(RefreshTime, EndpointId, (Vec<Rc<dyn ArticleData>>, Option<RateLimit>)),
 	RefreshFail(Error),
 	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
 	InitService(String, Vec<EndpointConstructor>),
+	UpdateRateLimit(EndpointId, RateLimit),
 }
 
 type TimelineId = i32;
@@ -115,16 +128,18 @@ impl Store for EndpointStore {
 			}
 			StoreRequest::FetchResponse(refresh_time, id, response) => {
 				match response {
-					Ok(vec_tweets) => link.send_message(Action::Refreshed(refresh_time, id, vec_tweets)),
+					Ok(response) => link.send_message(Action::Refreshed(refresh_time, id, response)),
 					Err(err) => link.send_message(Action::RefreshFail(err))
 				};
 			}
 			StoreRequest::AddArticles(refresh_time, id, articles) =>
-				link.send_message(Action::Refreshed(refresh_time, id, articles)),
+				link.send_message(Action::Refreshed(refresh_time, id, (articles, None))),
 			StoreRequest::AddEndpoint(endpoint) =>
 				link.send_message(Action::AddEndpoint(endpoint)),
 			StoreRequest::InitService(name, endpoint_types) =>
 				link.send_message(Action::InitService(name, endpoint_types)),
+			StoreRequest::UpdateRateLimit(endpoint_id, ratelimit) =>
+				link.send_message(Action::UpdateRateLimit(endpoint_id, ratelimit)),
 		}
 	}
 
@@ -149,9 +164,13 @@ impl Store for EndpointStore {
 					self.endpoints.get_mut(&endpoint_id).unwrap().load_bottom(RefreshTime::OnRefresh);
 				}
 			}
-			Action::Refreshed(refresh_time, endpoint_id, articles) => {
-				log::debug!("{} articles for {}", &articles.len(), self.endpoints[&endpoint_id].name());
-				self.endpoints.get_mut(&endpoint_id).unwrap().add_articles(articles.clone());
+			Action::Refreshed(refresh_time, endpoint_id, response) => {
+				log::debug!("{} articles for {}", &response.0.len(), self.endpoints[&endpoint_id].name());
+				let endpoint = self.endpoints.get_mut(&endpoint_id).unwrap();
+				endpoint.add_articles(response.0.clone());
+				if let Some(ratelimit) = response.1 {
+					endpoint.update_ratelimit(ratelimit);
+				}
 
 				for (_timeline_id, timeline) in &self.timelines {
 					let timeline_strong = timeline.0.upgrade().unwrap();
@@ -162,7 +181,7 @@ impl Store for EndpointStore {
 					};
 
 					if endpoints.iter().any(|e| e == &endpoint_id) {
-						timeline.1.emit(articles.clone());
+						timeline.1.emit(response.0.clone());
 					}
 				}
 			}
@@ -175,6 +194,9 @@ impl Store for EndpointStore {
 			}
 			Action::InitService(name, endpoint_types) => {
 				self.services.insert(name, endpoint_types);
+			}
+			Action::UpdateRateLimit(endpoint_id, ratelimit) => {
+				self.endpoints.get_mut(&endpoint_id).unwrap().update_ratelimit(ratelimit)
 			}
 		}
 	}
