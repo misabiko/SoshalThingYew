@@ -1,20 +1,22 @@
 use std::rc::Rc;
 use yew::prelude::*;
 use yew_agent::{Bridge, Bridged};
+use yew_agent::utils::store::{StoreWrapper, ReadOnly, Bridgeable};
 use wasm_bindgen::JsCast;
 use web_sys::HtmlInputElement;
 use rand::{thread_rng, seq::SliceRandom};
 
 use crate::articles::{ArticleComponent, ArticleData, sort_by_id};
-use crate::services::endpoints::{EndpointAgent, Request as EndpointRequest, Response as EndpointResponse, TimelineEndpoints};
+use crate::services::endpoints::{EndpointStore, TimelineEndpoints, StoreRequest as EndpointRequest};
 use crate::containers::{Container, view_container, Props as ContainerProps};
+use crate::modals::ChooseEndpointModal;
 
 pub struct Timeline {
 	endpoints: Rc<TimelineEndpoints>,
 	articles: Vec<Rc<dyn ArticleData>>,	//TODO Use rc::Weak
 	options_shown: bool,
 	compact: bool,
-	endpoint_agent: Box<dyn Bridge<EndpointAgent>>,
+	endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
 	filters: Vec<fn(&Rc<dyn ArticleData>) -> bool>,
 	container: Container,
 	show_container_dropdown: bool,
@@ -23,6 +25,7 @@ pub struct Timeline {
 	width: u8,
 	sorted: bool,
 	article_component: ArticleComponent,
+	show_choose_endpoint: bool,
 }
 
 pub enum Msg {
@@ -30,7 +33,8 @@ pub enum Msg {
 	LoadBottom,
 	Refreshed(Vec<Rc<dyn ArticleData>>),
 	RefreshFail,
-	EndpointResponse(EndpointResponse),
+	NewArticles(Vec<Rc<dyn ArticleData>>),
+	EndpointStoreResponse(ReadOnly<EndpointStore>),
 	ToggleOptions,
 	ToggleCompact,
 	ChangeContainer(Container),
@@ -40,6 +44,7 @@ pub enum Msg {
 	ChangeColumnCount(u8),
 	ChangeWidth(u8),
 	Shuffle,
+	SetChooseEndpointModal(bool),
 }
 
 #[derive(Properties, Clone, PartialEq)]
@@ -64,18 +69,21 @@ impl Component for Timeline {
 	fn create(ctx: &Context<Self>) -> Self {
 		let endpoints = match ctx.props().endpoints.clone() {
 			Some(endpoints) => Rc::new(endpoints),
-			None => Rc::new(TimelineEndpoints {start: Vec::new(), refresh: Vec::new()})
+			None => Rc::new(TimelineEndpoints {
+				start: Vec::new(),
+				refresh: Vec::new(),
+			})
 		};
 
-		let mut endpoint_agent = EndpointAgent::bridge(ctx.link().callback(Msg::EndpointResponse));
-		endpoint_agent.send(EndpointRequest::InitTimeline(endpoints.clone()));
+		let mut endpoint_store = EndpointStore::bridge(ctx.link().callback(Msg::EndpointStoreResponse));
+		endpoint_store.send(EndpointRequest::InitTimeline(endpoints.clone(), ctx.link().callback(Msg::NewArticles)));
 
 		Self {
 			endpoints,
 			articles: ctx.props().articles.clone(),
 			options_shown: false,
 			compact: false,
-			endpoint_agent,
+			endpoint_store,
 			filters: vec![|a| a.media().len() > 0],
 			container: if ctx.props().main_timeline { Container::Masonry } else { Container::Column },
 			show_container_dropdown: false,
@@ -84,47 +92,44 @@ impl Component for Timeline {
 			width: 1,
 			sorted: true,
 			article_component: ArticleComponent::Social,
+			show_choose_endpoint: true,
 		}
 	}
 
-	fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
+	fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
 		match msg {
 			Msg::Refresh => {
-				self.endpoint_agent.send(EndpointRequest::Refresh);
+				self.endpoint_store.send(EndpointRequest::Refresh(
+					Rc::downgrade(&self.endpoints),
+					ctx.link().callback(Msg::NewArticles)
+				));
 				false
 			}
-
 			Msg::LoadBottom => {
-				self.endpoint_agent.send(EndpointRequest::LoadBottom);
+				self.endpoint_store.send(EndpointRequest::LoadBottom(
+					Rc::downgrade(&self.endpoints),
+					ctx.link().callback(Msg::NewArticles)
+				));
 				false
 			}
-
 			Msg::Refreshed(articles) => {
 				self.articles.extend(articles);
-
 				true
 			}
-
 			Msg::RefreshFail => false,
-
-			Msg::EndpointResponse(response) =>  {
-				match response {
-					EndpointResponse::NewArticles(articles) => {
-						for a in articles {
-							if !self.articles.iter().any(|existing| existing.id() == a.id()) {
-								self.articles.push(a);
-							}
-						}
-						true
+			Msg::EndpointStoreResponse(_) => false,
+			Msg::NewArticles(articles) => {
+				for a in articles {
+					if !self.articles.iter().any(|existing| existing.id() == a.id()) {
+						self.articles.push(a);
 					}
 				}
+				true
 			}
-
 			Msg::ToggleOptions => {
 				self.options_shown = !self.options_shown;
 				true
 			}
-
 			Msg::ToggleCompact => {
 				self.compact = !self.compact;
 				true
@@ -165,6 +170,10 @@ impl Component for Timeline {
 				self.sorted = false;
 				true
 			}
+			Msg::SetChooseEndpointModal(value) => {
+				self.show_choose_endpoint = value;
+				true
+			},
 		}
 	}
 
@@ -185,6 +194,15 @@ impl Component for Timeline {
 		};
 		html! {
 			<div class={classes!("timeline", if ctx.props().main_timeline { Some("mainTimeline") } else { None })} {style}>
+				{
+					match self.show_choose_endpoint {
+						true => html! {<ChooseEndpointModal
+							timeline_endpoints={Rc::downgrade(&self.endpoints)}
+							close_modal_callback={ctx.link().callback(|_| Msg::SetChooseEndpointModal(false))}
+						/>},
+						false => html! {},
+					}
+				}
 				<div class="timelineHeader">
 					<div class="timelineLeftHeader">
 						<strong>{&ctx.props().name}</strong>
@@ -310,6 +328,10 @@ impl Timeline {
 							<input type="checkbox" checked={self.compact} onclick={ctx.link().callback(|_| Msg::ToggleCompact)}/>
 							{ "Compact articles" }
 						</label>
+					</div>
+					<div class="control">
+						<label class="label">{"Endpoint"}</label>
+						<button class="button" onclick={ctx.link().callback(|_| Msg::SetChooseEndpointModal(true))}>{"Change"}</button>
 					</div>
 				</div>
 			}

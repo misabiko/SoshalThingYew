@@ -1,12 +1,13 @@
 use std::{rc::Rc, collections::HashSet};
-use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher};
+use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher, Bridge};
+use yew_agent::utils::store::{StoreWrapper, ReadOnly, Bridgeable};
 use js_sys::Date;
 use wasm_bindgen::JsValue;
 
 pub mod endpoints;
 
 use crate::articles::{ArticleData};
-use crate::services::endpoints::{EndpointAgent, Request as EndpointRequest, EndpointId};
+use crate::services::endpoints::{EndpointStore, StoreRequest as EndpointRequest, EndpointId};
 use crate::error::{Result, Error};
 
 #[derive(Clone, PartialEq)]
@@ -148,21 +149,19 @@ pub struct RateLimit {
 
 pub struct TwitterAgent {
 	link: AgentLink<Self>,
-	//endpoints: Vec<Rc<dyn Endpoint>>,
-	endpoint_agent: Dispatcher<EndpointAgent>,
+	endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
 	subscribers: HashSet<HandlerId>,
 }
 
 pub enum Request {
-	//UpdateRateLimit(RateLimit),
 	FetchTweets(EndpointId, String),
 	FetchTweet(EndpointId, String),
 }
 
 pub enum Msg {
-	Init,
 	DefaultEndpoint(EndpointId),
-	FetchResponse(EndpointId, Result<Vec<Rc<dyn ArticleData>>>)
+	FetchResponse(EndpointId, Result<Vec<Rc<dyn ArticleData>>>),
+	EndpointStoreResponse(ReadOnly<EndpointStore>),
 }
 
 pub enum Response {
@@ -177,11 +176,10 @@ impl Agent for TwitterAgent {
 
 	fn create(link: AgentLink<Self>) -> Self {
 		log::debug!("Creating TwitterAgent");
-		link.send_message(Msg::Init);
 
 		Self {
+			endpoint_store: EndpointStore::bridge(link.callback(Msg::EndpointStoreResponse)),
 			link,
-			endpoint_agent: EndpointAgent::dispatcher(),
 			subscribers: HashSet::new(),
 		}
 	}
@@ -196,25 +194,14 @@ impl Agent for TwitterAgent {
 
 	fn update(&mut self, msg: Self::Message) {
 		match msg {
-			Msg::Init => {
-				/*let callback = self.link.callback(Msg::DefaultEndpoint);
-				self.endpoint_agent.send(
-					EndpointRequest::AddEndpoint(Box::new(move |id| {
-						callback.emit(id);
-						Box::new(ArtEndpoint {
-							id,
-							agent: TwitterAgent::dispatcher(),
-						})
-					}))
-				)*/
-			},
 			Msg::DefaultEndpoint(e) => {
 				for sub in self.subscribers.iter() {
 					self.link.respond(*sub, Response::DefaultEndpoint(e));
 				}
 			}
 			Msg::FetchResponse(id, r) =>
-				self.endpoint_agent.send(EndpointRequest::FetchResponse(id, r))
+				self.endpoint_store.send(EndpointRequest::FetchResponse(id, r)),
+			Msg::EndpointStoreResponse(_) => {}
 		};
 	}
 

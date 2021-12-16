@@ -1,24 +1,25 @@
 use yew::prelude::*;
-use yew_agent::{Dispatched, Dispatcher};
+use yew_agent::{Dispatched, Dispatcher, Bridge};
+use yew_agent::utils::store::{StoreWrapper, ReadOnly, Bridgeable};
 
 pub mod error;
 pub mod timeline;
 pub mod containers;
 pub mod articles;
 pub mod services;
-mod modals;
+pub mod modals;
 mod sidebar;
 mod favviewer;
 
 use crate::sidebar::Sidebar;
 use crate::timeline::{Props as TimelineProps, Timeline};
 use crate::services::{
-	endpoints::{Endpoint, EndpointAgent, EndpointId, Request as EndpointRequest, TimelineEndpoints},
+	endpoints::{Endpoint, EndpointStore, EndpointId, StoreRequest as EndpointRequest, TimelineEndpoints},
 	pixiv::{FollowEndpoint, PixivAgent},
 	twitter::{endpoints::{HomeTimelineEndpoint, SingleTweetEndpoint, UserTimelineEndpoint}, TwitterAgent},
 };
 use crate::favviewer::{PageInfo, pixiv::PixivPageInfo};
-use crate::modals::add_timeline::AddTimelineModal;
+use crate::modals::AddTimelineModal;
 
 #[derive(PartialEq, Clone)]
 enum DisplayMode {
@@ -35,7 +36,7 @@ impl Default for DisplayMode {
 }
 
 struct Model {
-	endpoint_agent: Dispatcher<EndpointAgent>,
+	endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
 	display_mode: DisplayMode,
 	timelines: Vec<TimelineProps>,
 	#[allow(dead_code)]
@@ -52,6 +53,7 @@ enum Msg {
 	ToggleFavViewer,
 	SetAddTimelineModal(bool),
 	AddTimelineProps(TimelineProps),
+	EndpointStoreResponse(ReadOnly<EndpointStore>),
 }
 
 #[derive(Properties, PartialEq, Default)]
@@ -149,7 +151,7 @@ impl Component for Model {
 		Self {
 			display_mode,
 			timelines: Vec::new(),
-			endpoint_agent: EndpointAgent::dispatcher(),
+			endpoint_store: EndpointStore::bridge(ctx.link().callback(Msg::EndpointStoreResponse)),
 			twitter: TwitterAgent::dispatcher(),
 			pixiv: PixivAgent::dispatcher(),
 			page_info,
@@ -160,7 +162,7 @@ impl Component for Model {
 	fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
 		match msg {
 			Msg::AddEndpoint(e) => {
-				self.endpoint_agent.send(EndpointRequest::AddEndpoint(e));
+				self.endpoint_store.send(EndpointRequest::AddEndpoint(e));
 				false
 			}
 			Msg::AddTimeline(name, id) => {
@@ -192,6 +194,7 @@ impl Component for Model {
 				self.show_add_timeline = value;
 				true
 			},
+			Msg::EndpointStoreResponse(_) => false
 		}
 	}
 

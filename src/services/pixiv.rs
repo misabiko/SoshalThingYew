@@ -1,9 +1,10 @@
 use std::rc::Rc;
-use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher};
+use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher, Bridge};
+use yew_agent::utils::store::{StoreWrapper, ReadOnly, Bridgeable};
 use js_sys::Date;
 
 use crate::articles::ArticleData;
-use crate::services::endpoints::{EndpointAgent, Endpoint, Request as EndpointRequest, EndpointId};
+use crate::services::endpoints::{EndpointStore, Endpoint, StoreRequest as EndpointRequest, EndpointId};
 
 pub struct PixivArticleData {
 	id: u32,
@@ -42,31 +43,48 @@ impl ArticleData for PixivArticleData {
 	}
 }
 
-pub struct PixivAgent;
+pub struct PixivAgent {
+	endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
+}
 
 pub enum Msg {
-	Init,
+	EndpointStoreResponse(ReadOnly<EndpointStore>),
+}
+
+pub enum Request {
+	AddArticles(EndpointId, Vec<Rc<dyn ArticleData>>),
 }
 
 impl Agent for PixivAgent {
 	type Reach = Context<Self>;
 	type Message = Msg;
-	type Input = ();
+	type Input = Request;
 	type Output = ();
 
-	fn create(_link: AgentLink<Self>) -> Self {
-		Self {}
+	fn create(link: AgentLink<Self>) -> Self {
+		Self {
+			endpoint_store: EndpointStore::bridge(link.callback(Msg::EndpointStoreResponse)),
+		}
 	}
 
-	fn update(&mut self, _msg: Self::Message) {}
+	fn update(&mut self, msg: Self::Message) {
+		match msg {
+			Msg::EndpointStoreResponse(_) => {}
+		}
+	}
 
-	fn handle_input(&mut self, _msg: Self::Input, _id: HandlerId) {}
+	fn handle_input(&mut self, msg: Self::Input, _id: HandlerId) {
+		match msg {
+			Request::AddArticles(endpoint_id, articles) =>
+				self.endpoint_store.send(EndpointRequest::AddArticles(endpoint_id, articles)),
+		};
+	}
 }
 
 pub struct FollowEndpoint {
 	id: EndpointId,
 	articles: Vec<Rc<dyn ArticleData>>,
-	endpoint_agent: Dispatcher<EndpointAgent>,
+	agent: Dispatcher<PixivAgent>,
 }
 
 impl FollowEndpoint {
@@ -74,7 +92,7 @@ impl FollowEndpoint {
 		Self {
 			id,
 			articles: Vec::new(),
-			endpoint_agent: EndpointAgent::dispatcher(),
+			agent: PixivAgent::dispatcher(),
 		}
 	}
 }
@@ -166,6 +184,6 @@ impl Endpoint for FollowEndpoint {
 		}
 
 		let id = self.id().clone();
-		self.endpoint_agent.send(EndpointRequest::AddArticles(id, articles));
+		self.agent.send(Request::AddArticles(id, articles));
 	}
 }

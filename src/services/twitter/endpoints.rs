@@ -40,7 +40,7 @@ impl Endpoint for UserTimelineEndpoint {
 		let id = self.id().clone();
 		self.agent.send(TwitterRequest::FetchTweets(
 			id,
-			format!("/proxy/twitter/user/{}", &self.username)
+			format!("/proxy/twitter/user/{}?count=20", &self.username)
 		))
 	}
 

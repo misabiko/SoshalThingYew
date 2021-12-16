@@ -1,6 +1,8 @@
 use std::rc::{Rc, Weak};
 use std::collections::HashMap;
+use yew::prelude::*;
 use yew_agent::{Agent, AgentLink, Context, HandlerId};
+use yew_agent::utils::store::{Store, StoreWrapper};
 
 use crate::error::{Result, Error};
 use crate::articles::ArticleData;
@@ -42,120 +44,117 @@ pub struct TimelineEndpoints {
 	pub refresh: Vec<EndpointId>,
 }
 
-pub struct EndpointAgent {
-	link: AgentLink<Self>,
-	endpoint_keys: EndpointId,
-	endpoints: HashMap<EndpointId, Box<dyn Endpoint>>,
-	timelines: HashMap<HandlerId, Weak<TimelineEndpoints>>,
+#[derive(Clone, PartialEq)]
+pub enum RefreshTime {
+	Start,
+	OnRefresh,
 }
 
-pub enum Msg {
-	Refreshed(EndpointId, Vec<Rc<dyn ArticleData>>),
-	RefreshFail(Error),
-}
-
-pub enum Request {
-	Refresh,
-	LoadBottom,
-	InitTimeline(Rc<TimelineEndpoints>),
-	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
+pub enum StoreRequest {
+	InitTimeline(Rc<TimelineEndpoints>, Callback<Vec<Rc<dyn ArticleData>>>),
+	Refresh(Weak<TimelineEndpoints>, Callback<Vec<Rc<dyn ArticleData>>>),
+	LoadBottom(Weak<TimelineEndpoints>, Callback<Vec<Rc<dyn ArticleData>>>),
 	FetchResponse(EndpointId, Result<Vec<Rc<dyn ArticleData>>>),
 	AddArticles(EndpointId, Vec<Rc<dyn ArticleData>>),
+	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
 }
 
-pub enum Response {
-	NewArticles(Vec<Rc<dyn ArticleData>>),
+pub enum Action {
+	InitTimeline(Rc<TimelineEndpoints>, Callback<Vec<Rc<dyn ArticleData>>>),
+	Refresh(Vec<EndpointId>),
+	LoadBottom(Vec<EndpointId>),
+	Refreshed(EndpointId, Vec<Rc<dyn ArticleData>>),
+	RefreshFail(Error),
+	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
 }
 
-impl Agent for EndpointAgent {
-	type Reach = Context<Self>;
-	type Message = Msg;
-	type Input = Request;
-	type Output = Response;
+type TimelineId = i32;
 
-	fn create(link: AgentLink<Self>) -> Self {
+pub struct EndpointStore {
+	endpoint_counter: EndpointId,
+	pub endpoints: HashMap<EndpointId, Box<dyn Endpoint>>,
+	timeline_counter: TimelineId,
+	pub timelines: HashMap<TimelineId, (Weak<TimelineEndpoints>, Callback<Vec<Rc<dyn ArticleData>>>)>,
+}
+
+impl Store for EndpointStore {
+	type Action = Action;
+	type Input = StoreRequest;
+
+	fn new() -> Self {
 		Self {
-			link,
-			endpoint_keys: i32::MIN,
+			endpoint_counter: i32::MIN,
 			endpoints: HashMap::new(),
+			timeline_counter: i32::MIN,
 			timelines: HashMap::new(),
 		}
 	}
 
-	fn update(&mut self, msg: Self::Message) {
+	fn handle_input(&self, link: AgentLink<StoreWrapper<Self>>, msg: Self::Input) {
 		match msg {
-			Msg::Refreshed(endpoint_id, articles) => {
-				log::debug!("{} articles for {}", &articles.len(), self.endpoints[&endpoint_id].name());
-				self.endpoints.get_mut(&endpoint_id).unwrap().add_articles(articles.clone());
-
-				for (timeline_id, timeline_weak) in &self.timelines {
-					match timeline_weak.upgrade() {
-						Some(strong) => {
-							if strong.refresh.iter().any(|e| e == &endpoint_id) ||
-								strong.start.iter().any(|e| e == &endpoint_id) {
-								self.link.respond(*timeline_id, Response::NewArticles(articles.clone()));
-							}
-						}
-						None => log::warn!("Couldn't upgrade timeline endpoints for {:?}", &timeline_id)
-					};
-				}
+			StoreRequest::InitTimeline(endpoints, callback) => link.send_message(Action::InitTimeline(endpoints, callback)),
+			StoreRequest::Refresh(endpoints_weak, callback) => {
+				let endpoints = endpoints_weak.upgrade().unwrap();
+				link.send_message(Action::Refresh(endpoints.refresh.clone()));
 			}
-			Msg::RefreshFail(err) => {
-				log::error!("Failed to fetch \"/proxy/art\"\n{:?}", err);
+			StoreRequest::LoadBottom(endpoints_weak, callback) => {
+				let endpoints = endpoints_weak.upgrade().unwrap();
+				link.send_message(Action::LoadBottom(endpoints.refresh.clone()));
 			}
+			StoreRequest::FetchResponse(id, response) => {
+				match response {
+					Ok(vec_tweets) => link.send_message(Action::Refreshed(id, vec_tweets)),
+					Err(err) => link.send_message(Action::RefreshFail(err))
+				};
+			}
+			StoreRequest::AddArticles(id, articles) =>
+				link.send_message(Action::Refreshed(id, articles)),
+			StoreRequest::AddEndpoint(endpoint) =>
+				link.send_message(Action::AddEndpoint(endpoint)),
 		}
 	}
 
-	fn disconnected(&mut self, id: HandlerId) {
-		self.timelines.remove(&id);
-	}
-
-	fn handle_input(&mut self, msg: Self::Input, id: HandlerId) {
+	fn reduce(&mut self, msg: Self::Action) {
 		match msg {
-			Request::InitTimeline(endpoints) => {
-				self.timelines.insert(id, Rc::downgrade(&endpoints));
+			Action::InitTimeline(endpoints, callback) => {
+				self.timelines.insert(self.timeline_counter.clone(), (Rc::downgrade(&endpoints), callback));
+				self.timeline_counter += 1;
 
 				for endpoint_id in &endpoints.start {
 					log::debug!("Refreshing {}", &self.endpoints[&endpoint_id].name());
 					self.endpoints.get_mut(&endpoint_id).unwrap().refresh();
 				}
 			}
-			Request::AddEndpoint(endpoint) => {
-				self.endpoints.insert(self.endpoint_keys, endpoint(self.endpoint_keys));
-				self.endpoint_keys += 1;
+			Action::Refresh(endpoints) => {
+				for endpoint_id in endpoints {
+					self.endpoints.get_mut(&endpoint_id).unwrap().refresh();
+				}
 			}
-			Request::Refresh => {
-				match self.timelines.get(&id).and_then(Weak::upgrade) {
-					Some(timeline) => {
-						for endpoint_id in &timeline.refresh {
-							self.endpoints.get_mut(&endpoint_id).unwrap().refresh();
-						}
-					}
-					None => {
-						log::warn!("No TimelineEndpoints found for {:?}", &id);
+			Action::LoadBottom(endpoints) => {
+				for endpoint_id in endpoints {
+					self.endpoints.get_mut(&endpoint_id).unwrap().load_bottom();
+				}
+			}
+			Action::Refreshed(endpoint_id, articles) => {
+				log::debug!("{} articles for {}", &articles.len(), self.endpoints[&endpoint_id].name());
+				self.endpoints.get_mut(&endpoint_id).unwrap().add_articles(articles.clone());
+
+				for (timeline_id, timeline) in &self.timelines {
+					//TODO Add RefreshTime enum
+					let timeline_strong = timeline.0.upgrade().unwrap();
+					if timeline_strong.refresh.iter().any(|e| e == &endpoint_id) ||
+						timeline_strong.start.iter().any(|e| e == &endpoint_id) {
+						timeline.1.emit(articles.clone());
 					}
 				}
 			}
-			Request::LoadBottom => {
-				match self.timelines.get(&id).and_then(Weak::upgrade) {
-					Some(timeline) => {
-						for endpoint_id in &timeline.refresh {
-							self.endpoints.get_mut(&endpoint_id).unwrap().load_bottom();
-						}
-					}
-					None => {
-						log::warn!("No TimelineEndpoints found for {:?}", &id);
-					}
-				}
+			Action::RefreshFail(err) => {
+				log::error!("Failed to fetch \"/proxy/art\"\n{:?}", err);
 			}
-			Request::FetchResponse(id, r) => {
-				match r {
-					Ok(vec_tweets) => self.link.send_message(Msg::Refreshed(id, vec_tweets)),
-					Err(err) => self.link.send_message(Msg::RefreshFail(err))
-				};
+			Action::AddEndpoint(endpoint) => {
+				self.endpoints.insert(self.endpoint_counter, endpoint(self.endpoint_counter));
+				self.endpoint_counter += 1;
 			}
-			Request::AddArticles(id, articles)
-				=> self.link.send_message(Msg::Refreshed(id, articles))
 		}
 	}
 }
