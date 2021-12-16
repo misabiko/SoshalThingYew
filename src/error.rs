@@ -10,6 +10,7 @@ pub struct Error {
 
 #[derive(Debug)]
 pub enum ErrorKind {
+	Text(&'static str),
 	Reqwest(reqwest::Error),
 	SerdeJson(serde_json::Error),
 	ToStr(ToStrError),
@@ -18,6 +19,15 @@ pub enum ErrorKind {
 
 pub type Result<T> = std::result::Result<T, Error>;
 pub type FetchResult<T> = std::result::Result<(T, Option<RateLimit>), Error>;
+
+impl From<&'static str> for Error {
+	fn from(err: &'static str) -> Self {
+		Self {
+			err: ErrorKind::Text(err),
+			ratelimit: None,
+		}
+	}
+}
 
 impl From<reqwest::Error> for Error {
 	fn from(err: reqwest::Error) -> Self {

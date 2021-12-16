@@ -76,11 +76,7 @@ pub async fn fetch_tweets(url: &str) -> FetchResult<Vec<Rc<dyn ArticleData>>> {
 		.send().await?;
 
 	let headers = response.headers();
-	let ratelimit = RateLimit {
-		limit: headers["x-rate-limit-limit"].to_str()?.parse()?,
-		remaining: headers["x-rate-limit-remaining"].to_str()?.parse()?,
-		reset: headers["x-rate-limit-reset"].to_str()?.parse()?,
-	};
+	let ratelimit = RateLimit::try_from(headers)?;
 
 	let json_str = response.text().await?.to_string();
 
@@ -103,11 +99,7 @@ pub async fn fetch_tweet(url: &str) -> FetchResult<Rc<dyn ArticleData>> {
 		.send().await?;
 
 	let headers = response.headers();
-	let ratelimit = RateLimit {
-		limit: headers["x-rate-limit-limit"].to_str()?.parse()?,
-		remaining: headers["x-rate-limit-remaining"].to_str()?.parse()?,
-		reset: headers["x-rate-limit-reset"].to_str()?.parse()?,
-	};
+	let ratelimit = RateLimit::try_from(headers)?;
 
 	let json_str = response.text().await?.to_string();
 

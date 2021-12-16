@@ -294,7 +294,6 @@ fn main() {
 	};
 }
 
-//TODO Rate limits
 //TODO Display timeline errors
 //TODO Sort
 //TODO Save timeline data

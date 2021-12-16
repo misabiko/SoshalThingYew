@@ -4,15 +4,59 @@ use yew::prelude::*;
 use yew_agent::AgentLink;
 use yew_agent::utils::store::{Store, StoreWrapper};
 use std::cell::RefCell;
+use reqwest::header::HeaderMap;
 
 use crate::error::{Error, FetchResult};
 use crate::articles::ArticleData;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct RateLimit {
 	pub limit: i32,
 	pub remaining: i32,
 	pub reset: i32,
+}
+
+impl Default for RateLimit {
+	fn default() -> Self {
+		Self {
+			limit: 1,
+			remaining: 1,
+			reset: 0,
+		}
+	}
+}
+
+impl TryFrom<&HeaderMap> for RateLimit {
+	type Error = Error;
+
+	fn try_from(headers: &HeaderMap) -> std::result::Result<Self, Self::Error> {
+		let ret = Self {
+			limit: headers.get("x-rate-limit-limit")
+				.ok_or(Error::from("Couldn't get ratelimit's limit"))?
+				.to_str()?
+				.parse()?,
+			remaining: headers.get("x-rate-limit-remaining")
+				.ok_or(Error::from("Couldn't get ratelimit's remaining"))?
+				.to_str()?
+				.parse()?,
+			reset: headers.get("x-rate-limit-reset")
+				.ok_or(Error::from("Couldn't get ratelimit's reset"))?
+				.to_str()?
+				.parse()?,
+		};
+		Ok(ret)
+	}
+}
+
+impl RateLimit {
+	pub fn can_refresh(&mut self) -> bool {
+		if (self.reset as f64) < js_sys::Date::now() {
+			self.remaining = self.limit;
+			true
+		}else {
+			self.remaining > 0
+		}
+	}
 }
 
 pub trait Endpoint {
@@ -33,7 +77,11 @@ pub trait Endpoint {
 
 	fn ratelimit(&self) -> Option<&RateLimit> { None }
 
+	fn get_mut_ratelimit(&mut self) -> Option<&mut RateLimit> { None }
+
 	fn update_ratelimit(&mut self, _ratelimit: RateLimit) {}
+
+	fn can_refresh(&self) -> bool { true }
 
 	fn refresh(&mut self, refresh_time: RefreshTime);
 
@@ -150,18 +198,33 @@ impl Store for EndpointStore {
 				self.timeline_counter += 1;
 
 				for endpoint_id in &endpoints.borrow().start {
-					log::debug!("Refreshing {}", &self.endpoints[&endpoint_id].name());
-					self.endpoints.get_mut(&endpoint_id).unwrap().refresh(RefreshTime::Start);
+					let endpoint = self.endpoints.get_mut(&endpoint_id).unwrap();
+					if endpoint.get_mut_ratelimit().map(|r| r.can_refresh()).unwrap_or(true) {
+						log::debug!("Refreshing {}", &endpoint.name());
+						endpoint.refresh(RefreshTime::Start);
+					}else {
+						log::warn!("Can't refresh {}", &endpoint.name());
+					}
 				}
 			}
 			Action::Refresh(endpoints) => {
 				for endpoint_id in endpoints {
-					self.endpoints.get_mut(&endpoint_id).unwrap().refresh(RefreshTime::OnRefresh);
+					let endpoint = self.endpoints.get_mut(&endpoint_id).unwrap();
+					if endpoint.get_mut_ratelimit().map(|r| r.can_refresh()).unwrap_or(true) {
+						endpoint.refresh(RefreshTime::OnRefresh);
+					}else {
+						log::warn!("Can't refresh {}", &endpoint.name());
+					}
 				}
 			}
 			Action::LoadBottom(endpoints) => {
 				for endpoint_id in endpoints {
-					self.endpoints.get_mut(&endpoint_id).unwrap().load_bottom(RefreshTime::OnRefresh);
+					let endpoint = self.endpoints.get_mut(&endpoint_id).unwrap();
+					if endpoint.get_mut_ratelimit().map(|r| r.can_refresh()).unwrap_or(true) {
+						endpoint.load_bottom(RefreshTime::OnRefresh);
+					}else {
+						log::warn!("Can't refresh {}", &endpoint.name());
+					}
 				}
 			}
 			Action::Refreshed(refresh_time, endpoint_id, response) => {

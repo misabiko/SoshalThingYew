@@ -46,10 +46,13 @@ impl Endpoint for UserTimelineEndpoint {
 		Some(&self.ratelimit)
 	}
 
+	fn get_mut_ratelimit(&mut self) -> Option<&mut RateLimit> {
+		Some(&mut self.ratelimit)
+	}
+
 	fn update_ratelimit(&mut self, ratelimit: RateLimit) {
 		self.ratelimit = ratelimit
 	}
-
 	fn refresh(&mut self, refresh_time: RefreshTime) {
 		let id = self.id().clone();
 		self.agent.send(TwitterRequest::FetchTweets(
@@ -107,6 +110,10 @@ impl Endpoint for HomeTimelineEndpoint {
 
 	fn ratelimit(&self) -> Option<&RateLimit> {
 		Some(&self.ratelimit)
+	}
+
+	fn get_mut_ratelimit(&mut self) -> Option<&mut RateLimit> {
+		Some(&mut self.ratelimit)
 	}
 
 	fn update_ratelimit(&mut self, ratelimit: RateLimit) {
@@ -180,6 +187,10 @@ impl Endpoint for ListEndpoint {
 		Some(&self.ratelimit)
 	}
 
+	fn get_mut_ratelimit(&mut self) -> Option<&mut RateLimit> {
+		Some(&mut self.ratelimit)
+	}
+
 	fn update_ratelimit(&mut self, ratelimit: RateLimit) {
 		self.ratelimit = ratelimit
 	}
@@ -250,6 +261,10 @@ impl Endpoint for SingleTweetEndpoint {
 
 	fn ratelimit(&self) -> Option<&RateLimit> {
 		Some(&self.ratelimit)
+	}
+
+	fn get_mut_ratelimit(&mut self) -> Option<&mut RateLimit> {
+		Some(&mut self.ratelimit)
 	}
 
 	fn update_ratelimit(&mut self, ratelimit: RateLimit) {
