@@ -1,5 +1,6 @@
 use yew::prelude::*;
 use std::rc::{Rc, Weak};
+use std::cell::RefCell;
 
 use crate::articles::{view_article, ArticleData, ArticleComponent};
 
@@ -40,7 +41,7 @@ pub struct Props {
 	#[prop_or(1)]
 	pub column_count: u8,
 	pub article_component: ArticleComponent,
-	pub articles: Vec<Weak<dyn ArticleData>>
+	pub articles: Vec<Weak<RefCell<dyn ArticleData>>>
 }
 
 impl PartialEq for Props {
@@ -82,12 +83,12 @@ pub fn row_container(props: &Props) -> Html {
 	}
 }
 
-type RatioedArticle<'a> = (&'a Rc<dyn ArticleData>, u32);
+type RatioedArticle<'a> = (&'a Rc<RefCell<dyn ArticleData>>, u32);
 type Column<'a> = (u8, Vec<RatioedArticle<'a>>);
 
 //TODO Actually estimate article's size
-fn relative_height(article: &Rc<dyn ArticleData>) -> u32 {
-	1 + article.media().len() as u32
+fn relative_height(article: &Rc<RefCell<dyn ArticleData>>) -> u32 {
+	1 + article.borrow().media().len() as u32
 }
 
 fn height(column: &Column) -> u32 {
@@ -100,7 +101,7 @@ fn height(column: &Column) -> u32 {
 	}
 }
 
-fn to_columns<'a>(articles: impl Iterator<Item = &'a Rc<dyn ArticleData>>, column_count: &'a u8) -> impl Iterator<Item = impl Iterator<Item = &'a Rc<dyn ArticleData>>> {
+fn to_columns<'a>(articles: impl Iterator<Item = &'a Rc<RefCell<dyn ArticleData>>>, column_count: &'a u8) -> impl Iterator<Item = impl Iterator<Item = &'a Rc<RefCell<dyn ArticleData>>>> {
 	let ratioed_articles = articles.map(|a| (a, relative_height(&a)));
 
 	let mut columns = ratioed_articles.fold(
@@ -126,7 +127,7 @@ fn to_columns<'a>(articles: impl Iterator<Item = &'a Rc<dyn ArticleData>>, colum
 
 #[function_component(MasonryContainer)]
 pub fn masonry_container(props: &Props) -> Html {
-	let strongs: Vec<Rc<dyn ArticleData>> = props.articles.iter().filter_map(|a| a.upgrade()).collect();
+	let strongs: Vec<Rc<RefCell<dyn ArticleData>>> = props.articles.iter().filter_map(|a| a.upgrade()).collect();
 	let columns = to_columns(strongs.iter(), &props.column_count);
 
 	html! {

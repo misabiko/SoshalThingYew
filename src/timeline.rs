@@ -1,11 +1,11 @@
 use std::rc::{Rc, Weak};
+use std::cell::RefCell;
 use yew::prelude::*;
 use yew_agent::Bridge;
 use yew_agent::utils::store::{StoreWrapper, ReadOnly, Bridgeable};
 use wasm_bindgen::JsCast;
 use web_sys::HtmlInputElement;
 use rand::{thread_rng, seq::SliceRandom};
-use std::cell::RefCell;
 
 use crate::articles::{ArticleComponent, ArticleData, sort_by_id};
 use crate::services::endpoints::{EndpointStore, TimelineEndpoints, Request as EndpointRequest};
@@ -16,11 +16,11 @@ use crate::dropdown::{Dropdown, DropdownLabel};
 
 pub struct Timeline {
 	endpoints: Rc<RefCell<TimelineEndpoints>>,
-	articles: Vec<Weak<dyn ArticleData>>,
+	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
 	options_shown: bool,
 	compact: bool,
 	endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
-	filters: Vec<fn(&Weak<dyn ArticleData>) -> bool>,
+	filters: Vec<fn(&Weak<RefCell<dyn ArticleData>>) -> bool>,
 	container: Container,
 	show_container_dropdown: bool,
 	show_article_component_dropdown: bool,
@@ -34,9 +34,9 @@ pub struct Timeline {
 pub enum Msg {
 	Refresh,
 	LoadBottom,
-	Refreshed(Vec<Weak<dyn ArticleData>>),
+	Refreshed(Vec<Weak<RefCell<dyn ArticleData>>>),
 	RefreshFail,
-	NewArticles(Vec<Weak<dyn ArticleData>>),
+	NewArticles(Vec<Weak<RefCell<dyn ArticleData>>>),
 	ClearArticles,
 	EndpointStoreResponse(ReadOnly<EndpointStore>),
 	ToggleOptions,
@@ -55,7 +55,7 @@ pub enum Msg {
 pub struct Props {
 	pub name: String,
 	#[prop_or_default]
-	pub articles: Vec<Weak<dyn ArticleData>>,
+	pub articles: Vec<Weak<RefCell<dyn ArticleData>>>,
 	#[prop_or_default]
 	pub endpoints: Option<TimelineEndpoints>,
 	#[prop_or_default]
@@ -99,7 +99,7 @@ impl Component for Timeline {
 			endpoint_store,
 			filters: vec![|a| {
 				match a.upgrade() {
-					Some(strong) => strong.media().len() > 0,
+					Some(strong) => strong.borrow().media().len() > 0,
 					None => false,
 				}
 			}],
@@ -132,7 +132,15 @@ impl Component for Timeline {
 			Msg::EndpointStoreResponse(_) => false,
 			Msg::NewArticles(articles) => {
 				for a in articles {
-					if !self.articles.iter().any(|existing| existing.upgrade().unwrap().id() == a.upgrade().unwrap().id()) {
+					let exists = self.articles.iter()
+						.any(
+							|existing| existing.upgrade()
+								.zip(a.upgrade())
+								.map(|(e_s, a_s)| e_s.borrow().id() == a_s.borrow().id())
+								.unwrap_or(false)
+						);
+
+					if !exists {
 						self.articles.push(a);
 					}
 				}

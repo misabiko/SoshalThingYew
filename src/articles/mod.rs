@@ -1,4 +1,5 @@
 use std::rc::Weak;
+use std::cell::{RefCell, Ref};
 use yew::prelude::*;
 use js_sys::Date;
 
@@ -23,8 +24,9 @@ pub trait ArticleData {
 	fn reposted(&self) -> bool { false }
 	fn media(&self) -> Vec<String>;
 	fn json(&self) -> serde_json::Value { serde_json::Value::Null }
-	fn referenced_article(&self) -> Option<Weak<dyn ArticleData>> { None }
+	fn referenced_article(&self) -> Option<Weak<RefCell<dyn ArticleData>>> { None }
 	fn url(&self) -> String;
+	fn update(&mut self, new: &Ref<dyn ArticleData>);
 }
 
 impl PartialEq<dyn ArticleData> for dyn ArticleData {
@@ -45,7 +47,7 @@ pub struct Props {
 	pub compact: bool,
 	#[prop_or_default]
 	pub style: Option<String>,
-	pub data: Weak<dyn ArticleData>,
+	pub data: Weak<RefCell<dyn ArticleData>>,
 }
 
 impl PartialEq<Props> for Props {
@@ -56,9 +58,9 @@ impl PartialEq<Props> for Props {
 	}
 }
 
-pub fn sort_by_id(a: &Weak<dyn ArticleData>, b: &Weak<dyn ArticleData>) -> std::cmp::Ordering {
-	let a_id = a.upgrade().map(|s| s.id()).unwrap_or("0".to_owned());
-	let b_id = b.upgrade().map(|s| s.id()).unwrap_or("0".to_owned());
+pub fn sort_by_id(a: &Weak<RefCell<dyn ArticleData>>, b: &Weak<RefCell<dyn ArticleData>>) -> std::cmp::Ordering {
+	let a_id = a.upgrade().map(|s| s.borrow().id()).unwrap_or("0".to_owned());
+	let b_id = b.upgrade().map(|s| s.borrow().id()).unwrap_or("0".to_owned());
 	b_id.partial_cmp(&a_id).unwrap()
 }
 
@@ -77,7 +79,7 @@ impl ArticleComponent {
 	}
 }
 
-pub fn view_article(component: &ArticleComponent, article: Weak<dyn ArticleData>) -> Html {
+pub fn view_article(component: &ArticleComponent, article: Weak<RefCell<dyn ArticleData>>) -> Html {
 	match component {
 		ArticleComponent::Social => html! {
 			<SocialArticle compact={false} data={article.clone()}/>

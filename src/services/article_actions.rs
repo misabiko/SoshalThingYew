@@ -1,13 +1,14 @@
 use yew::prelude::*;
 use yew_agent::{Agent, AgentLink, HandlerId, Context};
 use std::rc::Weak;
+use std::cell::RefCell;
 use std::collections::HashMap;
 
 use crate::articles::ArticleData;
 
 pub struct ServiceActions {
-	pub like: Callback<Weak<dyn ArticleData>>,
-	pub repost: Callback<Weak<dyn ArticleData>>,
+	pub like: Callback<Weak<RefCell<dyn ArticleData>>>,
+	pub repost: Callback<Weak<RefCell<dyn ArticleData>>>,
 }
 
 pub struct ArticleActionsAgent {
@@ -18,8 +19,8 @@ pub enum Msg {}
 
 pub enum Request {
 	Init(&'static str, ServiceActions),
-	Like(Weak<dyn ArticleData>),
-	Repost(Weak<dyn ArticleData>),
+	Like(Weak<RefCell<dyn ArticleData>>),
+	Repost(Weak<RefCell<dyn ArticleData>>),
 }
 
 impl Agent for ArticleActionsAgent {
@@ -47,18 +48,16 @@ impl Agent for ArticleActionsAgent {
 				self.services.insert(service, actions);
 			}
 			Request::Like(article) => {
-				let strong_opt = article.upgrade();
+				let strong = article.upgrade().unwrap();
+				let borrow = strong.borrow();
 
-				if let Some(strong) = strong_opt {
-					self.services.get(&strong.service()).map(|s| s.like.emit(article.clone()));
-				}
+				self.services.get(&borrow.service()).map(|s| s.like.emit(article.clone()));
 			}
 			Request::Repost(article) => {
-				let strong_opt = article.upgrade();
+				let strong = article.upgrade().unwrap();
+				let borrow = strong.borrow();
 
-				if let Some(strong) = strong_opt {
-					self.services.get(&strong.service()).map(|s| s.repost.emit(article.clone()));
-				}
+				self.services.get(&borrow.service()).map(|s| s.repost.emit(article.clone()));
 			}
 		};
 	}

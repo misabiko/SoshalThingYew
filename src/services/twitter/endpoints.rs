@@ -1,4 +1,5 @@
 use std::rc::Weak;
+use std::cell::RefCell;
 use yew_agent::{Dispatched, Dispatcher};
 
 use crate::articles::{ArticleData};
@@ -8,7 +9,7 @@ use crate::services::endpoints::{Endpoint, EndpointId, RateLimit, RefreshTime};
 pub struct UserTimelineEndpoint {
 	id: EndpointId,
 	username: String,
-	articles: Vec<Weak<dyn ArticleData>>,
+	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
 	agent: Dispatcher<TwitterAgent>,
 	ratelimit: RateLimit,
 }
@@ -38,7 +39,7 @@ impl Endpoint for UserTimelineEndpoint {
 		&self.id
 	}
 
-	fn articles(&mut self) -> &mut Vec<Weak<dyn ArticleData>> {
+	fn articles(&mut self) -> &mut Vec<Weak<RefCell<dyn ArticleData>>> {
 		&mut self.articles
 	}
 
@@ -69,7 +70,7 @@ impl Endpoint for UserTimelineEndpoint {
 				self.agent.send(TwitterRequest::FetchTweets(
 					refresh_time,
 					id,
-					format!("/proxy/twitter/user/{}?max_id={}", &self.username, &last_id.upgrade().unwrap().id())
+					format!("/proxy/twitter/user/{}?max_id={}", &self.username, &last_id.upgrade().unwrap().borrow().id())
 				))
 			}
 			None => self.refresh(refresh_time)
@@ -79,7 +80,7 @@ impl Endpoint for UserTimelineEndpoint {
 
 pub struct HomeTimelineEndpoint {
 	id: EndpointId,
-	articles: Vec<Weak<dyn ArticleData>>,
+	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
 	agent: Dispatcher<TwitterAgent>,
 	ratelimit: RateLimit,
 }
@@ -104,7 +105,7 @@ impl Endpoint for HomeTimelineEndpoint {
 		&self.id
 	}
 
-	fn articles(&mut self) -> &mut Vec<Weak<dyn ArticleData>> {
+	fn articles(&mut self) -> &mut Vec<Weak<RefCell<dyn ArticleData>>> {
 		&mut self.articles
 	}
 
@@ -132,7 +133,7 @@ impl Endpoint for HomeTimelineEndpoint {
 				self.agent.send(TwitterRequest::FetchTweets(
 					refresh_time,
 					id,
-					format!("/proxy/twitter/home?max_id={}", &last_id.upgrade().unwrap().id())
+					format!("/proxy/twitter/home?max_id={}", &last_id.upgrade().unwrap().borrow().id())
 				))
 			}
 			None => self.refresh(refresh_time)
@@ -144,7 +145,7 @@ pub struct ListEndpoint {
 	id: EndpointId,
 	username: String,
 	slug: String,
-	articles: Vec<Weak<dyn ArticleData>>,
+	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
 	agent: Dispatcher<TwitterAgent>,
 	ratelimit: RateLimit,
 }
@@ -179,7 +180,7 @@ impl Endpoint for ListEndpoint {
 		&self.id
 	}
 
-	fn articles(&mut self) -> &mut Vec<Weak<dyn ArticleData>> {
+	fn articles(&mut self) -> &mut Vec<Weak<RefCell<dyn ArticleData>>> {
 		&mut self.articles
 	}
 
@@ -211,7 +212,7 @@ impl Endpoint for ListEndpoint {
 				self.agent.send(TwitterRequest::FetchTweets(
 					refresh_time,
 					id,
-					format!("/proxy/twitter/list/{}/{}?max_id={}", &self.username, &self.slug, &last_id.upgrade().unwrap().id())
+					format!("/proxy/twitter/list/{}/{}?max_id={}", &self.username, &self.slug, &last_id.upgrade().unwrap().borrow().id())
 				))
 			}
 			None => self.refresh(refresh_time)
@@ -222,7 +223,7 @@ impl Endpoint for ListEndpoint {
 pub struct SingleTweetEndpoint {
 	id: EndpointId,
 	tweet_id: u64,
-	articles: Vec<Weak<dyn ArticleData>>,
+	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
 	agent: Dispatcher<TwitterAgent>,
 	ratelimit: RateLimit,
 }
@@ -255,7 +256,7 @@ impl Endpoint for SingleTweetEndpoint {
 		&self.id
 	}
 
-	fn articles(&mut self) -> &mut Vec<Weak<dyn ArticleData>> {
+	fn articles(&mut self) -> &mut Vec<Weak<RefCell<dyn ArticleData>>> {
 		&mut self.articles
 	}
 

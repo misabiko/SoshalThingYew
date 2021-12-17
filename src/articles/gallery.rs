@@ -35,10 +35,13 @@ impl Component for GalleryArticle {
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
 		let strong = ctx.props().data.upgrade().unwrap();
-		let actual_article = strong.referenced_article().and_then(|w| w.upgrade()).unwrap_or_else(|| strong.clone());
+		let borrow = strong.borrow();
+		let actual_article = borrow.referenced_article().and_then(|w| w.upgrade()).unwrap_or_else(|| strong.clone());
+		let actual_borrow = actual_article.borrow();
+
 		html! {
-			<article class="article galleryArticle" articleId={actual_article.id()} style={ctx.props().style.clone()}>
-				{ for actual_article.media().iter().map(|m| html! {
+			<article class="article galleryArticle" articleId={actual_borrow.id()} style={ctx.props().style.clone()}>
+				{ for actual_borrow.media().iter().map(|m| html! {
 					<img src={m.clone()}/>
 				}) }
 			</article>

@@ -64,9 +64,9 @@ pub trait Endpoint {
 
 	fn id(&self) -> &EndpointId;
 
-	fn articles(&mut self) -> &mut Vec<Weak<dyn ArticleData>>;
+	fn articles(&mut self) -> &mut Vec<Weak<RefCell<dyn ArticleData>>>;
 
-	fn add_articles(&mut self, articles: Vec<Weak<dyn ArticleData>>)  {
+	fn add_articles(&mut self, articles: Vec<Weak<RefCell<dyn ArticleData>>>)  {
 		for a in articles {
 			if !self.articles().iter().any(|existing| Weak::ptr_eq(&existing, &a)) {
 				self.articles().push(a);
@@ -111,21 +111,21 @@ pub enum RefreshTime {
 }
 
 pub enum Request {
-	InitTimeline(Rc<RefCell<TimelineEndpoints>>, Callback<Vec<Weak<dyn ArticleData>>>),
+	InitTimeline(Rc<RefCell<TimelineEndpoints>>, Callback<Vec<Weak<RefCell<dyn ArticleData>>>>),
 	Refresh(Weak<RefCell<TimelineEndpoints>>),
 	LoadBottom(Weak<RefCell<TimelineEndpoints>>),
-	EndpointFetchResponse(RefreshTime, EndpointId, FetchResult<Vec<(Rc<dyn ArticleData>, Option<Rc<dyn ArticleData>>)>>),
-	AddArticles(RefreshTime, EndpointId, Vec<(Rc<dyn ArticleData>, Option<Rc<dyn ArticleData>>)>),
+	EndpointFetchResponse(RefreshTime, EndpointId, FetchResult<Vec<(Rc<RefCell<dyn ArticleData>>, Option<Rc<RefCell<dyn ArticleData>>>)>>),
+	AddArticles(RefreshTime, EndpointId, Vec<(Rc<RefCell<dyn ArticleData>>, Option<Rc<RefCell<dyn ArticleData>>>)>),
 	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
 	InitService(String, Vec<EndpointConstructor>),
 	UpdateRateLimit(EndpointId, RateLimit),
 }
 
 pub enum Action {
-	InitTimeline(Rc<RefCell<TimelineEndpoints>>, Callback<Vec<Weak<dyn ArticleData>>>),
+	InitTimeline(Rc<RefCell<TimelineEndpoints>>, Callback<Vec<Weak<RefCell<dyn ArticleData>>>>),
 	Refresh(HashSet<EndpointId>),
 	LoadBottom(HashSet<EndpointId>),
-	Refreshed(RefreshTime, EndpointId, (Vec<(Rc<dyn ArticleData>, Option<Rc<dyn ArticleData>>)>, Option<RateLimit>)),
+	Refreshed(RefreshTime, EndpointId, (Vec<(Rc<RefCell<dyn ArticleData>>, Option<Rc<RefCell<dyn ArticleData>>>)>, Option<RateLimit>)),
 	RefreshFail(Error),
 	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
 	InitService(String, Vec<EndpointConstructor>),
@@ -145,7 +145,7 @@ pub struct EndpointStore {
 	endpoint_counter: EndpointId,
 	pub endpoints: HashMap<EndpointId, Box<dyn Endpoint>>,
 	timeline_counter: TimelineId,
-	pub timelines: HashMap<TimelineId, (Weak<RefCell<TimelineEndpoints>>, Callback<Vec<Weak<dyn ArticleData>>>)>,
+	pub timelines: HashMap<TimelineId, (Weak<RefCell<TimelineEndpoints>>, Callback<Vec<Weak<RefCell<dyn ArticleData>>>>)>,
 	pub services: HashMap<String, Vec<EndpointConstructor>>,
 }
 

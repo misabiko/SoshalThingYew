@@ -1,4 +1,6 @@
-use std::{rc::Rc, rc::Weak, collections::HashSet};
+use std::rc::{Rc, Weak};
+use std::collections::HashSet;
+use std::cell::{RefCell, Ref};
 use yew_agent::{Agent, AgentLink, Context, HandlerId, Bridge, Dispatched, Dispatcher};
 use yew_agent::utils::store::{StoreWrapper, ReadOnly, Bridgeable};
 use js_sys::Date;
@@ -31,7 +33,7 @@ pub struct TweetArticleData {
 	retweet_count: i64,
 	media: Vec<String>,
 	raw_json: serde_json::Value,
-	referenced_article: Option<Weak<dyn ArticleData>>,
+	referenced_article: Option<Weak<RefCell<dyn ArticleData>>>,
 }
 
 impl ArticleData for TweetArticleData {
@@ -76,17 +78,25 @@ impl ArticleData for TweetArticleData {
 		self.media.clone()
 	}
 	fn json(&self) -> serde_json::Value { self.raw_json.clone() }
-	fn referenced_article(&self) -> Option<Weak<dyn ArticleData>> {
+	fn referenced_article(&self) -> Option<Weak<RefCell<dyn ArticleData>>> {
 		self.referenced_article.clone()
 	}
 	fn url(&self) -> String {
 		format!("https://twitter.com/{}/status/{}", &self.author_username(), &self.id())
 	}
+
+	fn update(&mut self, new: &Ref<dyn ArticleData>) {
+		self.liked = new.liked();
+		self.retweeted = new.reposted();
+		self.like_count = new.like_count();
+		self.retweet_count = new.repost_count();
+		self.raw_json = new.json();
+	}
 }
 
 impl TweetArticleData {
-	fn from(json: &serde_json::Value) -> (Rc<Self>, Option<Rc<Self>>) {
-		let referenced_article: Option<Rc<Self>> = {
+	fn from(json: &serde_json::Value) -> (Rc<RefCell<Self>>, Option<Rc<RefCell<Self>>>) {
+		let referenced_article: Option<Rc<RefCell<Self>>> = {
 			let referenced = &json["retweeted_status"];
 			match referenced.is_null() {
 				true => None,
@@ -103,7 +113,7 @@ impl TweetArticleData {
 		let medias_opt = json["extended_entities"]
 			.get("media")
 			.and_then(|media| media.as_array());
-		let data = Rc::new(TweetArticleData {
+		let data = Rc::new(RefCell::new(TweetArticleData {
 			id: json["id"].as_u64().unwrap(),
 			creation_time: json["created_at"].as_str().map(|datetime_str|Date::new(&JsValue::from_str(datetime_str))).unwrap(),
 			text: match json["full_text"].as_str() {
@@ -131,13 +141,13 @@ impl TweetArticleData {
 				None => Vec::new()
 			},
 			raw_json: json.clone(),
-			referenced_article: referenced_article.as_ref().map(|a| Rc::downgrade(a) as Weak<dyn ArticleData>),
-		});
+			referenced_article: referenced_article.as_ref().map(|a| Rc::downgrade(a) as Weak<RefCell<dyn ArticleData>>),
+		}));
 		(data, referenced_article)
 	}
 }
 
-pub async fn fetch_tweets(url: &str) -> FetchResult<Vec<(Rc<TweetArticleData>, Option<Rc<TweetArticleData>>)>> {
+pub async fn fetch_tweets(url: &str) -> FetchResult<Vec<(Rc<RefCell<TweetArticleData>>, Option<Rc<RefCell<TweetArticleData>>>)>> {
 	let response = reqwest::Client::builder().build()?
 		.get(format!("http://localhost:8080{}", url))
 		.send().await?;
@@ -160,7 +170,7 @@ pub async fn fetch_tweets(url: &str) -> FetchResult<Vec<(Rc<TweetArticleData>, O
 		.map_err(|err| Error::from(err))
 }
 
-pub async fn fetch_tweet(url: &str) -> FetchResult<(Rc<TweetArticleData>, Option<Rc<TweetArticleData>>)> {
+pub async fn fetch_tweet(url: &str) -> FetchResult<(Rc<RefCell<TweetArticleData>>, Option<Rc<RefCell<TweetArticleData>>>)> {
 	let response = reqwest::Client::builder().build()?
 		.get(format!("http://localhost:8080{}", url))
 		.send().await?;
@@ -186,7 +196,7 @@ pub struct TwitterAgent {
 	subscribers: HashSet<HandlerId>,
 	#[allow(dead_code)]
 	actions_agent: Dispatcher<ArticleActionsAgent>,
-	articles: HashMap<u64, Rc<TweetArticleData>>
+	articles: HashMap<u64, Rc<RefCell<TweetArticleData>>>
 	//auth_mode: AuthMode,
 }
 
@@ -197,11 +207,11 @@ pub enum Request {
 
 pub enum Msg {
 	DefaultEndpoint(EndpointId),
-	FetchResponse(FetchResult<Vec<Rc<TweetArticleData>>>),
-	EndpointFetchResponse(RefreshTime, EndpointId, FetchResult<Vec<(Rc<TweetArticleData>, Option<Rc<TweetArticleData>>)>>),
+	FetchResponse(FetchResult<Vec<Rc<RefCell<TweetArticleData>>>>),
+	EndpointFetchResponse(RefreshTime, EndpointId, FetchResult<Vec<(Rc<RefCell<TweetArticleData>>, Option<Rc<RefCell<TweetArticleData>>>)>>),
 	EndpointStoreResponse(ReadOnly<EndpointStore>),
-	Like(Weak<dyn ArticleData>),
-	Retweet(Weak<dyn ArticleData>),
+	Like(Weak<RefCell<dyn ArticleData>>),
+	Retweet(Weak<RefCell<dyn ArticleData>>),
 }
 
 pub enum Response {
@@ -265,9 +275,16 @@ impl Agent for TwitterAgent {
 			Msg::EndpointFetchResponse(refresh_time, id, r) => {
 				if let Ok((articles, _)) = &r {
 					for (article, ref_article_opt) in articles {
-						self.articles.insert(article.id, article.clone());
+						let borrow = article.borrow();
+						self.articles.entry(borrow.id)
+							.and_modify(|a| a.borrow_mut().update(&(borrow as Ref<dyn ArticleData>)))
+							.or_insert_with(|| article.clone());
+
 						if let Some(ref_article) = ref_article_opt {
-							self.articles.insert(ref_article.id, ref_article.clone());
+							let ref_borrow = ref_article.borrow();
+							self.articles.entry(ref_borrow.id)
+								.and_modify(|a| a.borrow_mut().update(&(ref_borrow as Ref<dyn ArticleData>)))
+								.or_insert_with(|| ref_article.clone());
 						}
 					}
 				}
@@ -279,8 +296,8 @@ impl Agent for TwitterAgent {
 							articles.into_iter()
 								.map(|(article, ref_article_opt)|
 									(
-										article as Rc<dyn ArticleData>,
-									 	ref_article_opt.map(|a| a as Rc<dyn ArticleData>)
+										article as Rc<RefCell<dyn ArticleData>>,
+									 	ref_article_opt.map(|a| a as Rc<RefCell<dyn ArticleData>>),
 									)
 								).collect(),
 						 	ratelimit
@@ -288,45 +305,50 @@ impl Agent for TwitterAgent {
 				));
 			}
 			Msg::FetchResponse(r) => {
+				log::debug!("FetchResponse");
 				if let Ok((articles, _)) = &r {
 					for article in articles {
-						self.articles.insert(article.id, article.clone());
+						let borrow = article.borrow();
+						let id = borrow.id.clone();
+						log::debug!("FetchResponse for {}: {:?}", &borrow.id, &borrow.liked());
+						self.articles.entry(borrow.id)
+							.and_modify(|a| a.borrow_mut().update(&(borrow as Ref<dyn ArticleData>)))
+							.or_insert_with(|| article.clone());
+						log::debug!("Stored with {:?}", &self.articles[&id].borrow().liked());
 					}
 				}
 			}
 			Msg::EndpointStoreResponse(_) => {}
 			Msg::Like(article) => {
-				let strong_opt = article.upgrade();
+				let strong = article.upgrade().unwrap();
+				let borrow = strong.borrow();
 
-				if let Some(strong) = strong_opt {
-					log::debug!("Like {}!", &strong.id());
-					//TODO Support liking quotes
-					if strong.referenced_article().is_none() {
-						let path = format!("/proxy/twitter/{}/{}", if strong.liked() { "unlike" } else { "like" }, strong.id());
-						self.link.send_future(async move {
-							Msg::FetchResponse(fetch_tweet(&path).await.map(|a| (match a.0 {
-								(article, Some(ref_article)) => vec![article, ref_article],
-								(article, None) => vec![article],
-							}, a.1)))
-						})
-					}
+				log::debug!("Like {}!", &borrow.id());
+				//TODO Support liking quotes
+				if borrow.referenced_article().is_none() {
+					let path = format!("/proxy/twitter/{}/{}", if borrow.liked() { "unlike" } else { "like" }, borrow.id());
+					self.link.send_future(async move {
+						Msg::FetchResponse(fetch_tweet(&path).await.map(|a| (match a.0 {
+							(article, Some(ref_article)) => vec![article, ref_article],
+							(article, None) => vec![article],
+						}, a.1)))
+					})
 				}
 			}
 			Msg::Retweet(article) => {
-				let strong_opt = article.upgrade();
+				let strong = article.upgrade().unwrap();
+				let borrow = strong.borrow();
 
-				if let Some(strong) = strong_opt {
-					log::debug!("Retweet {}!", &strong.id());
-					//TODO Support retweeting quotes
-					if strong.referenced_article().is_none() {
-						let path = format!("/proxy/twitter/{}/{}", if strong.liked() { "unretweet" } else { "retweet" }, strong.id());
-						self.link.send_future(async move {
-							Msg::FetchResponse(fetch_tweet(&path).await.map(|a| (match a.0 {
-								(article, Some(ref_article)) => vec![article, ref_article],
-								(article, None) => vec![article],
-							}, a.1)))
-						})
-					}
+				log::debug!("Retweet {}!", &borrow.id());
+				//TODO Support retweeting quotes
+				if borrow.referenced_article().is_none() {
+					let path = format!("/proxy/twitter/{}/{}", if borrow.liked() { "unretweet" } else { "retweet" }, borrow.id());
+					self.link.send_future(async move {
+						Msg::FetchResponse(fetch_tweet(&path).await.map(|a| (match a.0 {
+							(article, Some(ref_article)) => vec![article, ref_article],
+							(article, None) => vec![article],
+						}, a.1)))
+					})
 				}
 			}
 		};

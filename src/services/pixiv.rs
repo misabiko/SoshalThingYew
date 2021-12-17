@@ -1,4 +1,5 @@
 use std::rc::{Rc, Weak};
+use std::cell::{RefCell, Ref};
 use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher, Bridge};
 use yew_agent::utils::store::{StoreWrapper, ReadOnly, Bridgeable};
 use js_sys::Date;
@@ -48,6 +49,11 @@ impl ArticleData for PixivArticleData {
 	fn url(&self) -> String {
 		format!("https://www.pixiv.net/en/artworks/{}", &self.id)
 	}
+
+	fn update(&mut self, new: &Ref<dyn ArticleData>) {
+		self.src = new.media().first().unwrap().clone();
+		self.title = new.text();
+	}
 }
 
 pub struct PixivAgent {
@@ -59,7 +65,7 @@ pub enum Msg {
 }
 
 pub enum Request {
-	AddArticles(RefreshTime, EndpointId, Vec<Rc<dyn ArticleData>>),
+	AddArticles(RefreshTime, EndpointId, Vec<Rc<RefCell<dyn ArticleData>>>),
 }
 
 impl Agent for PixivAgent {
@@ -99,7 +105,7 @@ impl Agent for PixivAgent {
 
 pub struct FollowEndpoint {
 	id: EndpointId,
-	articles: Vec<Weak<dyn ArticleData>>,
+	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
 	agent: Dispatcher<PixivAgent>,
 }
 
@@ -113,7 +119,7 @@ impl FollowEndpoint {
 	}
 }
 
-fn parse_article(element: web_sys::Element) -> Option<Rc<dyn ArticleData>> {
+fn parse_article(element: web_sys::Element) -> Option<Rc<RefCell<dyn ArticleData>>> {
 	let anchors = element.get_elements_by_tag_name("a");
 	let id = match anchors.get_with_index(0) {
 		Some(a) => match a.get_attribute("data-gtm-value") {
@@ -163,14 +169,14 @@ fn parse_article(element: web_sys::Element) -> Option<Rc<dyn ArticleData>> {
 		None => return None,
 	};
 
-	Some(Rc::new(PixivArticleData {
+	Some(Rc::new(RefCell::new(PixivArticleData {
 		id,
 		src,
 		author_avatar_url,
 		title,
 		author_id,
 		author_name
-	}))
+	})))
 }
 
 impl Endpoint for FollowEndpoint {
@@ -182,7 +188,7 @@ impl Endpoint for FollowEndpoint {
 		&self.id
 	}
 
-	fn articles(&mut self) -> &mut Vec<Weak<dyn ArticleData>> {
+	fn articles(&mut self) -> &mut Vec<Weak<RefCell<dyn ArticleData>>> {
 		&mut self.articles
 	}
 
