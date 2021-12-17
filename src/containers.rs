@@ -1,5 +1,5 @@
 use yew::prelude::*;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 use crate::articles::{view_article, ArticleData, ArticleComponent};
 
@@ -40,7 +40,7 @@ pub struct Props {
 	#[prop_or(1)]
 	pub column_count: u8,
 	pub article_component: ArticleComponent,
-	pub articles: Vec<Rc<dyn ArticleData>>
+	pub articles: Vec<Weak<dyn ArticleData>>
 }
 
 impl PartialEq for Props {
@@ -50,7 +50,7 @@ impl PartialEq for Props {
 			self.article_component == other.article_component &&
 			self.articles.len() == other.articles.len() &&
 			self.articles.iter().zip(other.articles.iter())
-				.all(|(ai, bi)| Rc::ptr_eq(&ai, &bi))
+				.all(|(ai, bi)| Weak::ptr_eq(&ai, &bi))
 	}
 }
 
@@ -126,13 +126,14 @@ fn to_columns<'a>(articles: impl Iterator<Item = &'a Rc<dyn ArticleData>>, colum
 
 #[function_component(MasonryContainer)]
 pub fn masonry_container(props: &Props) -> Html {
-	let columns = to_columns(props.articles.iter(), &props.column_count);
+	let strongs: Vec<Rc<dyn ArticleData>> = props.articles.iter().filter_map(|a| a.upgrade()).collect();
+	let columns = to_columns(strongs.iter(), &props.column_count);
 
 	html! {
 		<div class="articlesContainer masonryContainer">
 			{ for columns.enumerate().map(|(column_index, column)| html! {
 				<div class="masonryColumn" key={column_index}>
-					{ for column.map(|article| view_article(&props.article_component, article.clone()))}
+					{ for column.map(|article| view_article(&props.article_component, Rc::downgrade(article)))}
 				</div>
 			})}
 		</div>

@@ -2,7 +2,7 @@ use yew::prelude::*;
 use js_sys::Date;
 use wasm_bindgen::JsValue;
 use web_sys::console;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use yew_agent::{Dispatched, Dispatcher};
 
 use crate::articles::{ArticleData, Props};
@@ -47,16 +47,19 @@ impl Component for SocialArticle {
 				false
 			},
 			Msg::LogData => {
-				console::dir_1(&JsValue::from_serde(&ctx.props().data.json()).unwrap_or_default());
+				let strong = ctx.props().data.upgrade().unwrap();
+				console::dir_1(&JsValue::from_serde(&strong.json()).unwrap_or_default());
 				false
 			},
 			Msg::Like => {
-				let actual_article = ctx.props().data.referenced_article().and_then(|w| w.upgrade()).unwrap_or_else(|| ctx.props().data.clone());
+				let strong = ctx.props().data.upgrade().unwrap();
+				let actual_article = strong.referenced_article().and_then(|w| w.upgrade()).unwrap_or_else(|| strong.clone());
 				self.article_actions.send(ArticleActionsRequest::Like(Rc::downgrade(&actual_article)));
 				false
 			}
 			Msg::Repost => {
-				let actual_article = ctx.props().data.referenced_article().and_then(|w| w.upgrade()).unwrap_or_else(|| ctx.props().data.clone());
+				let strong = ctx.props().data.upgrade().unwrap();
+				let actual_article = strong.referenced_article().and_then(|w| w.upgrade()).unwrap_or_else(|| strong.clone());
 				self.article_actions.send(ArticleActionsRequest::Repost(Rc::downgrade(&actual_article)));
 				false
 			}
@@ -64,23 +67,23 @@ impl Component for SocialArticle {
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
-		let actual_article = ctx.props().data.referenced_article().and_then(|w| w.upgrade()).unwrap_or_else(|| ctx.props().data.clone());
+		let strong = ctx.props().data.upgrade().unwrap();
+		let actual_article = strong.referenced_article().and_then(|w| w.upgrade()).unwrap_or_else(|| strong.clone());
 
-		let is_retweet = ctx.props().data.referenced_article().is_some();
+		let is_retweet = strong.referenced_article().is_some();
 		let retweet_header = match &is_retweet {
 			true => html! {
 				<div class="repostLabel"
-					href={ctx.props().data.url()}
+					href={strong.url()}
 					target="_blank">
-					<a
-					>{ format!("{} reposted", &ctx.props().data.author_name()) }</a>
+					<a>{ format!("{} reposted", &strong.author_name()) }</a>
 				</div>
 			},
 			false => html! {}
 		};
 
 		html! {
-			<article class="article" articleId={ctx.props().data.id()} style={ctx.props().style.clone()}>
+			<article class="article" articleId={strong.id()} style={ctx.props().style.clone()}>
 				{ retweet_header }
 				<div class="media">
 					<figure class="media-left">
@@ -142,8 +145,9 @@ impl SocialArticle {
 	}
 
 	fn view_nav(&self, ctx: &Context<Self>, actual_article: &Rc<dyn ArticleData>) -> Html {
+		let strong = ctx.props().data.upgrade().unwrap();
 		let ontoggle_compact = ctx.link().callback(|_| Msg::ToggleCompact);
-		let is_retweet = ctx.props().data.referenced_article().is_some();
+		let is_retweet = strong.referenced_article().is_some();
 
 		html! {
 			<nav class="level is-mobile">
@@ -197,7 +201,7 @@ impl SocialArticle {
 								true => html! {
 									<a
 										class="dropdown-item"
-										href={ ctx.props().data.url() }
+										href={ strong.url() }
 										target="_blank" rel="noopener noreferrer"
 									>
 										{ "Repost's External Link" }

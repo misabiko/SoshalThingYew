@@ -3,6 +3,7 @@ use yew_agent::{Agent, AgentLink, Context, HandlerId, Bridge, Dispatched, Dispat
 use yew_agent::utils::store::{StoreWrapper, ReadOnly, Bridgeable};
 use js_sys::Date;
 use wasm_bindgen::JsValue;
+use std::collections::HashMap;
 
 pub mod endpoints;
 
@@ -30,7 +31,7 @@ pub struct TweetArticleData {
 	retweet_count: i64,
 	media: Vec<String>,
 	raw_json: serde_json::Value,
-	referenced_article: Option<Rc<dyn ArticleData>>,
+	referenced_article: Option<Weak<dyn ArticleData>>,
 }
 
 impl ArticleData for TweetArticleData {
@@ -76,56 +77,33 @@ impl ArticleData for TweetArticleData {
 	}
 	fn json(&self) -> serde_json::Value { self.raw_json.clone() }
 	fn referenced_article(&self) -> Option<Weak<dyn ArticleData>> {
-		self.referenced_article.as_ref().map(Rc::downgrade)
+		self.referenced_article.clone()
 	}
 	fn url(&self) -> String {
 		format!("https://twitter.com/{}/status/{}", &self.author_username(), &self.id())
 	}
 }
 
-pub async fn fetch_tweets(url: &str) -> FetchResult<Vec<Rc<dyn ArticleData>>> {
-	let response = reqwest::Client::builder().build()?
-		.get(format!("http://localhost:8080{}", url))
-		.send().await?;
+impl TweetArticleData {
+	fn from(json: &serde_json::Value) -> (Rc<Self>, Option<Rc<Self>>) {
+		let referenced_article: Option<Rc<Self>> = {
+			let referenced = &json["retweeted_status"];
+			match referenced.is_null() {
+				true => None,
+				false => {
+					let parsed = TweetArticleData::from(&referenced.clone());
+					if parsed.1.is_some() {
+						log::error!("Retweet of a retweet on {:?}??", json["id"]);
+					}
+					Some(parsed.0)
+				}
+			}
+		};
 
-	let headers = response.headers();
-	let ratelimit = RateLimit::try_from(headers)?;
-
-	let json_str = response.text().await?.to_string();
-
-
-	serde_json::from_str(&json_str)
-		.map(|value: serde_json::Value|
-			(value
-			.as_array().unwrap()
-			.iter()
-			.map(|json| Rc::new(TweetArticleData::from(json)) as Rc<dyn ArticleData>)
-			.collect(),
-			 Some(ratelimit))
-		)
-		.map_err(|err| Error::from(err))
-}
-
-pub async fn fetch_tweet(url: &str) -> FetchResult<Rc<dyn ArticleData>> {
-	let response = reqwest::Client::builder().build()?
-		.get(format!("http://localhost:8080{}", url))
-		.send().await?;
-
-	let headers = response.headers();
-	let ratelimit = RateLimit::try_from(headers)?;
-
-	let json_str = response.text().await?.to_string();
-
-	let value: serde_json::Value = serde_json::from_str(&json_str).unwrap();
-	Ok((Rc::new(TweetArticleData::from(value)), Some(ratelimit)))
-}
-
-impl From<&serde_json::Value> for TweetArticleData {
-	fn from(json: &serde_json::Value) -> Self {
 		let medias_opt = json["extended_entities"]
-		.get("media")
-		.and_then(|media| media.as_array());
-		TweetArticleData {
+			.get("media")
+			.and_then(|media| media.as_array());
+		let data = Rc::new(TweetArticleData {
 			id: json["id"].as_u64().unwrap(),
 			creation_time: json["created_at"].as_str().map(|datetime_str|Date::new(&JsValue::from_str(datetime_str))).unwrap(),
 			text: match json["full_text"].as_str() {
@@ -153,21 +131,50 @@ impl From<&serde_json::Value> for TweetArticleData {
 				None => Vec::new()
 			},
 			raw_json: json.clone(),
-			referenced_article: {
-				let referenced = &json["retweeted_status"];
-				match referenced.is_null() {
-					true => None,
-					false => Some(Rc::new(TweetArticleData::from(referenced.clone())))
-				}
-			},
-		}
+			referenced_article: referenced_article.as_ref().map(|a| Rc::downgrade(a) as Weak<dyn ArticleData>),
+		});
+		(data, referenced_article)
 	}
 }
 
-impl From<serde_json::Value> for TweetArticleData {
-	fn from(json: serde_json::Value) -> Self {
-		TweetArticleData::from(&json)
-	}
+pub async fn fetch_tweets(url: &str) -> FetchResult<Vec<Rc<TweetArticleData>>> {
+	let response = reqwest::Client::builder().build()?
+		.get(format!("http://localhost:8080{}", url))
+		.send().await?;
+
+	let headers = response.headers();
+	let ratelimit = RateLimit::try_from(headers)?;
+
+	let json_str = response.text().await?.to_string();
+
+
+	serde_json::from_str(&json_str)
+		.map(|value: serde_json::Value|
+			(value
+			.as_array().unwrap()
+			.iter()
+			.flat_map(|json| match TweetArticleData::from(json) {
+				(article, Some(ref_article)) => vec![article, ref_article],
+				(article, None) => vec![article],
+			})
+			.collect(),
+			 Some(ratelimit))
+		)
+		.map_err(|err| Error::from(err))
+}
+
+pub async fn fetch_tweet(url: &str) -> FetchResult<(Rc<TweetArticleData>, Option<Rc<TweetArticleData>>)> {
+	let response = reqwest::Client::builder().build()?
+		.get(format!("http://localhost:8080{}", url))
+		.send().await?;
+
+	let headers = response.headers();
+	let ratelimit = RateLimit::try_from(headers)?;
+
+	let json_str = response.text().await?.to_string();
+
+	let value: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+	Ok((TweetArticleData::from(&value), Some(ratelimit)))
 }
 
 //TODO Receive TwitterUser
@@ -181,6 +188,7 @@ pub struct TwitterAgent {
 	endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
 	subscribers: HashSet<HandlerId>,
 	actions_agent: Dispatcher<ArticleActionsAgent>,
+	articles: HashMap<u64, Rc<TweetArticleData>>
 	//auth_mode: AuthMode,
 }
 
@@ -191,7 +199,8 @@ pub enum Request {
 
 pub enum Msg {
 	DefaultEndpoint(EndpointId),
-	FetchResponse(RefreshTime, EndpointId, FetchResult<Vec<Rc<dyn ArticleData>>>),
+	FetchResponse(FetchResult<Vec<Rc<TweetArticleData>>>),
+	EndpointFetchResponse(RefreshTime, EndpointId, FetchResult<Vec<Rc<TweetArticleData>>>),
 	EndpointStoreResponse(ReadOnly<EndpointStore>),
 	Like(Weak<dyn ArticleData>),
 	Retweet(Weak<dyn ArticleData>),
@@ -243,6 +252,7 @@ impl Agent for TwitterAgent {
 			link,
 			subscribers: HashSet::new(),
 			actions_agent,
+			articles: HashMap::new(),
 			//auth_mode: AuthMode::NotLoggedIn,
 		}
 	}
@@ -254,8 +264,24 @@ impl Agent for TwitterAgent {
 					self.link.respond(*sub, Response::DefaultEndpoint(e));
 				}
 			}
-			Msg::FetchResponse(refresh_time, id, r) => {
-				self.endpoint_store.send(EndpointRequest::FetchResponse(refresh_time, id, r));
+			Msg::EndpointFetchResponse(refresh_time, id, r) => {
+				if let Ok((articles, _)) = &r {
+					for article in articles {
+						self.articles.insert(article.id, article.clone());
+					}
+				}
+				self.endpoint_store.send(EndpointRequest::EndpointFetchResponse(
+					refresh_time,
+					id,
+					r.map(|(articles, ratelimit)| (articles.into_iter().map(|a| a as Rc<dyn ArticleData>).collect(), ratelimit))
+				));
+			}
+			Msg::FetchResponse(r) => {
+				if let Ok((articles, _)) = &r {
+					for article in articles {
+						self.articles.insert(article.id, article.clone());
+					}
+				}
 			}
 			Msg::EndpointStoreResponse(_) => {}
 			Msg::Like(article) => {
@@ -263,6 +289,16 @@ impl Agent for TwitterAgent {
 
 				if let Some(strong) = strong_opt {
 					log::debug!("Like {}!", &strong.id());
+					//TODO Support liking quotes
+					if strong.referenced_article().is_none() {
+						let path = format!("/proxy/twitter/{}/{}", if strong.liked() { "unlike" } else { "like" }, strong.id());
+						self.link.send_future(async move {
+							Msg::FetchResponse(fetch_tweet(&path).await.map(|a| (match a.0 {
+								(article, Some(ref_article)) => vec![article, ref_article],
+								(article, None) => vec![article],
+							}, a.1)))
+						})
+					}
 				}
 			}
 			Msg::Retweet(article) => {
@@ -270,6 +306,16 @@ impl Agent for TwitterAgent {
 
 				if let Some(strong) = strong_opt {
 					log::debug!("Retweet {}!", &strong.id());
+					//TODO Support retweeting quotes
+					if strong.referenced_article().is_none() {
+						let path = format!("/proxy/twitter/{}/{}", if strong.liked() { "unretweet" } else { "retweet" }, strong.id());
+						self.link.send_future(async move {
+							Msg::FetchResponse(fetch_tweet(&path).await.map(|a| (match a.0 {
+								(article, Some(ref_article)) => vec![article, ref_article],
+								(article, None) => vec![article],
+							}, a.1)))
+						})
+					}
 				}
 			}
 		};
@@ -283,11 +329,14 @@ impl Agent for TwitterAgent {
 		match msg {
 			Request::FetchTweets(refresh_time, id, path) =>
 				self.link.send_future(async move {
-					Msg::FetchResponse(refresh_time, id, fetch_tweets(&path).await)
+					Msg::EndpointFetchResponse(refresh_time, id, fetch_tweets(&path).await)
 				}),
 			Request::FetchTweet(refresh_time, id, path) =>
 				self.link.send_future(async move {
-					Msg::FetchResponse(refresh_time, id, fetch_tweet(&path).await.map(|a| (vec![a.0], a.1)))
+					Msg::EndpointFetchResponse(refresh_time, id, fetch_tweet(&path).await.map(|a| match a.0 {
+						(article, Some(ref_article)) => (vec![article, ref_article], a.1),
+						(article, None) => (vec![article], a.1),
+					}))
 				})
 		}
 	}

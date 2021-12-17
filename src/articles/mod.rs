@@ -45,19 +45,21 @@ pub struct Props {
 	pub compact: bool,
 	#[prop_or_default]
 	pub style: Option<String>,
-	pub data: Rc<dyn ArticleData>,
+	pub data: Weak<dyn ArticleData>,
 }
 
 impl PartialEq<Props> for Props {
 	fn eq(&self, other: &Props) -> bool {
 		self.compact == other.compact &&
 			self.style == other.style &&
-			&self.data == &other.data
+			Weak::ptr_eq(&self.data, &other.data)
 	}
 }
 
-pub fn sort_by_id(a: &Rc<dyn ArticleData>, b: &Rc<dyn ArticleData>) -> std::cmp::Ordering {
-	b.id().partial_cmp(&a.id()).unwrap()
+pub fn sort_by_id(a: &Weak<dyn ArticleData>, b: &Weak<dyn ArticleData>) -> std::cmp::Ordering {
+	let a_id = a.upgrade().map(|s| s.id()).unwrap_or("0".to_owned());
+	let b_id = b.upgrade().map(|s| s.id()).unwrap_or("0".to_owned());
+	b_id.partial_cmp(&a_id).unwrap()
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -75,7 +77,7 @@ impl ArticleComponent {
 	}
 }
 
-pub fn view_article(component: &ArticleComponent, article: Rc<dyn ArticleData>) -> Html {
+pub fn view_article(component: &ArticleComponent, article: Weak<dyn ArticleData>) -> Html {
 	match component {
 		ArticleComponent::Social => html! {
 			<SocialArticle compact={false} data={article.clone()}/>

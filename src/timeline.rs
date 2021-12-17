@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use yew::prelude::*;
 use yew_agent::Bridge;
 use yew_agent::utils::store::{StoreWrapper, ReadOnly, Bridgeable};
@@ -16,11 +16,11 @@ use crate::dropdown::{Dropdown, DropdownLabel};
 
 pub struct Timeline {
 	endpoints: Rc<RefCell<TimelineEndpoints>>,
-	articles: Vec<Rc<dyn ArticleData>>,	//TODO Use rc::Weak
+	articles: Vec<Weak<dyn ArticleData>>,
 	options_shown: bool,
 	compact: bool,
 	endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
-	filters: Vec<fn(&Rc<dyn ArticleData>) -> bool>,
+	filters: Vec<fn(&Weak<dyn ArticleData>) -> bool>,
 	container: Container,
 	show_container_dropdown: bool,
 	show_article_component_dropdown: bool,
@@ -34,9 +34,9 @@ pub struct Timeline {
 pub enum Msg {
 	Refresh,
 	LoadBottom,
-	Refreshed(Vec<Rc<dyn ArticleData>>),
+	Refreshed(Vec<Weak<dyn ArticleData>>),
 	RefreshFail,
-	NewArticles(Vec<Rc<dyn ArticleData>>),
+	NewArticles(Vec<Weak<dyn ArticleData>>),
 	ClearArticles,
 	EndpointStoreResponse(ReadOnly<EndpointStore>),
 	ToggleOptions,
@@ -51,11 +51,11 @@ pub enum Msg {
 	SetChooseEndpointModal(bool),
 }
 
-#[derive(Properties, Clone, PartialEq)]
+#[derive(Properties, Clone)]
 pub struct Props {
 	pub name: String,
 	#[prop_or_default]
-	pub articles: Vec<Rc<dyn ArticleData>>,
+	pub articles: Vec<Weak<dyn ArticleData>>,
 	#[prop_or_default]
 	pub endpoints: Option<TimelineEndpoints>,
 	#[prop_or_default]
@@ -64,6 +64,18 @@ pub struct Props {
 	pub column_count: u8,
 	#[prop_or_default]
 	pub children: Children,
+}
+
+impl PartialEq for Props {
+	fn eq(&self, other: &Self) -> bool {
+		self.name == other.name &&
+		self.endpoints == other.endpoints &&
+		self.main_timeline == other.main_timeline &&
+		self.column_count == other.column_count &&
+		self.children == other.children &&
+		self.articles.iter().zip(other.articles.iter())
+			.all(|(ai, bi)| Weak::ptr_eq(&ai, &bi))
+	}
 }
 
 impl Component for Timeline {
@@ -85,7 +97,12 @@ impl Component for Timeline {
 			options_shown: false,
 			compact: false,
 			endpoint_store,
-			filters: vec![|a| a.media().len() > 0],
+			filters: vec![|a| {
+				match a.upgrade() {
+					Some(strong) => strong.media().len() > 0,
+					None => false,
+				}
+			}],
 			container: if ctx.props().main_timeline { Container::Masonry } else { Container::Column },
 			show_container_dropdown: false,
 			show_article_component_dropdown: false,
@@ -115,7 +132,7 @@ impl Component for Timeline {
 			Msg::EndpointStoreResponse(_) => false,
 			Msg::NewArticles(articles) => {
 				for a in articles {
-					if !self.articles.iter().any(|existing| existing.id() == a.id()) {
+					if !self.articles.iter().any(|existing| existing.upgrade().unwrap().id() == a.upgrade().unwrap().id()) {
 						self.articles.push(a);
 					}
 				}

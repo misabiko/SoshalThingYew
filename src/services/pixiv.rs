@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher, Bridge};
 use yew_agent::utils::store::{StoreWrapper, ReadOnly, Bridgeable};
 use js_sys::Date;
@@ -95,7 +95,7 @@ impl Agent for PixivAgent {
 
 pub struct FollowEndpoint {
 	id: EndpointId,
-	articles: Vec<Rc<dyn ArticleData>>,
+	articles: Vec<Weak<dyn ArticleData>>,
 	agent: Dispatcher<PixivAgent>,
 }
 
@@ -178,7 +178,7 @@ impl Endpoint for FollowEndpoint {
 		&self.id
 	}
 
-	fn articles(&mut self) -> &mut Vec<Rc<dyn ArticleData>> {
+	fn articles(&mut self) -> &mut Vec<Weak<dyn ArticleData>> {
 		&mut self.articles
 	}
 

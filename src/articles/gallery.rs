@@ -34,9 +34,11 @@ impl Component for GalleryArticle {
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
+		let strong = ctx.props().data.upgrade().unwrap();
+		let actual_article = strong.referenced_article().and_then(|w| w.upgrade()).unwrap_or_else(|| strong.clone());
 		html! {
-			<article class="article galleryArticle" articleId={ctx.props().data.id()} style={ctx.props().style.clone()}>
-				{ for ctx.props().data.media().iter().map(|m| html! {
+			<article class="article galleryArticle" articleId={actual_article.id()} style={ctx.props().style.clone()}>
+				{ for actual_article.media().iter().map(|m| html! {
 					<img src={m.clone()}/>
 				}) }
 			</article>

@@ -7,7 +7,7 @@ use std::cell::RefCell;
 use reqwest::header::HeaderMap;
 
 use crate::error::{Error, FetchResult};
-use crate::articles::ArticleData;
+use crate::articles::{ArticleData, sort_by_id};
 
 #[derive(Clone, Debug)]
 pub struct RateLimit {
@@ -64,15 +64,15 @@ pub trait Endpoint {
 
 	fn id(&self) -> &EndpointId;
 
-	fn articles(&mut self) -> &mut Vec<Rc<dyn ArticleData>>;
+	fn articles(&mut self) -> &mut Vec<Weak<dyn ArticleData>>;
 
-	fn add_articles(&mut self, articles: Vec<Rc<dyn ArticleData>>)  {
+	fn add_articles(&mut self, articles: Vec<Weak<dyn ArticleData>>)  {
 		for a in articles {
-			if !self.articles().iter().any(|existing| existing.id() == a.id()) {
+			if !self.articles().iter().any(|existing| Weak::ptr_eq(&existing, &a)) {
 				self.articles().push(a);
 			}
 		}
-		self.articles().sort_by(|a, b| b.id().partial_cmp(&a.id()).unwrap())
+		self.articles().sort_by(sort_by_id)
 	}
 
 	fn ratelimit(&self) -> Option<&RateLimit> { None }
@@ -111,10 +111,10 @@ pub enum RefreshTime {
 }
 
 pub enum Request {
-	InitTimeline(Rc<RefCell<TimelineEndpoints>>, Callback<Vec<Rc<dyn ArticleData>>>),
+	InitTimeline(Rc<RefCell<TimelineEndpoints>>, Callback<Vec<Weak<dyn ArticleData>>>),
 	Refresh(Weak<RefCell<TimelineEndpoints>>),
 	LoadBottom(Weak<RefCell<TimelineEndpoints>>),
-	FetchResponse(RefreshTime, EndpointId, FetchResult<Vec<Rc<dyn ArticleData>>>),
+	EndpointFetchResponse(RefreshTime, EndpointId, FetchResult<Vec<Rc<dyn ArticleData>>>),
 	AddArticles(RefreshTime, EndpointId, Vec<Rc<dyn ArticleData>>),
 	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
 	InitService(String, Vec<EndpointConstructor>),
@@ -122,7 +122,7 @@ pub enum Request {
 }
 
 pub enum Action {
-	InitTimeline(Rc<RefCell<TimelineEndpoints>>, Callback<Vec<Rc<dyn ArticleData>>>),
+	InitTimeline(Rc<RefCell<TimelineEndpoints>>, Callback<Vec<Weak<dyn ArticleData>>>),
 	Refresh(HashSet<EndpointId>),
 	LoadBottom(HashSet<EndpointId>),
 	Refreshed(RefreshTime, EndpointId, (Vec<Rc<dyn ArticleData>>, Option<RateLimit>)),
@@ -145,7 +145,7 @@ pub struct EndpointStore {
 	endpoint_counter: EndpointId,
 	pub endpoints: HashMap<EndpointId, Box<dyn Endpoint>>,
 	timeline_counter: TimelineId,
-	pub timelines: HashMap<TimelineId, (Weak<RefCell<TimelineEndpoints>>, Callback<Vec<Rc<dyn ArticleData>>>)>,
+	pub timelines: HashMap<TimelineId, (Weak<RefCell<TimelineEndpoints>>, Callback<Vec<Weak<dyn ArticleData>>>)>,
 	pub services: HashMap<String, Vec<EndpointConstructor>>,
 }
 
@@ -174,7 +174,7 @@ impl Store for EndpointStore {
 				let endpoints = endpoints_weak.upgrade().unwrap();
 				link.send_message(Action::LoadBottom(endpoints.borrow().refresh.clone()));
 			}
-			Request::FetchResponse(refresh_time, id, response) => {
+			Request::EndpointFetchResponse(refresh_time, id, response) => {
 				match response {
 					Ok(response) => link.send_message(Action::Refreshed(refresh_time, id, response)),
 					Err(err) => link.send_message(Action::RefreshFail(err))
@@ -230,7 +230,7 @@ impl Store for EndpointStore {
 			Action::Refreshed(refresh_time, endpoint_id, response) => {
 				log::debug!("{} articles for {}", &response.0.len(), self.endpoints[&endpoint_id].name());
 				let endpoint = self.endpoints.get_mut(&endpoint_id).unwrap();
-				endpoint.add_articles(response.0.clone());
+				endpoint.add_articles(response.0.iter().map(|a| Rc::downgrade(&a)).collect());
 				if let Some(ratelimit) = response.1 {
 					endpoint.update_ratelimit(ratelimit);
 				}
@@ -244,7 +244,7 @@ impl Store for EndpointStore {
 					};
 
 					if endpoints.iter().any(|e| e == &endpoint_id) {
-						timeline.1.emit(response.0.clone());
+						timeline.1.emit(response.0.iter().map(|a| Rc::downgrade(&a)).collect());
 					}
 				}
 			}
