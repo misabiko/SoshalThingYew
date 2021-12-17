@@ -154,6 +154,82 @@ async fn home_timeline(id: Identity, query: web::Query<TimelineQuery>, data: web
 	}
 }
 
+#[get("/twitter/like/{id}")]
+async fn like(id: Identity, tweet_id: Path<u64>, data: web::Data<State>) -> HttpResponse {
+	let tokens = &*data.tokens.lock().unwrap();
+	let token_opt = get_access_token(&id, tokens);
+
+	if let Some(token) = token_opt {
+		match egg_mode::tweet::like(tweet_id.into_inner(), token).await {
+			egg_mode::error::Result::Ok(r) => HttpResponse::Ok()
+				.append_header(("x-rate-limit-limit".to_owned(), r.rate_limit_status.limit.clone()))
+				.append_header(("x-rate-limit-remaining".to_owned(), r.rate_limit_status.remaining.clone()))
+				.append_header(("x-rate-limit-reset".to_owned(), r.rate_limit_status.reset.clone()))
+				.json(&r.response),
+			egg_mode::error::Result::Err(err) => HttpResponse::InternalServerError().body(err.to_string())
+		}
+	}else {
+		HttpResponse::Unauthorized().finish()
+	}
+}
+
+#[get("/twitter/unlike/{id}")]
+async fn unlike(id: Identity, tweet_id: Path<u64>, data: web::Data<State>) -> HttpResponse {
+	let tokens = &*data.tokens.lock().unwrap();
+	let token_opt = get_access_token(&id, tokens);
+
+	if let Some(token) = token_opt {
+		match egg_mode::tweet::unlike(tweet_id.into_inner(), token).await {
+			egg_mode::error::Result::Ok(r) => HttpResponse::Ok()
+				.append_header(("x-rate-limit-limit".to_owned(), r.rate_limit_status.limit.clone()))
+				.append_header(("x-rate-limit-remaining".to_owned(), r.rate_limit_status.remaining.clone()))
+				.append_header(("x-rate-limit-reset".to_owned(), r.rate_limit_status.reset.clone()))
+				.json(&r.response),
+			egg_mode::error::Result::Err(err) => HttpResponse::InternalServerError().body(err.to_string())
+		}
+	}else {
+		HttpResponse::Unauthorized().finish()
+	}
+}
+
+#[get("/twitter/retweet/{id}")]
+async fn retweet(id: Identity, tweet_id: Path<u64>, data: web::Data<State>) -> HttpResponse {
+	let tokens = &*data.tokens.lock().unwrap();
+	let token_opt = get_access_token(&id, tokens);
+
+	if let Some(token) = token_opt {
+		match egg_mode::tweet::retweet(tweet_id.into_inner(), token).await {
+			egg_mode::error::Result::Ok(r) => HttpResponse::Ok()
+				.append_header(("x-rate-limit-limit".to_owned(), r.rate_limit_status.limit.clone()))
+				.append_header(("x-rate-limit-remaining".to_owned(), r.rate_limit_status.remaining.clone()))
+				.append_header(("x-rate-limit-reset".to_owned(), r.rate_limit_status.reset.clone()))
+				.json(&r.response),
+			egg_mode::error::Result::Err(err) => HttpResponse::InternalServerError().body(err.to_string())
+		}
+	}else {
+		HttpResponse::Unauthorized().finish()
+	}
+}
+
+#[get("/twitter/unretweet/{id}")]
+async fn unretweet(id: Identity, tweet_id: Path<u64>, data: web::Data<State>) -> HttpResponse {
+	let tokens = &*data.tokens.lock().unwrap();
+	let token_opt = get_access_token(&id, tokens);
+
+	if let Some(token) = token_opt {
+		match egg_mode::tweet::unretweet(tweet_id.into_inner(), token).await {
+			egg_mode::error::Result::Ok(r) => HttpResponse::Ok()
+				.append_header(("x-rate-limit-limit".to_owned(), r.rate_limit_status.limit.clone()))
+				.append_header(("x-rate-limit-remaining".to_owned(), r.rate_limit_status.remaining.clone()))
+				.append_header(("x-rate-limit-reset".to_owned(), r.rate_limit_status.reset.clone()))
+				.json(&r.response),
+			egg_mode::error::Result::Err(err) => HttpResponse::InternalServerError().body(err.to_string())
+		}
+	}else {
+		HttpResponse::Unauthorized().finish()
+	}
+}
+
 #[get("/twitter/login")]
 async fn twitter_login(data: web::Data<State>) -> HttpResponse {
 	let new_req_token = egg_mode::auth::request_token(&data.con_token, "http://localhost:8080/proxy/twitter/callback").await.unwrap();
@@ -273,6 +349,10 @@ async fn main() -> std::io::Result<()> {
 			.service(
 				web::scope("/proxy")
 					.service(status)
+					.service(like)
+					.service(unlike)
+					.service(retweet)
+					.service(unretweet)
 					.service(user_timeline)
 					.service(home_timeline)
 					.service(list)

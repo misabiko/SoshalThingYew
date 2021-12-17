@@ -1,5 +1,5 @@
 use yew::prelude::*;
-use yew_agent::Bridge;
+use yew_agent::{Bridge, Dispatcher, Dispatched};
 use yew_agent::utils::store::{Bridgeable, ReadOnly, StoreWrapper};
 use std::collections::HashSet;
 
@@ -18,8 +18,8 @@ use crate::sidebar::Sidebar;
 use crate::timeline::{Props as TimelineProps, Timeline};
 use crate::services::{
 	endpoints::{Endpoint, EndpointId, EndpointStore, Request as EndpointRequest, TimelineEndpoints},
-	pixiv::FollowEndpoint,
-	twitter::{endpoints::{HomeTimelineEndpoint, SingleTweetEndpoint, UserTimelineEndpoint}},
+	pixiv::{PixivAgent, FollowEndpoint},
+	twitter::{TwitterAgent, endpoints::{HomeTimelineEndpoint, SingleTweetEndpoint, UserTimelineEndpoint}},
 };
 use crate::favviewer::{PageInfo, pixiv::PixivPageInfo};
 use crate::modals::AddTimelineModal;
@@ -44,6 +44,10 @@ struct Model {
 	timelines: Vec<TimelineProps>,
 	page_info: Option<Box<dyn PageInfo>>,
 	show_add_timeline: bool,
+	#[allow(dead_code)]
+	twitter: Dispatcher<TwitterAgent>,
+	#[allow(dead_code)]
+	pixiv: Dispatcher<PixivAgent>,
 }
 
 enum Msg {
@@ -59,7 +63,7 @@ enum Msg {
 struct Props {
 	favviewer: bool,
 	#[prop_or_default]
-	display_mode: Option<DisplayMode>
+	display_mode: Option<DisplayMode>,
 }
 
 impl Component for Model {
@@ -103,6 +107,8 @@ impl Component for Model {
 			endpoint_store: EndpointStore::bridge(ctx.link().callback(Msg::EndpointStoreResponse)),
 			page_info,
 			show_add_timeline: false,
+			twitter: TwitterAgent::dispatcher(),
+			pixiv: PixivAgent::dispatcher(),
 		}
 	}
 

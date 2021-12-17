@@ -88,7 +88,11 @@ impl Agent for PixivAgent {
 	fn handle_input(&mut self, msg: Self::Input, _id: HandlerId) {
 		match msg {
 			Request::AddArticles(refresh_time, endpoint_id, articles) =>
-				self.endpoint_store.send(EndpointRequest::AddArticles(refresh_time, endpoint_id, articles)),
+				self.endpoint_store.send(EndpointRequest::AddArticles(
+					refresh_time,
+					endpoint_id,
+					articles.into_iter().map(|a| (a, None)).collect()
+				)),
 		};
 	}
 }

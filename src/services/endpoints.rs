@@ -114,8 +114,8 @@ pub enum Request {
 	InitTimeline(Rc<RefCell<TimelineEndpoints>>, Callback<Vec<Weak<dyn ArticleData>>>),
 	Refresh(Weak<RefCell<TimelineEndpoints>>),
 	LoadBottom(Weak<RefCell<TimelineEndpoints>>),
-	EndpointFetchResponse(RefreshTime, EndpointId, FetchResult<Vec<Rc<dyn ArticleData>>>),
-	AddArticles(RefreshTime, EndpointId, Vec<Rc<dyn ArticleData>>),
+	EndpointFetchResponse(RefreshTime, EndpointId, FetchResult<Vec<(Rc<dyn ArticleData>, Option<Rc<dyn ArticleData>>)>>),
+	AddArticles(RefreshTime, EndpointId, Vec<(Rc<dyn ArticleData>, Option<Rc<dyn ArticleData>>)>),
 	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
 	InitService(String, Vec<EndpointConstructor>),
 	UpdateRateLimit(EndpointId, RateLimit),
@@ -125,7 +125,7 @@ pub enum Action {
 	InitTimeline(Rc<RefCell<TimelineEndpoints>>, Callback<Vec<Weak<dyn ArticleData>>>),
 	Refresh(HashSet<EndpointId>),
 	LoadBottom(HashSet<EndpointId>),
-	Refreshed(RefreshTime, EndpointId, (Vec<Rc<dyn ArticleData>>, Option<RateLimit>)),
+	Refreshed(RefreshTime, EndpointId, (Vec<(Rc<dyn ArticleData>, Option<Rc<dyn ArticleData>>)>, Option<RateLimit>)),
 	RefreshFail(Error),
 	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
 	InitService(String, Vec<EndpointConstructor>),
@@ -230,7 +230,7 @@ impl Store for EndpointStore {
 			Action::Refreshed(refresh_time, endpoint_id, response) => {
 				log::debug!("{} articles for {}", &response.0.len(), self.endpoints[&endpoint_id].name());
 				let endpoint = self.endpoints.get_mut(&endpoint_id).unwrap();
-				endpoint.add_articles(response.0.iter().map(|a| Rc::downgrade(&a)).collect());
+				endpoint.add_articles(response.0.iter().map(|(article, _article_ref)| Rc::downgrade(&article)).collect());
 				if let Some(ratelimit) = response.1 {
 					endpoint.update_ratelimit(ratelimit);
 				}
@@ -244,7 +244,7 @@ impl Store for EndpointStore {
 					};
 
 					if endpoints.iter().any(|e| e == &endpoint_id) {
-						timeline.1.emit(response.0.iter().map(|a| Rc::downgrade(&a)).collect());
+						timeline.1.emit(response.0.iter().map(|(article, _article_ref)| Rc::downgrade(&article)).collect());
 					}
 				}
 			}

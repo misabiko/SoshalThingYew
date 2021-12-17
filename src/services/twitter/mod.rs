@@ -137,7 +137,7 @@ impl TweetArticleData {
 	}
 }
 
-pub async fn fetch_tweets(url: &str) -> FetchResult<Vec<Rc<TweetArticleData>>> {
+pub async fn fetch_tweets(url: &str) -> FetchResult<Vec<(Rc<TweetArticleData>, Option<Rc<TweetArticleData>>)>> {
 	let response = reqwest::Client::builder().build()?
 		.get(format!("http://localhost:8080{}", url))
 		.send().await?;
@@ -153,10 +153,7 @@ pub async fn fetch_tweets(url: &str) -> FetchResult<Vec<Rc<TweetArticleData>>> {
 			(value
 			.as_array().unwrap()
 			.iter()
-			.flat_map(|json| match TweetArticleData::from(json) {
-				(article, Some(ref_article)) => vec![article, ref_article],
-				(article, None) => vec![article],
-			})
+			.map(|json| TweetArticleData::from(json))
 			.collect(),
 			 Some(ratelimit))
 		)
@@ -187,6 +184,7 @@ pub struct TwitterAgent {
 	link: AgentLink<Self>,
 	endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
 	subscribers: HashSet<HandlerId>,
+	#[allow(dead_code)]
 	actions_agent: Dispatcher<ArticleActionsAgent>,
 	articles: HashMap<u64, Rc<TweetArticleData>>
 	//auth_mode: AuthMode,
@@ -200,7 +198,7 @@ pub enum Request {
 pub enum Msg {
 	DefaultEndpoint(EndpointId),
 	FetchResponse(FetchResult<Vec<Rc<TweetArticleData>>>),
-	EndpointFetchResponse(RefreshTime, EndpointId, FetchResult<Vec<Rc<TweetArticleData>>>),
+	EndpointFetchResponse(RefreshTime, EndpointId, FetchResult<Vec<(Rc<TweetArticleData>, Option<Rc<TweetArticleData>>)>>),
 	EndpointStoreResponse(ReadOnly<EndpointStore>),
 	Like(Weak<dyn ArticleData>),
 	Retweet(Weak<dyn ArticleData>),
@@ -266,14 +264,27 @@ impl Agent for TwitterAgent {
 			}
 			Msg::EndpointFetchResponse(refresh_time, id, r) => {
 				if let Ok((articles, _)) = &r {
-					for article in articles {
+					for (article, ref_article_opt) in articles {
 						self.articles.insert(article.id, article.clone());
+						if let Some(ref_article) = ref_article_opt {
+							self.articles.insert(ref_article.id, ref_article.clone());
+						}
 					}
 				}
 				self.endpoint_store.send(EndpointRequest::EndpointFetchResponse(
 					refresh_time,
 					id,
-					r.map(|(articles, ratelimit)| (articles.into_iter().map(|a| a as Rc<dyn ArticleData>).collect(), ratelimit))
+					r.map(|(articles, ratelimit)|
+						(
+							articles.into_iter()
+								.map(|(article, ref_article_opt)|
+									(
+										article as Rc<dyn ArticleData>,
+									 	ref_article_opt.map(|a| a as Rc<dyn ArticleData>)
+									)
+								).collect(),
+						 	ratelimit
+						))
 				));
 			}
 			Msg::FetchResponse(r) => {
@@ -333,10 +344,7 @@ impl Agent for TwitterAgent {
 				}),
 			Request::FetchTweet(refresh_time, id, path) =>
 				self.link.send_future(async move {
-					Msg::EndpointFetchResponse(refresh_time, id, fetch_tweet(&path).await.map(|a| match a.0 {
-						(article, Some(ref_article)) => (vec![article, ref_article], a.1),
-						(article, None) => (vec![article], a.1),
-					}))
+					Msg::EndpointFetchResponse(refresh_time, id, fetch_tweet(&path).await.map(|a| (vec![a.0], a.1)))
 				})
 		}
 	}

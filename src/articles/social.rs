@@ -2,7 +2,7 @@ use yew::prelude::*;
 use js_sys::Date;
 use wasm_bindgen::JsValue;
 use web_sys::console;
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 use yew_agent::{Dispatched, Dispatcher};
 
 use crate::articles::{ArticleData, Props};

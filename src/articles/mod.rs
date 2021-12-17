@@ -1,4 +1,4 @@
-use std::rc::{Rc, Weak};
+use std::rc::Weak;
 use yew::prelude::*;
 use js_sys::Date;
 
