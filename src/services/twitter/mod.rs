@@ -207,11 +207,11 @@ pub enum Request {
 
 pub enum Msg {
 	DefaultEndpoint(EndpointId),
-	FetchResponse(FetchResult<Vec<Rc<RefCell<TweetArticleData>>>>),
+	FetchResponse(HandlerId, FetchResult<Vec<Rc<RefCell<TweetArticleData>>>>),
 	EndpointFetchResponse(RefreshTime, EndpointId, FetchResult<Vec<(Rc<RefCell<TweetArticleData>>, Option<Rc<RefCell<TweetArticleData>>>)>>),
 	EndpointStoreResponse(ReadOnly<EndpointStore>),
-	Like(Weak<RefCell<dyn ArticleData>>),
-	Retweet(Weak<RefCell<dyn ArticleData>>),
+	Like(HandlerId, Weak<RefCell<dyn ArticleData>>),
+	Retweet(HandlerId, Weak<RefCell<dyn ArticleData>>),
 }
 
 pub enum Response {
@@ -251,8 +251,8 @@ impl Agent for TwitterAgent {
 
 		let mut actions_agent = ArticleActionsAgent::dispatcher();
 		actions_agent.send(ArticleActionsRequest::Init("Twitter", ServiceActions {
-			like: link.callback(Msg::Like),
-			repost: link.callback(Msg::Retweet),
+			like: link.callback(|(id, article)| Msg::Like(id, article)),
+			repost: link.callback(|(id, article)| Msg::Retweet(id, article)),
 		}));
 
 		Self {
@@ -304,47 +304,43 @@ impl Agent for TwitterAgent {
 						))
 				));
 			}
-			Msg::FetchResponse(r) => {
-				log::debug!("FetchResponse");
+			Msg::FetchResponse(id, r) => {
 				if let Ok((articles, _)) = &r {
 					for article in articles {
 						let borrow = article.borrow();
-						let id = borrow.id.clone();
-						log::debug!("FetchResponse for {}: {:?}", &borrow.id, &borrow.liked());
 						self.articles.entry(borrow.id)
 							.and_modify(|a| a.borrow_mut().update(&(borrow as Ref<dyn ArticleData>)))
 							.or_insert_with(|| article.clone());
-						log::debug!("Stored with {:?}", &self.articles[&id].borrow().liked());
 					}
+
+					self.actions_agent.send(ArticleActionsRequest::Callback(id));
 				}
 			}
 			Msg::EndpointStoreResponse(_) => {}
-			Msg::Like(article) => {
+			Msg::Like(id, article) => {
 				let strong = article.upgrade().unwrap();
 				let borrow = strong.borrow();
 
-				log::debug!("Like {}!", &borrow.id());
 				//TODO Support liking quotes
 				if borrow.referenced_article().is_none() {
 					let path = format!("/proxy/twitter/{}/{}", if borrow.liked() { "unlike" } else { "like" }, borrow.id());
 					self.link.send_future(async move {
-						Msg::FetchResponse(fetch_tweet(&path).await.map(|a| (match a.0 {
+						Msg::FetchResponse(id, fetch_tweet(&path).await.map(|a| (match a.0 {
 							(article, Some(ref_article)) => vec![article, ref_article],
 							(article, None) => vec![article],
 						}, a.1)))
 					})
 				}
 			}
-			Msg::Retweet(article) => {
+			Msg::Retweet(id, article) => {
 				let strong = article.upgrade().unwrap();
 				let borrow = strong.borrow();
 
-				log::debug!("Retweet {}!", &borrow.id());
 				//TODO Support retweeting quotes
 				if borrow.referenced_article().is_none() {
-					let path = format!("/proxy/twitter/{}/{}", if borrow.liked() { "unretweet" } else { "retweet" }, borrow.id());
+					let path = format!("/proxy/twitter/{}/{}", if borrow.reposted() { "unretweet" } else { "retweet" }, borrow.id());
 					self.link.send_future(async move {
-						Msg::FetchResponse(fetch_tweet(&path).await.map(|a| (match a.0 {
+						Msg::FetchResponse(id, fetch_tweet(&path).await.map(|a| (match a.0 {
 							(article, Some(ref_article)) => vec![article, ref_article],
 							(article, None) => vec![article],
 						}, a.1)))

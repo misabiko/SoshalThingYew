@@ -27,7 +27,7 @@ impl Component for GalleryArticle {
 				Some(compact) => self.compact = Some(!compact),
 				None => self.compact = Some(!ctx.props().compact),
 			},
-			Msg::OnImageClick => ctx.link().send_message(Msg::ToggleCompact)
+			Msg::OnImageClick => ctx.link().send_message(Msg::ToggleCompact),
 		};
 
 		true

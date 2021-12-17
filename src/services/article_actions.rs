@@ -7,57 +7,58 @@ use std::collections::HashMap;
 use crate::articles::ArticleData;
 
 pub struct ServiceActions {
-	pub like: Callback<Weak<RefCell<dyn ArticleData>>>,
-	pub repost: Callback<Weak<RefCell<dyn ArticleData>>>,
+	pub like: Callback<(HandlerId, Weak<RefCell<dyn ArticleData>>)>,
+	pub repost: Callback<(HandlerId, Weak<RefCell<dyn ArticleData>>)>,
 }
 
 pub struct ArticleActionsAgent {
+	link: AgentLink<Self>,
 	services: HashMap<&'static str, ServiceActions>
 }
 
-pub enum Msg {}
-
 pub enum Request {
 	Init(&'static str, ServiceActions),
+	Callback(HandlerId),
 	Like(Weak<RefCell<dyn ArticleData>>),
 	Repost(Weak<RefCell<dyn ArticleData>>),
 }
 
+pub enum Response {
+	Callback,
+}
+
 impl Agent for ArticleActionsAgent {
 	type Reach = Context<Self>;
-	type Message = Msg;
+	type Message = ();
 	type Input = Request;
-	type Output = ();
+	type Output = Response;
 
-	fn create(_link: AgentLink<Self>) -> Self {
-		log::debug!("New agent?");
+	fn create(link: AgentLink<Self>) -> Self {
 		Self {
+			link,
 			services: HashMap::new(),
 		}
 	}
 
-	fn update(&mut self, msg: Self::Message) {
-		match msg {
+	fn update(&mut self, _msg: Self::Message) {}
 
-		}
-	}
-
-	fn handle_input(&mut self, msg: Self::Input, _id: HandlerId) {
+	fn handle_input(&mut self, msg: Self::Input, id: HandlerId) {
 		match msg {
 			Request::Init(service, actions) => {
 				self.services.insert(service, actions);
 			}
+			Request::Callback(respond_id) => self.link.respond(respond_id, Response::Callback),
 			Request::Like(article) => {
 				let strong = article.upgrade().unwrap();
 				let borrow = strong.borrow();
 
-				self.services.get(&borrow.service()).map(|s| s.like.emit(article.clone()));
+				self.services.get(&borrow.service()).map(|s| s.like.emit((id, article.clone())));
 			}
 			Request::Repost(article) => {
 				let strong = article.upgrade().unwrap();
 				let borrow = strong.borrow();
 
-				self.services.get(&borrow.service()).map(|s| s.repost.emit(article.clone()));
+				self.services.get(&borrow.service()).map(|s| s.repost.emit((id, article.clone())));
 			}
 		};
 	}

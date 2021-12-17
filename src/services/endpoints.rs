@@ -200,7 +200,6 @@ impl Store for EndpointStore {
 				for endpoint_id in &endpoints.borrow().start {
 					let endpoint = self.endpoints.get_mut(&endpoint_id).unwrap();
 					if endpoint.get_mut_ratelimit().map(|r| r.can_refresh()).unwrap_or(true) {
-						log::debug!("Refreshing {}", &endpoint.name());
 						endpoint.refresh(RefreshTime::Start);
 					}else {
 						log::warn!("Can't refresh {}", &endpoint.name());

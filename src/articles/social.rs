@@ -4,15 +4,15 @@ use wasm_bindgen::JsValue;
 use web_sys::console;
 use std::rc::Rc;
 use std::cell::Ref;
-use yew_agent::{Dispatched, Dispatcher};
+use yew_agent::{Bridge, Bridged};
 
 use crate::articles::{ArticleData, Props};
 use crate::dropdown::{Dropdown, DropdownLabel};
-use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest};
+use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest, Response as ArticleActionsResponse};
 
 pub struct SocialArticle {
 	compact: Option<bool>,
-	article_actions: Dispatcher<ArticleActionsAgent>
+	article_actions: Box<dyn Bridge<ArticleActionsAgent>>
 }
 
 pub enum Msg {
@@ -21,16 +21,17 @@ pub enum Msg {
 	LogData,
 	Like,
 	Repost,
+	ActionsCallback(ArticleActionsResponse),
 }
 
 impl Component for SocialArticle {
 	type Message = Msg;
 	type Properties = Props;
 
-	fn create(_ctx: &Context<Self>) -> Self {
+	fn create(ctx: &Context<Self>) -> Self {
 		Self {
 			compact: None,
-			article_actions: ArticleActionsAgent::dispatcher(),
+			article_actions: ArticleActionsAgent::bridge(ctx.link().callback(Msg::ActionsCallback)),
 		}
 	}
 
@@ -64,6 +65,7 @@ impl Component for SocialArticle {
 				self.article_actions.send(ArticleActionsRequest::Repost(Rc::downgrade(&actual_article)));
 				false
 			}
+			Msg::ActionsCallback(_) => true
 		}
 	}
 

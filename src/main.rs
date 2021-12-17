@@ -119,7 +119,6 @@ impl Component for Model {
 				false
 			}
 			Msg::AddTimeline(name, id) => {
-				log::debug!("Adding new timeline for {}", &id);
 				let mut endpoints = HashSet::new();
 				endpoints.insert(id);
 				self.timelines.push(yew::props! { TimelineProps {
@@ -231,7 +230,7 @@ fn parse_url() -> (Option<String>, Option<web_sys::UrlSearchParams>) {
 fn parse_pathname(ctx: &Context<Model>, pathname: &str) {
 	if let Some(tweet_id) = pathname.strip_prefix("/twitter/status/").and_then(|s| s.parse::<u64>().ok()) {
 		let callback = ctx.link().callback(|id|Msg::AddTimeline("Tweet".to_owned(), id));
-		log::debug!("Adding endpoint for {}", &tweet_id);
+
 		ctx.link().send_message(
 			Msg::AddEndpoint(Box::new(move |id| {
 				callback.emit(id);
@@ -240,7 +239,7 @@ fn parse_pathname(ctx: &Context<Model>, pathname: &str) {
 		);
 	} else if let Some(username) = pathname.strip_prefix("/twitter/user/").map(str::to_owned) {
 		let callback = ctx.link().callback(|id| Msg::AddTimeline("User".to_owned(), id));
-		log::debug!("Adding endpoint for {}", &username);
+
 		ctx.link().send_message(
 			Msg::AddEndpoint(Box::new(move |id| {
 				callback.emit(id);
@@ -305,7 +304,6 @@ fn main() {
 //TODO Save timeline data
 //TODO Save fetched articles
 //TODO Autoscroll
-//TODO like/retweets
 //TODO Quotes
 //TODO Filters
 //TODO Youtube articles
