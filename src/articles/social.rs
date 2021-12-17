@@ -3,18 +3,23 @@ use js_sys::Date;
 use wasm_bindgen::JsValue;
 use web_sys::console;
 use std::rc::Rc;
+use yew_agent::{Dispatched, Dispatcher};
 
 use crate::articles::{ArticleData, Props};
 use crate::dropdown::{Dropdown, DropdownLabel};
+use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest};
 
 pub struct SocialArticle {
 	compact: Option<bool>,
+	article_actions: Dispatcher<ArticleActionsAgent>
 }
 
 pub enum Msg {
 	ToggleCompact,
 	OnImageClick,
 	LogData,
+	Like,
+	Repost,
 }
 
 impl Component for SocialArticle {
@@ -24,6 +29,7 @@ impl Component for SocialArticle {
 	fn create(_ctx: &Context<Self>) -> Self {
 		Self {
 			compact: None,
+			article_actions: ArticleActionsAgent::dispatcher(),
 		}
 	}
 
@@ -44,6 +50,16 @@ impl Component for SocialArticle {
 				console::dir_1(&JsValue::from_serde(&ctx.props().data.json()).unwrap_or_default());
 				false
 			},
+			Msg::Like => {
+				let actual_article = ctx.props().data.referenced_article().and_then(|w| w.upgrade()).unwrap_or_else(|| ctx.props().data.clone());
+				self.article_actions.send(ArticleActionsRequest::Like(Rc::downgrade(&actual_article)));
+				false
+			}
+			Msg::Repost => {
+				let actual_article = ctx.props().data.referenced_article().and_then(|w| w.upgrade()).unwrap_or_else(|| ctx.props().data.clone());
+				self.article_actions.send(ArticleActionsRequest::Repost(Rc::downgrade(&actual_article)));
+				false
+			}
 		}
 	}
 
@@ -132,13 +148,19 @@ impl SocialArticle {
 		html! {
 			<nav class="level is-mobile">
 				<div class="level-left">
-					<a class={classes!("level-item", "articleButton", "repostButton", if actual_article.reposted() { Some("repostedPostButton") } else { None })}>
+					<a
+						class={classes!("level-item", "articleButton", "repostButton", if actual_article.reposted() { Some("repostedPostButton") } else { None })}
+						onclick={ctx.link().callback(|_| Msg::Repost)}
+					>
 						<span class="icon">
 							<i class="fas fa-retweet"/>
 						</span>
 						<span>{actual_article.repost_count()}</span>
 					</a>
-					<a class={classes!("level-item", "articleButton", "likeButton", if actual_article.liked() { Some("likedPostButton") } else { None })}>
+					<a
+						class={classes!("level-item", "articleButton", "likeButton", if actual_article.liked() { Some("likedPostButton") } else { None })}
+						onclick={ctx.link().callback(|_| Msg::Like)}
+					>
 						<span class="icon">
 							<i class={classes!("fa-heart", if actual_article.liked() { "fas" } else { "far" })}/>
 						</span>

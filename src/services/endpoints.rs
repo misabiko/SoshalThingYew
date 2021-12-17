@@ -110,7 +110,7 @@ pub enum RefreshTime {
 	OnRefresh,
 }
 
-pub enum StoreRequest {
+pub enum Request {
 	InitTimeline(Rc<RefCell<TimelineEndpoints>>, Callback<Vec<Rc<dyn ArticleData>>>),
 	Refresh(Weak<RefCell<TimelineEndpoints>>),
 	LoadBottom(Weak<RefCell<TimelineEndpoints>>),
@@ -150,7 +150,7 @@ pub struct EndpointStore {
 }
 
 impl Store for EndpointStore {
-	type Input = StoreRequest;
+	type Input = Request;
 	type Action = Action;
 
 	fn new() -> Self {
@@ -165,28 +165,28 @@ impl Store for EndpointStore {
 
 	fn handle_input(&self, link: AgentLink<StoreWrapper<Self>>, msg: Self::Input) {
 		match msg {
-			StoreRequest::InitTimeline(endpoints, callback) => link.send_message(Action::InitTimeline(endpoints, callback)),
-			StoreRequest::Refresh(endpoints_weak) => {
+			Request::InitTimeline(endpoints, callback) => link.send_message(Action::InitTimeline(endpoints, callback)),
+			Request::Refresh(endpoints_weak) => {
 				let endpoints = endpoints_weak.upgrade().unwrap();
 				link.send_message(Action::Refresh(endpoints.borrow().refresh.clone()));
 			}
-			StoreRequest::LoadBottom(endpoints_weak) => {
+			Request::LoadBottom(endpoints_weak) => {
 				let endpoints = endpoints_weak.upgrade().unwrap();
 				link.send_message(Action::LoadBottom(endpoints.borrow().refresh.clone()));
 			}
-			StoreRequest::FetchResponse(refresh_time, id, response) => {
+			Request::FetchResponse(refresh_time, id, response) => {
 				match response {
 					Ok(response) => link.send_message(Action::Refreshed(refresh_time, id, response)),
 					Err(err) => link.send_message(Action::RefreshFail(err))
 				};
 			}
-			StoreRequest::AddArticles(refresh_time, id, articles) =>
+			Request::AddArticles(refresh_time, id, articles) =>
 				link.send_message(Action::Refreshed(refresh_time, id, (articles, None))),
-			StoreRequest::AddEndpoint(endpoint) =>
+			Request::AddEndpoint(endpoint) =>
 				link.send_message(Action::AddEndpoint(endpoint)),
-			StoreRequest::InitService(name, endpoint_types) =>
+			Request::InitService(name, endpoint_types) =>
 				link.send_message(Action::InitService(name, endpoint_types)),
-			StoreRequest::UpdateRateLimit(endpoint_id, ratelimit) =>
+			Request::UpdateRateLimit(endpoint_id, ratelimit) =>
 				link.send_message(Action::UpdateRateLimit(endpoint_id, ratelimit)),
 		}
 	}

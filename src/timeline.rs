@@ -8,7 +8,7 @@ use rand::{thread_rng, seq::SliceRandom};
 use std::cell::RefCell;
 
 use crate::articles::{ArticleComponent, ArticleData, sort_by_id};
-use crate::services::endpoints::{EndpointStore, TimelineEndpoints, StoreRequest as EndpointRequest};
+use crate::services::endpoints::{EndpointStore, TimelineEndpoints, Request as EndpointRequest};
 use crate::containers::{Container, view_container, Props as ContainerProps};
 use crate::modals::Modal;
 use crate::choose_endpoints::ChooseEndpoints;

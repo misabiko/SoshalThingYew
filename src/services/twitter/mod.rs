@@ -1,5 +1,5 @@
 use std::{rc::Rc, rc::Weak, collections::HashSet};
-use yew_agent::{Agent, AgentLink, Context, HandlerId, Bridge};
+use yew_agent::{Agent, AgentLink, Context, HandlerId, Bridge, Dispatched, Dispatcher};
 use yew_agent::utils::store::{StoreWrapper, ReadOnly, Bridgeable};
 use js_sys::Date;
 use wasm_bindgen::JsValue;
@@ -7,9 +7,10 @@ use wasm_bindgen::JsValue;
 pub mod endpoints;
 
 use crate::articles::{ArticleData};
-use crate::services::endpoints::{EndpointStore, StoreRequest as EndpointRequest, EndpointId, EndpointConstructor, RefreshTime, RateLimit};
+use crate::services::endpoints::{EndpointStore, Request as EndpointRequest, EndpointId, EndpointConstructor, RefreshTime, RateLimit};
 use crate::error::{Error, FetchResult};
 use crate::services::twitter::endpoints::{UserTimelineEndpoint, HomeTimelineEndpoint, ListEndpoint, SingleTweetEndpoint};
+use crate::services::article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest};
 
 #[derive(Clone, PartialEq)]
 pub struct TwitterUser {
@@ -33,6 +34,9 @@ pub struct TweetArticleData {
 }
 
 impl ArticleData for TweetArticleData {
+	fn service(&self) -> &'static str {
+		"Twitter"
+	}
 	fn id(&self) -> String {
 		self.id.clone().to_string()
 	}
@@ -176,7 +180,8 @@ pub struct TwitterAgent {
 	link: AgentLink<Self>,
 	endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
 	subscribers: HashSet<HandlerId>,
-	auth_mode: AuthMode,
+	actions_agent: Dispatcher<ArticleActionsAgent>,
+	//auth_mode: AuthMode,
 }
 
 pub enum Request {
@@ -188,6 +193,8 @@ pub enum Msg {
 	DefaultEndpoint(EndpointId),
 	FetchResponse(RefreshTime, EndpointId, FetchResult<Vec<Rc<dyn ArticleData>>>),
 	EndpointStoreResponse(ReadOnly<EndpointStore>),
+	Like(Weak<dyn ArticleData>),
+	Retweet(Weak<dyn ArticleData>),
 }
 
 pub enum Response {
@@ -225,11 +232,18 @@ impl Agent for TwitterAgent {
 			},
 		]));
 
+		let mut actions_agent = ArticleActionsAgent::dispatcher();
+		actions_agent.send(ArticleActionsRequest::Init("Twitter", ServiceActions {
+			like: link.callback(Msg::Like),
+			repost: link.callback(Msg::Retweet),
+		}));
+
 		Self {
 			endpoint_store,
 			link,
 			subscribers: HashSet::new(),
-			auth_mode: AuthMode::NotLoggedIn,
+			actions_agent,
+			//auth_mode: AuthMode::NotLoggedIn,
 		}
 	}
 
@@ -244,6 +258,20 @@ impl Agent for TwitterAgent {
 				self.endpoint_store.send(EndpointRequest::FetchResponse(refresh_time, id, r));
 			}
 			Msg::EndpointStoreResponse(_) => {}
+			Msg::Like(article) => {
+				let strong_opt = article.upgrade();
+
+				if let Some(strong) = strong_opt {
+					log::debug!("Like {}!", &strong.id());
+				}
+			}
+			Msg::Retweet(article) => {
+				let strong_opt = article.upgrade();
+
+				if let Some(strong) = strong_opt {
+					log::debug!("Retweet {}!", &strong.id());
+				}
+			}
 		};
 	}
 

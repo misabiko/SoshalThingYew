@@ -9,7 +9,7 @@ use serde_json::json;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlInputElement;
 
-use crate::services::endpoints::{StoreRequest as EndpointRequest, EndpointStore, TimelineEndpoints, EndpointId, RefreshTime, EndpointConstructor};
+use crate::services::endpoints::{Request as EndpointRequest, EndpointStore, TimelineEndpoints, EndpointId, RefreshTime, EndpointConstructor};
 use crate::dropdown::{Dropdown, DropdownLabel};
 
 struct EndpointView {

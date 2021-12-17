@@ -4,7 +4,7 @@ use yew_agent::utils::store::{StoreWrapper, ReadOnly, Bridgeable};
 use js_sys::Date;
 
 use crate::articles::ArticleData;
-use crate::services::endpoints::{EndpointStore, Endpoint, StoreRequest as EndpointRequest, EndpointId, RefreshTime};
+use crate::services::endpoints::{EndpointStore, Endpoint, Request as EndpointRequest, EndpointId, RefreshTime};
 
 pub struct PixivArticleData {
 	id: u32,
@@ -16,7 +16,10 @@ pub struct PixivArticleData {
 }
 
 impl ArticleData for PixivArticleData {
-	fn id(&self) -> String {
+	fn service(&self) -> &'static str {
+		"Pixiv"
+	}
+ 	fn id(&self) -> String {
 		self.id.clone().to_string()
 	}
 	fn creation_time(&self) -> Date {

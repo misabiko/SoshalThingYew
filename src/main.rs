@@ -17,7 +17,7 @@ pub mod choose_endpoints;
 use crate::sidebar::Sidebar;
 use crate::timeline::{Props as TimelineProps, Timeline};
 use crate::services::{
-	endpoints::{Endpoint, EndpointId, EndpointStore, StoreRequest as EndpointRequest, TimelineEndpoints},
+	endpoints::{Endpoint, EndpointId, EndpointStore, Request as EndpointRequest, TimelineEndpoints},
 	pixiv::FollowEndpoint,
 	twitter::{endpoints::{HomeTimelineEndpoint, SingleTweetEndpoint, UserTimelineEndpoint}},
 };

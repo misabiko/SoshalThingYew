@@ -9,6 +9,7 @@ use crate::articles::social::SocialArticle;
 use crate::articles::gallery::GalleryArticle;
 
 pub trait ArticleData {
+	fn service(&self) -> &'static str;
 	fn id(&self) -> String;
 	fn creation_time(&self) -> Date;
 	fn text(&self) -> String;
