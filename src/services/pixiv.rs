@@ -41,6 +41,10 @@ impl ArticleData for PixivArticleData {
 	fn media(&self) -> Vec<String> {
 		vec![self.src.clone()]
 	}
+
+	fn url(&self) -> String {
+		format!("https://www.pixiv.net/en/artworks/{}", &self.id)
+	}
 }
 
 pub struct PixivAgent {

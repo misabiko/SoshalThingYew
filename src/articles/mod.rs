@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use yew::prelude::*;
 use js_sys::Date;
 
@@ -20,8 +20,10 @@ pub trait ArticleData {
 	fn repost_count(&self) -> i64 { 0 }
 	fn liked(&self) -> bool { false }
 	fn reposted(&self) -> bool { false }
-
 	fn media(&self) -> Vec<String>;
+	fn json(&self) -> serde_json::Value { serde_json::Value::Null }
+	fn referenced_article(&self) -> Option<Weak<dyn ArticleData>> { None }
+	fn url(&self) -> String;
 }
 
 impl PartialEq<dyn ArticleData> for dyn ArticleData {

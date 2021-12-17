@@ -1,4 +1,4 @@
-use std::{rc::Rc, collections::HashSet};
+use std::{rc::Rc, rc::Weak, collections::HashSet};
 use yew_agent::{Agent, AgentLink, Context, HandlerId, Bridge};
 use yew_agent::utils::store::{StoreWrapper, ReadOnly, Bridgeable};
 use js_sys::Date;
@@ -28,6 +28,8 @@ pub struct TweetArticleData {
 	like_count: i64,	//TODO Try casting i64 to i32
 	retweet_count: i64,
 	media: Vec<String>,
+	raw_json: serde_json::Value,
+	referenced_article: Option<Rc<dyn ArticleData>>,
 }
 
 impl ArticleData for TweetArticleData {
@@ -67,6 +69,13 @@ impl ArticleData for TweetArticleData {
 
 	fn media(&self) -> Vec<String> {
 		self.media.clone()
+	}
+	fn json(&self) -> serde_json::Value { self.raw_json.clone() }
+	fn referenced_article(&self) -> Option<Weak<dyn ArticleData>> {
+		self.referenced_article.as_ref().map(Rc::downgrade)
+	}
+	fn url(&self) -> String {
+		format!("https://twitter.com/{}/status/{}", &self.author_username(), &self.id())
 	}
 }
 
@@ -138,7 +147,15 @@ impl From<&serde_json::Value> for TweetArticleData {
 					.filter_map(std::convert::identity)
 					.collect(),
 				None => Vec::new()
-			}
+			},
+			raw_json: json.clone(),
+			referenced_article: {
+				let referenced = &json["retweeted_status"];
+				match referenced.is_null() {
+					true => None,
+					false => Some(Rc::new(TweetArticleData::from(referenced.clone())))
+				}
+			},
 		}
 	}
 }

@@ -300,7 +300,6 @@ fn main() {
 //TODO Save fetched articles
 //TODO Autoscroll
 //TODO like/retweets
-//TODO Retweets
 //TODO Quotes
 //TODO Filters
 //TODO Youtube articles

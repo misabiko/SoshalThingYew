@@ -1,7 +1,10 @@
 use yew::prelude::*;
 use js_sys::Date;
+use wasm_bindgen::JsValue;
+use web_sys::console;
+use std::rc::Rc;
 
-use crate::articles::Props;
+use crate::articles::{ArticleData, Props};
 use crate::dropdown::{Dropdown, DropdownLabel};
 
 pub struct SocialArticle {
@@ -11,6 +14,7 @@ pub struct SocialArticle {
 pub enum Msg {
 	ToggleCompact,
 	OnImageClick,
+	LogData,
 }
 
 impl Component for SocialArticle {
@@ -25,40 +29,64 @@ impl Component for SocialArticle {
 
 	fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
 		match msg {
-			Msg::ToggleCompact => match self.compact {
-				Some(compact) => self.compact = Some(!compact),
-				None => self.compact = Some(!ctx.props().compact),
+			Msg::ToggleCompact => {
+				match self.compact {
+					Some(compact) => self.compact = Some(!compact),
+					None => self.compact = Some(!ctx.props().compact),
+				};
+				true
 			},
-			Msg::OnImageClick => ctx.link().send_message(Msg::ToggleCompact)
-		};
-
-		true
+			Msg::OnImageClick => {
+				ctx.link().send_message(Msg::ToggleCompact);
+				false
+			},
+			Msg::LogData => {
+				console::dir_1(&JsValue::from_serde(&ctx.props().data.json()).unwrap_or_default());
+				false
+			},
+		}
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
+		let actual_article = ctx.props().data.referenced_article().and_then(|w| w.upgrade()).unwrap_or_else(|| ctx.props().data.clone());
+
+		let is_retweet = ctx.props().data.referenced_article().is_some();
+		let retweet_header = match &is_retweet {
+			true => html! {
+				<div class="repostLabel"
+					href={ctx.props().data.url()}
+					target="_blank">
+					<a
+					>{ format!("{} reposted", &ctx.props().data.author_name()) }</a>
+				</div>
+			},
+			false => html! {}
+		};
+
 		html! {
 			<article class="article" articleId={ctx.props().data.id()} style={ctx.props().style.clone()}>
+				{ retweet_header }
 				<div class="media">
 					<figure class="media-left">
 						<p class="image is-64x64">
-							<img src={ctx.props().data.author_avatar_url().clone()} alt={format!("{}'s avatar", &ctx.props().data.author_username())}/>
+							<img src={actual_article.author_avatar_url().clone()} alt={format!("{}'s avatar", &actual_article.author_username())}/>
 						</p>
 					</figure>
 					<div class="media-content">
 						<div class="content">
 							<div class="articleHeader">
-								<a class="names" href={ctx.props().data.author_url()} target="_blank" rel="noopener noreferrer">
-									<strong>{ ctx.props().data.author_name() }</strong>
-									<small>{ format!("@{}", ctx.props().data.author_username()) }</small>
+								<a class="names" href={actual_article.author_url()} target="_blank" rel="noopener noreferrer">
+									<strong>{ actual_article.author_name() }</strong>
+									<small>{ format!("@{}", actual_article.author_username()) }</small>
 								</a>
-								{ self.view_timestamp(ctx) }
+								{ self.view_timestamp(ctx, &actual_article) }
 							</div>
-							<p class="articleParagraph">{ ctx.props().data.text() }</p>
+							<p class="articleParagraph">{ actual_article.text() }</p>
 						</div>
-						{ self.view_nav(ctx) }
+						{ self.view_nav(ctx, &actual_article) }
 					</div>
 				</div>
-				{ self.view_media(ctx) }
+				{ self.view_media(ctx, &actual_article) }
 			</article>
 		}
 	}
@@ -72,8 +100,8 @@ impl SocialArticle {
 		}
 	}
 
-	fn view_timestamp(&self, ctx: &Context<Self>) -> Html {
-		let time_since = Date::now() - ctx.props().data.creation_time().get_time();
+	fn view_timestamp(&self, _ctx: &Context<Self>, actual_article: &Rc<dyn ArticleData>) -> Html {
+		let time_since = Date::now() - actual_article.creation_time().get_time();
 		let label = if time_since < 1000.0 {
 			"just now".to_owned()
 		} else if time_since < 60000.0 {
@@ -92,31 +120,32 @@ impl SocialArticle {
 
 		html! {
 			<span class="timestamp">
-				<small title={ctx.props().data.creation_time().to_string().as_string()}>{ label }</small>
+				<small title={actual_article.creation_time().to_string().as_string()}>{ label }</small>
 			</span>
 		}
 	}
 
-	fn view_nav(&self, ctx: &Context<Self>) -> Html {
+	fn view_nav(&self, ctx: &Context<Self>, actual_article: &Rc<dyn ArticleData>) -> Html {
 		let ontoggle_compact = ctx.link().callback(|_| Msg::ToggleCompact);
+		let is_retweet = ctx.props().data.referenced_article().is_some();
 
 		html! {
 			<nav class="level is-mobile">
 				<div class="level-left">
-					<a class={classes!("level-item", "articleButton", "repostButton", if ctx.props().data.reposted() { Some("repostedPostButton") } else { None })}>
+					<a class={classes!("level-item", "articleButton", "repostButton", if actual_article.reposted() { Some("repostedPostButton") } else { None })}>
 						<span class="icon">
 							<i class="fas fa-retweet"/>
 						</span>
-						<span>{ctx.props().data.repost_count()}</span>
+						<span>{actual_article.repost_count()}</span>
 					</a>
-					<a class={classes!("level-item", "articleButton", "likeButton", if ctx.props().data.liked() { Some("likedPostButton") } else { None })}>
+					<a class={classes!("level-item", "articleButton", "likeButton", if actual_article.liked() { Some("likedPostButton") } else { None })}>
 						<span class="icon">
-							<i class={classes!("fa-heart", if ctx.props().data.liked() { "fas" } else { "far" })}/>
+							<i class={classes!("fa-heart", if actual_article.liked() { "fas" } else { "far" })}/>
 						</span>
-						<span>{ctx.props().data.like_count()}</span>
+						<span>{actual_article.like_count()}</span>
 					</a>
 					{
-						match ctx.props().data.media().len() {
+						match actual_article.media().len() {
 							0 => html! {},
 							_ => html! {
 								<a class="level-item articleButton" onclick={&ontoggle_compact}>
@@ -136,51 +165,66 @@ impl SocialArticle {
 						<div class="dropdown-item"> {"Expand"} </div>
 						<a
 							class="dropdown-item"
-							href={ format!("https://twitter.com/{}/status/{}", &ctx.props().data.author_username(), &ctx.props().data.id()) }
+							href={ actual_article.url() }
 							target="_blank" rel="noopener noreferrer"
 						>
 							{ "External Link" }
 						</a>
+						{
+							match &is_retweet {
+								true => html! {
+									<a
+										class="dropdown-item"
+										href={ ctx.props().data.url() }
+										target="_blank" rel="noopener noreferrer"
+									>
+										{ "Repost's External Link" }
+									</a>
+								},
+								false => html! {}
+							}
+						}
+						<div class="dropdown-item" onclick={ctx.link().callback(|_| Msg::LogData)}>{"Log Data"}</div>
 					</Dropdown>
 				</div>
 			</nav>
 		}
 	}
 
-	fn view_media(&self, ctx: &Context<Self>) -> Html {
+	fn view_media(&self, ctx: &Context<Self>, actual_article: &Rc<dyn ArticleData>) -> Html {
 		let images_classes = classes!(
 			"postMedia",
 			"postImages",
 			if self.is_compact(ctx) { Some("postImagesCompact") } else { None }
 		);
 
-		if ctx.props().data.media().len() == 0 {
+		if actual_article.media().len() == 0 {
 			html! {}
 		} else {
 			html! {
 				<div>
 					<div class={images_classes.clone()}> {
-						match &ctx.props().data.media()[..] {
-							[image] => self.view_image(ctx, image.clone(), false),
+						match &actual_article.media()[..] {
+							[image] => self.view_image(ctx, actual_article, image.clone(), false),
 							[i1, i2] => html! {
 								<>
-									{ self.view_image(ctx, i1.clone(), false) }
-									{ self.view_image(ctx, i2.clone(), false) }
+									{ self.view_image(ctx, actual_article, i1.clone(), false) }
+									{ self.view_image(ctx, actual_article, i2.clone(), false) }
 								</>
 							},
 							[i1, i2, i3] => html! {
 								<>
-									{ self.view_image(ctx, i1.clone(), false) }
-									{ self.view_image(ctx, i2.clone(), false) }
-									{ self.view_image(ctx, i3.clone(), true) }
+									{ self.view_image(ctx, actual_article, i1.clone(), false) }
+									{ self.view_image(ctx, actual_article, i2.clone(), false) }
+									{ self.view_image(ctx, actual_article, i3.clone(), true) }
 								</>
 							},
 							_ => html! {
 								<>
-									{ self.view_image(ctx, ctx.props().data.media()[0].clone(), false) }
-									{ self.view_image(ctx, ctx.props().data.media()[1].clone(), false) }
-									{ self.view_image(ctx, ctx.props().data.media()[2].clone(), false) }
-									{ self.view_image(ctx, ctx.props().data.media()[3].clone(), false) }
+									{ self.view_image(ctx, actual_article, actual_article.media()[0].clone(), false) }
+									{ self.view_image(ctx, actual_article, actual_article.media()[1].clone(), false) }
+									{ self.view_image(ctx, actual_article, actual_article.media()[2].clone(), false) }
+									{ self.view_image(ctx, actual_article, actual_article.media()[3].clone(), false) }
 								</>
 							}
 						}
@@ -190,7 +234,7 @@ impl SocialArticle {
 		}
 	}
 
-	fn view_image(&self, ctx: &Context<Self>, image: String, is_large_third: bool) -> Html {
+	fn view_image(&self, ctx: &Context<Self>, actual_article: &Rc<dyn ArticleData>, image: String, is_large_third: bool) -> Html {
 		let media_holder_classes = classes!(
 			"mediaHolder",
 			if self.is_compact(ctx) { Some("mediaHolderCompact") } else { None },
@@ -200,7 +244,7 @@ impl SocialArticle {
 		html! {
 			<div class={media_holder_classes}>
 				<div class="is-hidden imgPlaceholder"/>
-				<img alt={ctx.props().data.id()} src={image} onclick={ctx.link().callback(|_| Msg::OnImageClick)}/>
+				<img alt={actual_article.id()} src={image} onclick={ctx.link().callback(|_| Msg::OnImageClick)}/>
 			</div>
 		}
 	}

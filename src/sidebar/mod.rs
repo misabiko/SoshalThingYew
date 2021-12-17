@@ -57,7 +57,7 @@ impl Component for Sidebar {
 					<div>
 						<button title="Expand sidebar" onclick={ctx.link().callback(|_| Msg::ToggleExpanded)}>
 							<span class="icon">
-								<i class="fas fa-angle-double-right fa-2x"/>
+								<i class={classes!("fas", "fa-2x", if self.expanded { "fa-angle-double-left" } else { "fa-angle-double-right" })}/>
 							</span>
 						</button>
 						<button onclick={ctx.props().add_timeline_callback.clone()} title="Add new timeline">
