@@ -7,8 +7,7 @@ use crate::services::endpoints::{EndpointStore, RateLimit};
 
 pub struct RateLimitView {
 	pub ratelimits: HashMap<String, RateLimit>,
-	#[allow(dead_code)]
-	endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
+	_endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
 }
 
 pub enum Msg {
@@ -22,7 +21,7 @@ impl Component for RateLimitView {
 	fn create(ctx: &Context<Self>) -> Self {
 		Self {
 			ratelimits: HashMap::new(),
-			endpoint_store: EndpointStore::bridge(ctx.link().callback(Msg::EndpointStoreResponse)),
+			_endpoint_store: EndpointStore::bridge(ctx.link().callback(Msg::EndpointStoreResponse)),
 		}
 	}
 

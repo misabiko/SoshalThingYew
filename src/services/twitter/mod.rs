@@ -234,7 +234,6 @@ pub enum AuthMode {
 pub struct TwitterAgent {
 	link: AgentLink<Self>,
 	endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
-	#[allow(dead_code)]
 	actions_agent: Dispatcher<ArticleActionsAgent>,
 	articles: HashMap<u64, Rc<RefCell<TweetArticleData>>>,
 	cached_marked_as_read: HashSet<u64>,
@@ -451,6 +450,8 @@ impl Agent for TwitterAgent {
 
 				gloo_storage::SessionStorage::set("SoshalThingYew", &session_storage)
 					.expect("couldn't write session storage");
+
+				self.actions_agent.send(ArticleActionsRequest::Callback(vec![article]));
 			}
 		};
 	}

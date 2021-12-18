@@ -43,10 +43,8 @@ struct Model {
 	timelines: Vec<TimelineProps>,
 	page_info: Option<Box<dyn PageInfo>>,
 	show_add_timeline: bool,
-	#[allow(dead_code)]
-	twitter: Dispatcher<TwitterAgent>,
-	#[allow(dead_code)]
-	pixiv: Dispatcher<PixivAgent>,
+	_twitter: Dispatcher<TwitterAgent>,
+	_pixiv: Dispatcher<PixivAgent>,
 }
 
 enum Msg {
@@ -106,8 +104,8 @@ impl Component for Model {
 			endpoint_store: EndpointStore::bridge(ctx.link().callback(Msg::EndpointStoreResponse)),
 			page_info,
 			show_add_timeline: false,
-			twitter: TwitterAgent::dispatcher(),
-			pixiv: PixivAgent::dispatcher(),
+			_twitter: TwitterAgent::dispatcher(),
+			_pixiv: PixivAgent::dispatcher(),
 		}
 	}
 

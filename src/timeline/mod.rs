@@ -1,7 +1,7 @@
 use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 use yew::prelude::*;
-use yew_agent::Bridge;
+use yew_agent::{Bridge, Bridged};
 use yew_agent::utils::store::{Bridgeable, ReadOnly, StoreWrapper};
 use wasm_bindgen::JsCast;
 use web_sys::{Element, HtmlInputElement};
@@ -20,6 +20,7 @@ use crate::services::endpoints::{EndpointStore, Request as EndpointRequest, Time
 use crate::modals::Modal;
 use crate::choose_endpoints::ChooseEndpoints;
 use crate::dropdown::{Dropdown, DropdownLabel};
+use crate::services::article_actions::{ArticleActionsAgent, Response as ArticleActionsResponse};
 
 enum ScrollDirection {
 	Up,
@@ -56,6 +57,7 @@ pub struct Timeline {
 	show_choose_endpoint: bool,
 	container_ref: NodeRef,
 	autoscroll: Rc<RefCell<Autoscroll>>,
+	_article_actions: Box<dyn Bridge<ArticleActionsAgent>>,
 }
 
 pub enum Msg {
@@ -82,6 +84,7 @@ pub enum Msg {
 	SetSortMethod(Option<usize>),
 	ToggleSortReversed,
 	ScrollTop,
+	ActionsCallback(ArticleActionsResponse),
 }
 
 #[derive(Properties, Clone)]
@@ -146,6 +149,7 @@ impl Component for Timeline {
 				speed: 3.0,
 				anim: None,
 			})),
+			_article_actions: ArticleActionsAgent::bridge(ctx.link().callback(Msg::ActionsCallback)),
 		}
 	}
 
@@ -317,6 +321,11 @@ impl Component for Timeline {
 					container.scroll_to_with_scroll_to_options(&options);
 				}
 				false
+			}
+			Msg::ActionsCallback(response) => {
+				match response {
+					ArticleActionsResponse::Callback(_articles) => true
+				}
 			}
 		}
 	}

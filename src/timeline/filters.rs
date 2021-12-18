@@ -21,6 +21,15 @@ impl Filter {
 			inverted: false,
 		}
 	}
+
+	fn new_disabled(name: String, predicate: FilterPredicate) -> Self {
+		Self {
+			name,
+			predicate,
+			enabled: false,
+			inverted: false,
+		}
+	}
 }
 
 pub fn default_filters() -> Vec<Filter> {
@@ -39,6 +48,66 @@ pub fn default_filters() -> Vec<Filter> {
 					},
 					None => false,
 				}
-		})
+		}),
+		Filter::new(
+			"Not marked as read".to_owned(),
+			|a, inverted| {
+				match a.upgrade() {
+					Some(strong) => {
+						let borrow = strong.borrow();
+						(match borrow.referenced_article() {
+							ArticleRefType::NoRef => (!borrow.marked_as_read()),
+							ArticleRefType::Repost(a) | ArticleRefType::Quote(a)
+								=> (a.upgrade().map(|r| !r.borrow().marked_as_read()).unwrap_or(false) && !borrow.marked_as_read()),
+						}) != inverted
+					},
+					None => false,
+				}
+			}),
+		Filter::new(
+			"Not hidden".to_owned(),
+			|a, inverted| {
+				match a.upgrade() {
+					Some(strong) => {
+						let borrow = strong.borrow();
+						(match borrow.referenced_article() {
+							ArticleRefType::NoRef => !borrow.hidden(),
+							ArticleRefType::Repost(a) | ArticleRefType::Quote(a)
+								=> a.upgrade().map(|r| !r.borrow().hidden()).unwrap_or(false) && !borrow.hidden(),
+						}) != inverted
+					},
+					None => false,
+				}
+			}),
+		Filter::new_disabled(
+			"Liked".to_owned(),
+			|a, inverted| {
+				match a.upgrade() {
+					Some(strong) => {
+						let borrow = strong.borrow();
+						(match borrow.referenced_article() {
+							ArticleRefType::NoRef => borrow.liked(),
+							ArticleRefType::Repost(a) | ArticleRefType::Quote(a)
+							=> a.upgrade().map(|r| r.borrow().liked()).unwrap_or(false) || borrow.liked(),
+						}) != inverted
+					},
+					None => false,
+				}
+			}),
+		Filter::new_disabled(
+			"Reposted".to_owned(),
+			|a, inverted| {
+				match a.upgrade() {
+					Some(strong) => {
+						let borrow = strong.borrow();
+						(match borrow.referenced_article() {
+							ArticleRefType::NoRef => borrow.reposted(),
+							ArticleRefType::Repost(a) | ArticleRefType::Quote(a)
+							=> a.upgrade().map(|r| r.borrow().reposted()).unwrap_or(false) || borrow.reposted(),
+						}) != inverted
+					},
+					None => false,
+				}
+			}),
 	]
 }
