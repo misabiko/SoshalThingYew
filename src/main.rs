@@ -303,7 +303,6 @@ fn main() {
 //TODO Sort
 //TODO Save timeline data
 //TODO Save fetched articles
-//TODO Quotes
 //TODO Filters
 //TODO Youtube articles
 //TODO Notifications

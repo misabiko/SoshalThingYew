@@ -118,12 +118,12 @@ impl Component for Timeline {
 			options_shown: false,
 			compact: false,
 			endpoint_store,
-			filters: vec![|a| {
+			filters: vec![/*|a| {
 				match a.upgrade() {
 					Some(strong) => strong.borrow().media().len() > 0,
 					None => false,
 				}
-			}],
+			}*/],
 			container: if ctx.props().main_timeline { Container::Masonry } else { Container::Column },
 			show_container_dropdown: false,
 			show_article_component_dropdown: false,

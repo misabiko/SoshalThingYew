@@ -1,6 +1,6 @@
 use yew::prelude::*;
 
-use crate::articles::Props;
+use crate::articles::{ArticleRefType, Props};
 
 pub struct GalleryArticle {
 	compact: Option<bool>,
@@ -36,7 +36,11 @@ impl Component for GalleryArticle {
 	fn view(&self, ctx: &Context<Self>) -> Html {
 		let strong = ctx.props().data.upgrade().unwrap();
 		let borrow = strong.borrow();
-		let actual_article = borrow.referenced_article().and_then(|w| w.upgrade()).unwrap_or_else(|| strong.clone());
+		let actual_article = match &borrow.referenced_article() {
+			ArticleRefType::NoRef => strong.clone(),
+			ArticleRefType::Repost(a) => a.upgrade().unwrap(),
+			ArticleRefType::Quote(_) => strong.clone()
+		};
 		let actual_borrow = actual_article.borrow();
 
 		html! {

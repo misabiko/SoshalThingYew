@@ -9,7 +9,7 @@ use std::collections::HashMap;
 
 pub mod endpoints;
 
-use crate::articles::{ArticleData};
+use crate::articles::{ArticleData, ArticleRefType};
 use crate::services::endpoints::{EndpointStore, Request as EndpointRequest, EndpointId, EndpointConstructor, RefreshTime, RateLimit};
 use crate::error::{Error, FetchResult};
 use crate::services::twitter::endpoints::{UserTimelineEndpoint, HomeTimelineEndpoint, ListEndpoint, SingleTweetEndpoint};
@@ -33,7 +33,7 @@ pub struct TweetArticleData {
 	retweet_count: i64,
 	media: Vec<String>,
 	raw_json: serde_json::Value,
-	referenced_article: Option<Weak<RefCell<dyn ArticleData>>>,
+	referenced_article: ArticleRefType,
 }
 
 impl ArticleData for TweetArticleData {
@@ -78,7 +78,7 @@ impl ArticleData for TweetArticleData {
 		self.media.clone()
 	}
 	fn json(&self) -> serde_json::Value { self.raw_json.clone() }
-	fn referenced_article(&self) -> Option<Weak<RefCell<dyn ArticleData>>> {
+	fn referenced_article(&self) -> ArticleRefType {
 		self.referenced_article.clone()
 	}
 	fn url(&self) -> String {
@@ -96,17 +96,24 @@ impl ArticleData for TweetArticleData {
 
 impl TweetArticleData {
 	fn from(json: &serde_json::Value) -> (Rc<RefCell<Self>>, Option<Rc<RefCell<Self>>>) {
-		let referenced_article: Option<Rc<RefCell<Self>>> = {
+		let referenced_article: Option<(Rc<RefCell<Self>>, bool)> = {
 			let referenced = &json["retweeted_status"];
-			match referenced.is_null() {
-				true => None,
-				false => {
-					let parsed = TweetArticleData::from(&referenced.clone());
-					if parsed.1.is_some() {
-						log::error!("Retweet of a retweet on {:?}??", json["id"]);
-					}
-					Some(parsed.0)
+			let quoted = &json["quoted_status"];
+
+			if !referenced.is_null() {
+				let parsed = TweetArticleData::from(&referenced.clone());
+				if parsed.1.is_some() {
+					log::error!("Retweet of a quote/retweet on {:?}??", json["id"]);
 				}
+				Some((parsed.0, false))
+			}else if !quoted.is_null() {
+				let parsed = TweetArticleData::from(&quoted.clone());
+				if parsed.1.is_some() {
+					log::error!("Quote of a quote/retweet on {:?}??\n(actually quite possible but I can't be bothered code it yet)", json["id"]);
+				}
+				Some((parsed.0, true))
+			}else {
+				None
 			}
 		};
 
@@ -141,9 +148,13 @@ impl TweetArticleData {
 				None => Vec::new()
 			},
 			raw_json: json.clone(),
-			referenced_article: referenced_article.as_ref().map(|a| Rc::downgrade(a) as Weak<RefCell<dyn ArticleData>>),
+			referenced_article: match &referenced_article {
+				None => ArticleRefType::NoRef,
+				Some((a, false)) => ArticleRefType::Repost(Rc::downgrade(a) as Weak<RefCell<dyn ArticleData>>),
+				Some((a, true)) => ArticleRefType::Quote(Rc::downgrade(a) as Weak<RefCell<dyn ArticleData>>),
+			},
 		}));
-		(data, referenced_article)
+		(data, referenced_article.map(|(a, _)| a))
 	}
 }
 
@@ -322,7 +333,7 @@ impl Agent for TwitterAgent {
 				let borrow = strong.borrow();
 
 				//TODO Support liking quotes
-				if borrow.referenced_article().is_none() {
+				if let ArticleRefType::NoRef = borrow.referenced_article() {
 					let path = format!("/proxy/twitter/{}/{}", if borrow.liked() { "unlike" } else { "like" }, borrow.id());
 					self.link.send_future(async move {
 						Msg::FetchResponse(id, fetch_tweet(&path).await.map(|a| (match a.0 {
@@ -337,7 +348,7 @@ impl Agent for TwitterAgent {
 				let borrow = strong.borrow();
 
 				//TODO Support retweeting quotes
-				if borrow.referenced_article().is_none() {
+				if let ArticleRefType::NoRef = borrow.referenced_article() {
 					let path = format!("/proxy/twitter/{}/{}", if borrow.reposted() { "unretweet" } else { "retweet" }, borrow.id());
 					self.link.send_future(async move {
 						Msg::FetchResponse(id, fetch_tweet(&path).await.map(|a| (match a.0 {

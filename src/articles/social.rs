@@ -2,17 +2,16 @@ use yew::prelude::*;
 use js_sys::Date;
 use wasm_bindgen::JsValue;
 use web_sys::console;
-use std::rc::Rc;
 use std::cell::Ref;
 use yew_agent::{Bridge, Bridged};
 
-use crate::articles::{ArticleData, Props};
+use crate::articles::{ArticleData, ArticleRefType, Props};
 use crate::dropdown::{Dropdown, DropdownLabel};
 use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest, Response as ArticleActionsResponse};
 
 pub struct SocialArticle {
 	compact: Option<bool>,
-	article_actions: Box<dyn Bridge<ArticleActionsAgent>>
+	article_actions: Box<dyn Bridge<ArticleActionsAgent>>,
 }
 
 pub enum Msg {
@@ -43,26 +42,36 @@ impl Component for SocialArticle {
 					None => self.compact = Some(!ctx.props().compact),
 				};
 				true
-			},
+			}
 			Msg::OnImageClick => {
 				ctx.link().send_message(Msg::ToggleCompact);
 				false
-			},
+			}
 			Msg::LogData => {
 				let strong = ctx.props().data.upgrade().unwrap();
 				console::dir_1(&JsValue::from_serde(&strong.borrow().json()).unwrap_or_default());
 				false
-			},
+			}
 			Msg::Like => {
 				let strong = ctx.props().data.upgrade().unwrap();
-				let actual_article = strong.borrow().referenced_article().and_then(|w| w.upgrade()).unwrap_or_else(|| strong.clone());
-				self.article_actions.send(ArticleActionsRequest::Like(Rc::downgrade(&actual_article)));
+				let borrow = strong.borrow();
+
+				self.article_actions.send(ArticleActionsRequest::Like(match borrow.referenced_article() {
+					ArticleRefType::NoRef => ctx.props().data.clone(),
+					ArticleRefType::Repost(a) => a,
+					ArticleRefType::Quote(_) => ctx.props().data.clone(),
+				}));
 				false
 			}
 			Msg::Repost => {
 				let strong = ctx.props().data.upgrade().unwrap();
-				let actual_article = strong.borrow().referenced_article().and_then(|w| w.upgrade()).unwrap_or_else(|| strong.clone());
-				self.article_actions.send(ArticleActionsRequest::Repost(Rc::downgrade(&actual_article)));
+				let borrow = strong.borrow();
+
+				self.article_actions.send(ArticleActionsRequest::Repost(match borrow.referenced_article() {
+					ArticleRefType::NoRef => ctx.props().data.clone(),
+					ArticleRefType::Repost(a) => a,
+					ArticleRefType::Quote(_) => ctx.props().data.clone(),
+				}));
 				false
 			}
 			Msg::ActionsCallback(_) => true
@@ -72,20 +81,39 @@ impl Component for SocialArticle {
 	fn view(&self, ctx: &Context<Self>) -> Html {
 		let strong = ctx.props().data.upgrade().unwrap();
 		let borrow = strong.borrow();
-		let actual_article = borrow.referenced_article().and_then(|w| w.upgrade()).unwrap_or_else(|| strong.clone());
-		let actual_borrow = actual_article.borrow();
 
-		let is_retweet = borrow.referenced_article().is_some();
-		let retweet_header = match &is_retweet {
-			true => html! {
-				<div class="repostLabel"
-					href={borrow.url()}
-					target="_blank">
-					<a>{ format!("{} reposted", &borrow.author_name()) }</a>
-				</div>
-			},
-			false => html! {}
+		let (actual_article, retweet_header, quoted_post) = match &borrow.referenced_article() {
+			ArticleRefType::NoRef => (strong.clone(), html! {}, html! {}),
+			ArticleRefType::Repost(a) => (
+				a.upgrade().unwrap(),
+				html! {
+					<div class="repostLabel"
+						href={borrow.url()}
+						target="_blank">
+						<a>{ format!("{} reposted", &borrow.author_name()) }</a>
+					</div>
+				},
+				html! {}
+			),
+			ArticleRefType::Quote(a) => {
+				let quote_article = a.upgrade().unwrap();
+				let quote_borrow = quote_article.borrow();
+				(strong.clone(), html! {}, html! {
+					<div class="quotedPost">
+						<div class="articleHeader">
+							<a class="names" href={quote_borrow.author_url()} target="_blank" rel="noopener noreferrer">
+								<strong>{ quote_borrow.author_name() }</strong>
+								<small>{ format!("@{}", quote_borrow.author_username()) }</small>
+							</a>
+							{ self.view_timestamp(ctx, &quote_borrow) }
+						</div>
+						<p class="refArticleParagraph">{quote_borrow.text()}</p>
+						{ self.view_media(ctx, &quote_borrow) }
+					</div>
+				})
+			}
 		};
+		let actual_borrow = actual_article.borrow();
 
 		html! {
 			<article class="article" articleId={borrow.id()} style={ctx.props().style.clone()}>
@@ -107,6 +135,7 @@ impl Component for SocialArticle {
 							</div>
 							<p class="articleParagraph">{ actual_borrow.text() }</p>
 						</div>
+						{ quoted_post }
 						{ self.view_nav(ctx, &actual_borrow) }
 					</div>
 				</div>
@@ -153,7 +182,19 @@ impl SocialArticle {
 		let strong = ctx.props().data.upgrade().unwrap();
 		let borrow = strong.borrow();
 		let ontoggle_compact = ctx.link().callback(|_| Msg::ToggleCompact);
-		let is_retweet = borrow.referenced_article().is_some();
+		let dropdown_buttons = match &borrow.referenced_article() {
+			ArticleRefType::NoRef => html! {},
+			ArticleRefType::Repost(_) => html! {
+				<a
+					class="dropdown-item"
+					href={ borrow.url() }
+					target="_blank" rel="noopener noreferrer"
+				>
+					{ "Repost's External Link" }
+				</a>
+			},
+			ArticleRefType::Quote(_) => html! {},
+		};
 
 		html! {
 			<nav class="level is-mobile">
@@ -202,20 +243,7 @@ impl SocialArticle {
 						>
 							{ "External Link" }
 						</a>
-						{
-							match &is_retweet {
-								true => html! {
-									<a
-										class="dropdown-item"
-										href={ borrow.url() }
-										target="_blank" rel="noopener noreferrer"
-									>
-										{ "Repost's External Link" }
-									</a>
-								},
-								false => html! {}
-							}
-						}
+						{ dropdown_buttons }
 						<div class="dropdown-item" onclick={ctx.link().callback(|_| Msg::LogData)}>{"Log Data"}</div>
 					</Dropdown>
 				</div>

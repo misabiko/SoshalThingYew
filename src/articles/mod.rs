@@ -9,6 +9,13 @@ pub mod gallery;
 use crate::articles::social::SocialArticle;
 use crate::articles::gallery::GalleryArticle;
 
+#[derive(Clone)]
+pub enum ArticleRefType {
+	NoRef,
+	Repost(Weak<RefCell<dyn ArticleData>>),
+	Quote(Weak<RefCell<dyn ArticleData>>),
+}
+
 pub trait ArticleData {
 	fn service(&self) -> &'static str;
 	fn id(&self) -> String;
@@ -24,7 +31,7 @@ pub trait ArticleData {
 	fn reposted(&self) -> bool { false }
 	fn media(&self) -> Vec<String>;
 	fn json(&self) -> serde_json::Value { serde_json::Value::Null }
-	fn referenced_article(&self) -> Option<Weak<RefCell<dyn ArticleData>>> { None }
+	fn referenced_article(&self) -> ArticleRefType { ArticleRefType::NoRef }
 	fn url(&self) -> String;
 	fn update(&mut self, new: &Ref<dyn ArticleData>);
 }
