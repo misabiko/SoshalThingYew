@@ -299,13 +299,16 @@ fn main() {
 	};
 }
 
-//TODO Display timeline errors
-//TODO Sort
-//TODO Save timeline data
 //TODO Save fetched articles
+//TODO Load timeline data
+//TODO Parse tweet text
 //TODO Filters
+//TODO Sort
+//TODO Auto refresh
+//TODO Display timeline errors
 //TODO Youtube articles
 //TODO Notifications
+//TODO Save timeline data
 //TODO Social expanded view
 //TODO Prompt on not logged in
 //TODO Avoid refreshing endpoint every watch update

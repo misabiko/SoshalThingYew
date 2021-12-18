@@ -34,6 +34,8 @@ pub struct TweetArticleData {
 	media: Vec<String>,
 	raw_json: serde_json::Value,
 	referenced_article: ArticleRefType,
+	marked_as_read: bool,
+	hidden: bool,
 }
 
 impl ArticleData for TweetArticleData {
@@ -91,6 +93,18 @@ impl ArticleData for TweetArticleData {
 		self.like_count = new.like_count();
 		self.retweet_count = new.repost_count();
 		self.raw_json = new.json();
+	}
+	fn marked_as_read(&self) -> bool {
+		self.marked_as_read.clone()
+	}
+	fn set_marked_as_read(&mut self, value: bool) {
+		self.marked_as_read = value;
+	}
+	fn hidden(&self) -> bool {
+		self.hidden.clone()
+	}
+	fn set_hidden(&mut self, value: bool) {
+		self.hidden = value;
 	}
 }
 
@@ -153,6 +167,8 @@ impl TweetArticleData {
 				Some((a, false)) => ArticleRefType::Repost(Rc::downgrade(a) as Weak<RefCell<dyn ArticleData>>),
 				Some((a, true)) => ArticleRefType::Quote(Rc::downgrade(a) as Weak<RefCell<dyn ArticleData>>),
 			},
+			marked_as_read: false,
+			hidden: false,
 		}));
 		(data, referenced_article.map(|(a, _)| a))
 	}

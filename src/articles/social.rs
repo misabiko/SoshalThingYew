@@ -20,6 +20,8 @@ pub enum Msg {
 	LogData,
 	Like,
 	Repost,
+	ToggleMarkAsRead,
+	ToggleHide,
 	ActionsCallback(ArticleActionsResponse),
 }
 
@@ -44,7 +46,7 @@ impl Component for SocialArticle {
 				true
 			}
 			Msg::OnImageClick => {
-				ctx.link().send_message(Msg::ToggleCompact);
+				ctx.link().send_message(Msg::ToggleMarkAsRead);
 				false
 			}
 			Msg::LogData => {
@@ -73,6 +75,46 @@ impl Component for SocialArticle {
 					ArticleRefType::Quote(_) => ctx.props().data.clone(),
 				}));
 				false
+			}
+			Msg::ToggleMarkAsRead => {
+				let strong = ctx.props().data.upgrade().unwrap();
+				let mut borrow = strong.borrow_mut();
+
+				match borrow.referenced_article() {
+					ArticleRefType::NoRef => {
+						let marked_as_read = borrow.marked_as_read();
+						borrow.set_marked_as_read(!marked_as_read);
+					},
+					ArticleRefType::Repost(a) | ArticleRefType::Quote(a) => {
+						let strong = a.upgrade().unwrap();
+						let mut borrow = strong.borrow_mut();
+
+						let marked_as_read = borrow.marked_as_read();
+						borrow.set_marked_as_read(!marked_as_read);
+					}
+				};
+
+				true
+			}
+			Msg::ToggleHide => {
+				let strong = ctx.props().data.upgrade().unwrap();
+				let mut borrow = strong.borrow_mut();
+
+				match borrow.referenced_article() {
+					ArticleRefType::NoRef => {
+						let hidden = borrow.hidden();
+						borrow.set_hidden(!hidden);
+					},
+					ArticleRefType::Repost(a) | ArticleRefType::Quote(a) => {
+						let strong = a.upgrade().unwrap();
+						let mut borrow = strong.borrow_mut();
+
+						let hidden = borrow.hidden();
+						borrow.set_hidden(!hidden);
+					}
+				};
+
+				true
 			}
 			Msg::ActionsCallback(_) => true
 		}
@@ -107,8 +149,15 @@ impl Component for SocialArticle {
 							</a>
 							{ self.view_timestamp(ctx, &quote_borrow) }
 						</div>
-						<p class="refArticleParagraph">{quote_borrow.text()}</p>
-						{ self.view_media(ctx, &quote_borrow) }
+						{ match self.is_filtered_out(&quote_borrow) {
+							false => html! {
+								<>
+									<p class="refArticleParagraph">{quote_borrow.text()}</p>
+									{ self.view_media(ctx, &quote_borrow) }
+								</>
+							},
+							true => html! {},
+						} }
 					</div>
 				})
 			}
@@ -133,13 +182,19 @@ impl Component for SocialArticle {
 								</a>
 								{ self.view_timestamp(ctx, &actual_borrow) }
 							</div>
-							<p class="articleParagraph">{ actual_borrow.text() }</p>
+							{ match self.is_filtered_out(&actual_borrow) {
+								false => html! {<p class="articleParagraph">{ actual_borrow.text() }</p>},
+								true => html! {},
+							} }
 						</div>
 						{ quoted_post }
 						{ self.view_nav(ctx, &actual_borrow) }
 					</div>
 				</div>
-				{ self.view_media(ctx, &actual_borrow) }
+				{ match self.is_filtered_out(&actual_borrow) {
+					false => self.view_media(ctx, &actual_borrow),
+					true => html! {},
+				} }
 			</article>
 		}
 	}
@@ -151,6 +206,10 @@ impl SocialArticle {
 			Some(compact) => compact,
 			None => ctx.props().compact,
 		}
+	}
+
+	fn is_filtered_out(&self, actual_article: &Ref<dyn ArticleData>) -> bool {
+		actual_article.marked_as_read() || actual_article.hidden()
 	}
 
 	fn view_timestamp(&self, _ctx: &Context<Self>, actual_article: &Ref<dyn ArticleData>) -> Html {
@@ -199,41 +258,47 @@ impl SocialArticle {
 		html! {
 			<nav class="level is-mobile">
 				<div class="level-left">
-					<a
-						class={classes!("level-item", "articleButton", "repostButton", if actual_borrow.reposted() { Some("repostedPostButton") } else { None })}
-						onclick={ctx.link().callback(|_| Msg::Repost)}
-					>
-						<span class="icon">
-							<i class="fas fa-retweet"/>
-						</span>
-						<span>{actual_borrow.repost_count()}</span>
-					</a>
-					<a
-						class={classes!("level-item", "articleButton", "likeButton", if actual_borrow.liked() { Some("likedPostButton") } else { None })}
-						onclick={ctx.link().callback(|_| Msg::Like)}
-					>
-						<span class="icon">
-							<i class={classes!("fa-heart", if actual_borrow.liked() { "fas" } else { "far" })}/>
-						</span>
-						<span>{actual_borrow.like_count()}</span>
-					</a>
-					{
-						match actual_borrow.media().len() {
-							0 => html! {},
-							_ => html! {
-								<a class="level-item articleButton" onclick={&ontoggle_compact}>
+					{ match self.is_filtered_out(&actual_borrow) {
+						false => html! {
+							<>
+								<a
+									class={classes!("level-item", "articleButton", "repostButton", if actual_borrow.reposted() { Some("repostedPostButton") } else { None })}
+									onclick={ctx.link().callback(|_| Msg::Repost)}
+								>
 									<span class="icon">
-										<i class={classes!("fas", if self.is_compact(ctx) { "fa-compress" } else { "fa-expand" })}/>
+										<i class="fas fa-retweet"/>
 									</span>
+									<span>{actual_borrow.repost_count()}</span>
 								</a>
-							}
-						}
-					}
+								<a
+									class={classes!("level-item", "articleButton", "likeButton", if actual_borrow.liked() { Some("likedPostButton") } else { None })}
+									onclick={ctx.link().callback(|_| Msg::Like)}
+								>
+									<span class="icon">
+										<i class={classes!("fa-heart", if actual_borrow.liked() { "fas" } else { "far" })}/>
+									</span>
+									<span>{actual_borrow.like_count()}</span>
+								</a>
+								{
+									match actual_borrow.media().len() {
+										0 => html! {},
+										_ => html! {
+											<a class="level-item articleButton" onclick={&ontoggle_compact}>
+												<span class="icon">
+													<i class={classes!("fas", if self.is_compact(ctx) { "fa-compress" } else { "fa-expand" })}/>
+												</span>
+											</a>
+										}
+									}
+								}
+							</>
+						},
+						true => html! {},
+					} }
 					<Dropdown current_label={DropdownLabel::Icon("fas fa-ellipsis-h".to_owned())} label_classes={classes!("articleButton")}>
-						<div class="dropdown-item"> {"Mark as red"} </div>
-						<div class="dropdown-item"> {"Hide"} </div>
+						<div class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ToggleMarkAsRead)}> {"Mark as red"} </div>
+						<div class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ToggleHide)}> {"Hide"} </div>
 						<div class="dropdown-item" onclick={&ontoggle_compact}> { if self.is_compact(ctx) { "Show expanded" } else { "Show compact" } } </div>
-						<div class="dropdown-item"> {"Log"} </div>
 						<div class="dropdown-item"> {"Fetch Status"} </div>
 						<div class="dropdown-item"> {"Expand"} </div>
 						<a

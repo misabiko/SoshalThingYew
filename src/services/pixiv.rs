@@ -14,6 +14,8 @@ pub struct PixivArticleData {
 	author_name: String,
 	author_id: u32,
 	author_avatar_url: String,
+	marked_as_read: bool,
+	hidden: bool,
 }
 
 impl ArticleData for PixivArticleData {
@@ -53,6 +55,18 @@ impl ArticleData for PixivArticleData {
 	fn update(&mut self, new: &Ref<dyn ArticleData>) {
 		self.src = new.media().first().unwrap().clone();
 		self.title = new.text();
+	}
+	fn marked_as_read(&self) -> bool {
+		self.marked_as_read.clone()
+	}
+	fn set_marked_as_read(&mut self, value: bool) {
+		self.marked_as_read = value;
+	}
+	fn hidden(&self) -> bool {
+		self.hidden.clone()
+	}
+	fn set_hidden(&mut self, value: bool) {
+		self.hidden = value;
 	}
 }
 
@@ -175,7 +189,9 @@ fn parse_article(element: web_sys::Element) -> Option<Rc<RefCell<dyn ArticleData
 		author_avatar_url,
 		title,
 		author_id,
-		author_name
+		author_name,
+		marked_as_read: false,
+		hidden: false,
 	})))
 }
 

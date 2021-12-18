@@ -34,6 +34,10 @@ pub trait ArticleData {
 	fn referenced_article(&self) -> ArticleRefType { ArticleRefType::NoRef }
 	fn url(&self) -> String;
 	fn update(&mut self, new: &Ref<dyn ArticleData>);
+	fn marked_as_read(&self) -> bool;
+	fn set_marked_as_read(&mut self, value: bool);
+	fn hidden(&self) -> bool;
+	fn set_hidden(&mut self, value: bool);
 }
 
 impl PartialEq<dyn ArticleData> for dyn ArticleData {
