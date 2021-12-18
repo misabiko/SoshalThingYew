@@ -325,14 +325,17 @@ impl Agent for TwitterAgent {
 			}
 			Msg::FetchResponse(id, r) => {
 				if let Ok((articles, _)) = &r {
+					let mut valid_rc = Vec::new();
 					for article in articles {
 						let borrow = article.borrow();
-						self.articles.entry(borrow.id)
+						let updated = self.articles.entry(borrow.id)
 							.and_modify(|a| a.borrow_mut().update(&(borrow as Ref<dyn ArticleData>)))
 							.or_insert_with(|| article.clone());
+
+						valid_rc.push(Rc::downgrade(updated) as Weak<RefCell<dyn ArticleData>>);
 					}
 
-					self.actions_agent.send(ArticleActionsRequest::Callback(id));
+					self.actions_agent.send(ArticleActionsRequest::Callback(valid_rc));
 				}
 			}
 			Msg::EndpointStoreResponse(_) => {}

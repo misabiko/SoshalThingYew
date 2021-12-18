@@ -3,7 +3,8 @@ use js_sys::Date;
 use wasm_bindgen::JsValue;
 use web_sys::console;
 use std::cell::Ref;
-use yew_agent::{Bridge, Bridged};
+use yew_agent::{Bridge, Bridged, Dispatched, Dispatcher};
+use std::rc::Weak;
 
 use crate::articles::{ArticleData, ArticleRefType, Props};
 use crate::dropdown::{Dropdown, DropdownLabel};
@@ -116,7 +117,20 @@ impl Component for SocialArticle {
 
 				true
 			}
-			Msg::ActionsCallback(_) => true
+			Msg::ActionsCallback(response) => {
+				match response {
+					ArticleActionsResponse::Callback(articles) => {
+						//For some reason Weak::ptr_eq() always returns false
+						let strong = ctx.props().data.upgrade().unwrap();
+						let borrow = strong.borrow();
+						articles.iter().any(|a| {
+							let strong_a = a.upgrade().unwrap();
+							let eq = borrow.id() == strong_a.borrow().id();
+							eq
+						})
+					}
+				}
+			}
 		}
 	}
 

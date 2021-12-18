@@ -1,36 +1,52 @@
 use yew::prelude::*;
+use yew_agent::{Bridge, Bridged};
+use std::rc::Weak;
 
 use crate::articles::{ArticleRefType, Props};
+use crate::services::article_actions::{ArticleActionsAgent, Response as ArticleActionsResponse};
 
 pub struct GalleryArticle {
 	compact: Option<bool>,
+	_article_actions: Box<dyn Bridge<ArticleActionsAgent>>,
 }
 
 pub enum Msg {
 	ToggleCompact,
 	OnImageClick,
+	ActionsCallback(ArticleActionsResponse),
 }
 
 impl Component for GalleryArticle {
 	type Message = Msg;
 	type Properties = Props;
 
-	fn create(_ctx: &Context<Self>) -> Self {
+	fn create(ctx: &Context<Self>) -> Self {
 		Self {
 			compact: None,
+			_article_actions: ArticleActionsAgent::bridge(ctx.link().callback(Msg::ActionsCallback)),
 		}
 	}
 
 	fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
 		match msg {
-			Msg::ToggleCompact => match self.compact {
-				Some(compact) => self.compact = Some(!compact),
-				None => self.compact = Some(!ctx.props().compact),
+			Msg::ToggleCompact => {
+				match self.compact {
+					Some(compact) => self.compact = Some(!compact),
+					None => self.compact = Some(!ctx.props().compact),
+				};
+				true
 			},
-			Msg::OnImageClick => ctx.link().send_message(Msg::ToggleCompact),
-		};
-
-		true
+			Msg::OnImageClick => {
+				ctx.link().send_message(Msg::ToggleCompact);
+				true
+			},
+			Msg::ActionsCallback(response) => {
+				match response {
+					ArticleActionsResponse::Callback(articles)
+					=> articles.iter().any(|a| Weak::ptr_eq(a, &ctx.props().data))
+				}
+			}
+		}
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {

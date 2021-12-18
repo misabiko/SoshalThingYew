@@ -316,5 +316,6 @@ fn main() {
 
 //TODO Show multiple article types in same timeline
 
+//TODO Fix articles not redrawing when they redraw...
 //TODO Fix fontawesome sass warnings
 //TODO Fix handler without callback thing
