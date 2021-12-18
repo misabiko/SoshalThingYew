@@ -2,8 +2,8 @@ use std::rc::Weak;
 use std::cell::RefCell;
 use yew_agent::{Dispatched, Dispatcher};
 
+use super::{TwitterAgent, Request as TwitterRequest};
 use crate::articles::{ArticleData};
-use crate::services::twitter::{TwitterAgent, Request as TwitterRequest};
 use crate::services::endpoints::{Endpoint, EndpointId, RateLimit, RefreshTime};
 
 pub struct UserTimelineEndpoint {

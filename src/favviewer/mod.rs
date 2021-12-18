@@ -1,6 +1,8 @@
 use yew::prelude::*;
 
-pub mod pixiv;
+mod pixiv;
+
+pub use pixiv::PixivPageInfo;
 
 pub trait PageInfo {
 	fn style_html(&self) -> Html;

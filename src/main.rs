@@ -20,7 +20,7 @@ use crate::services::{
 	pixiv::{FollowEndpoint, PixivAgent},
 	twitter::{endpoints::{HomeTimelineEndpoint, SingleTweetEndpoint, UserTimelineEndpoint}, TwitterAgent},
 };
-use crate::favviewer::{PageInfo, pixiv::PixivPageInfo};
+use crate::favviewer::{PageInfo, PixivPageInfo};
 use crate::modals::AddTimelineModal;
 
 #[derive(PartialEq, Clone)]

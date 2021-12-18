@@ -3,7 +3,7 @@ use web_sys::HtmlInputElement;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use crate::modals::Modal;
+use super::Modal;
 use crate::timeline::{Props as TimelineProps};
 use crate::services::endpoints::TimelineEndpoints;
 use crate::choose_endpoints::ChooseEndpoints;

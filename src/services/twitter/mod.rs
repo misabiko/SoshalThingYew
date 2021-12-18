@@ -2,191 +2,20 @@ use std::rc::{Rc, Weak};
 use std::cell::{RefCell, Ref};
 use yew_agent::{Agent, AgentLink, Context, HandlerId, Bridge, Dispatched, Dispatcher};
 use yew_agent::utils::store::{StoreWrapper, ReadOnly, Bridgeable};
-use js_sys::Date;
-use wasm_bindgen::JsValue;
 use std::collections::{HashMap, HashSet};
 use gloo_storage::Storage;
 use serde::{Serialize, Deserialize};
 
 pub mod endpoints;
+mod article;
 
-use crate::articles::{ArticleData, ArticleMedia, ArticleRefType};
+pub use article::TweetArticleData;
+use article::TwitterUser;
+use crate::articles::{ArticleData, ArticleRefType};
 use crate::services::endpoints::{EndpointStore, Request as EndpointRequest, EndpointId, EndpointConstructor, RefreshTime, RateLimit};
 use crate::error::{Error, FetchResult};
 use crate::services::twitter::endpoints::{UserTimelineEndpoint, HomeTimelineEndpoint, ListEndpoint, SingleTweetEndpoint};
 use crate::services::article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest};
-
-#[derive(Clone, PartialEq)]
-pub struct TwitterUser {
-	pub username: String,
-	pub name: String,
-	pub avatar_url: String,
-}
-
-pub struct TweetArticleData {
-	id: u64,
-	text: Option<String>,
-	author: TwitterUser,
-	creation_time: Date,
-	liked: bool,
-	retweeted: bool,
-	like_count: i64,	//TODO Try casting i64 to i32
-	retweet_count: i64,
-	media: Vec<ArticleMedia>,
-	raw_json: serde_json::Value,
-	referenced_article: ArticleRefType,
-	marked_as_read: bool,
-	hidden: bool,
-}
-
-impl ArticleData for TweetArticleData {
-	fn service(&self) -> &'static str {
-		"Twitter"
-	}
-	fn id(&self) -> String {
-		self.id.clone().to_string()
-	}
-	fn creation_time(&self) -> Date {
-		self.creation_time.clone()
-	}
-	fn text(&self) -> String {
-		self.text.clone().unwrap_or("".to_owned())
-	}
-	fn author_username(&self) -> String {
-		self.author.username.clone()
-	}
-	fn author_name(&self) -> String {
-		self.author.name.clone()
-	}
-	fn author_avatar_url(&self) -> String {
-		self.author.avatar_url.clone()
-	}
-	fn author_url(&self) -> String {
-		format!("https://twitter.com/{}", &self.author.username)
-	}
-	fn like_count(&self) -> i64 {
-		self.like_count.clone()
-	}
-	fn repost_count(&self) -> i64 {
-		self.retweet_count.clone()
-	}
-	fn liked(&self) -> bool {
-		self.liked.clone()
-	}
-	fn reposted(&self) -> bool {
-		self.retweeted.clone()
-	}
-
-	fn media(&self) -> Vec<ArticleMedia> {
-		self.media.clone()
-	}
-	fn json(&self) -> serde_json::Value { self.raw_json.clone() }
-	fn referenced_article(&self) -> ArticleRefType {
-		self.referenced_article.clone()
-	}
-	fn url(&self) -> String {
-		format!("https://twitter.com/{}/status/{}", &self.author_username(), &self.id())
-	}
-
-	fn update(&mut self, new: &Ref<dyn ArticleData>) {
-		self.liked = new.liked();
-		self.retweeted = new.reposted();
-		self.like_count = new.like_count();
-		self.retweet_count = new.repost_count();
-		self.raw_json = new.json();
-	}
-	fn marked_as_read(&self) -> bool {
-		self.marked_as_read.clone()
-	}
-	fn set_marked_as_read(&mut self, value: bool) {
-		self.marked_as_read = value;
-	}
-	fn hidden(&self) -> bool {
-		self.hidden.clone()
-	}
-	fn set_hidden(&mut self, value: bool) {
-		self.hidden = value;
-	}
-}
-
-impl TweetArticleData {
-	fn from(json: &serde_json::Value, marked_as_read: &HashSet<u64>) -> (Rc<RefCell<Self>>, Option<Rc<RefCell<Self>>>) {
-		let referenced_article: Option<(Rc<RefCell<Self>>, bool)> = {
-			let referenced = &json["retweeted_status"];
-			let quoted = &json["quoted_status"];
-
-			if !referenced.is_null() {
-				let parsed = TweetArticleData::from(&referenced.clone(), &marked_as_read);
-				if parsed.1.is_some() {
-					log::error!("Retweet of a quote/retweet on {:?}??", json["id"]);
-				}
-				Some((parsed.0, false))
-			}else if !quoted.is_null() {
-				let parsed = TweetArticleData::from(&quoted.clone(), &marked_as_read);
-				if parsed.1.is_some() {
-					log::error!("Quote of a quote/retweet on {:?}??\n(actually quite possible but I can't be bothered code it yet)", json["id"]);
-				}
-				Some((parsed.0, true))
-			}else {
-				None
-			}
-		};
-
-		let medias_opt = json["extended_entities"]
-			.get("media")
-			.and_then(|media| media.as_array());
-
-		let id = json["id"].as_u64().unwrap();
-
-		let data = Rc::new(RefCell::new(TweetArticleData {
-			id,
-			creation_time: json["created_at"].as_str().map(|datetime_str|Date::new(&JsValue::from_str(datetime_str))).unwrap(),
-			text: match json["full_text"].as_str() {
-				Some(text) => Some(text),
-				None => json["text"].as_str()
-			}.map(String::from),
-			author: TwitterUser {
-				username: json["user"]["screen_name"].as_str().unwrap().to_owned(),
-				name: json["user"]["name"].as_str().unwrap().to_owned(),
-				avatar_url: json["user"]["profile_image_url_https"].as_str().unwrap().to_owned(),
-			},
-			liked: json["favorited"].as_bool().unwrap_or_default(),
-			retweeted: json["retweeted"].as_bool().unwrap_or_default(),
-			like_count: json["favorite_count"].as_i64().unwrap(),
-			retweet_count: json["retweet_count"].as_i64().unwrap(),
-			media: match medias_opt {
-				Some(medias) => {
-					medias.iter()
-						.map(|m| {
-							m.get("video_info")
-								.and_then(|v| v.get("variants"))
-								.and_then(|v| v.as_array())
-								.and_then(|v| v.first())
-								.and_then(|v| v.get("url"))
-								.and_then(|url| url.as_str())
-								.map(|url| ArticleMedia::Video(url.to_owned()))
-							.or(m.get("media_url_https")
-								.and_then(|url| url.as_str())
-								.map(|url| ArticleMedia::Image(url.to_owned()))
-							)
-						})
-						.filter_map(std::convert::identity)
-						.collect()
-				},
-				None => Vec::new()
-			},
-			raw_json: json.clone(),
-			referenced_article: match &referenced_article {
-				None => ArticleRefType::NoRef,
-				Some((a, false)) => ArticleRefType::Repost(Rc::downgrade(a) as Weak<RefCell<dyn ArticleData>>),
-				Some((a, true)) => ArticleRefType::Quote(Rc::downgrade(a) as Weak<RefCell<dyn ArticleData>>),
-			},
-			marked_as_read: marked_as_read.contains(&id),
-			hidden: false,
-		}));
-		(data, referenced_article.map(|(a, _)| a))
-	}
-}
 
 pub async fn fetch_tweets(url: &str, marked_as_read: &HashSet<u64>) -> FetchResult<Vec<(Rc<RefCell<TweetArticleData>>, Option<Rc<RefCell<TweetArticleData>>>)>> {
 	let response = reqwest::Client::builder().build()?

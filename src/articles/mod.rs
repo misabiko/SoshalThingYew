@@ -3,11 +3,11 @@ use std::cell::{RefCell, Ref};
 use yew::prelude::*;
 use js_sys::Date;
 
-pub mod social;
-pub mod gallery;
+mod social;
+mod gallery;
 
-use crate::articles::social::SocialArticle;
-use crate::articles::gallery::GalleryArticle;
+pub use crate::articles::social::SocialArticle;
+pub use crate::articles::gallery::GalleryArticle;
 
 #[derive(Clone)]
 pub enum ArticleRefType {

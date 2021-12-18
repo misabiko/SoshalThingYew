@@ -1,6 +1,6 @@
 use yew::prelude::*;
 
-pub mod add_timeline;
+mod add_timeline;
 
 pub use add_timeline::AddTimelineModal;
 
