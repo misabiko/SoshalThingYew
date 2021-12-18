@@ -1,5 +1,4 @@
 use std::rc::{Rc, Weak};
-use std::collections::HashSet;
 use std::cell::{RefCell, Ref};
 use yew_agent::{Agent, AgentLink, Context, HandlerId, Bridge, Dispatched, Dispatcher};
 use yew_agent::utils::store::{StoreWrapper, ReadOnly, Bridgeable};
@@ -220,7 +219,6 @@ pub enum AuthMode {
 pub struct TwitterAgent {
 	link: AgentLink<Self>,
 	endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
-	subscribers: HashSet<HandlerId>,
 	#[allow(dead_code)]
 	actions_agent: Dispatcher<ArticleActionsAgent>,
 	articles: HashMap<u64, Rc<RefCell<TweetArticleData>>>
@@ -233,7 +231,6 @@ pub enum Request {
 }
 
 pub enum Msg {
-	DefaultEndpoint(EndpointId),
 	FetchResponse(HandlerId, FetchResult<Vec<Rc<RefCell<TweetArticleData>>>>),
 	EndpointFetchResponse(RefreshTime, EndpointId, FetchResult<Vec<(Rc<RefCell<TweetArticleData>>, Option<Rc<RefCell<TweetArticleData>>>)>>),
 	EndpointStoreResponse(ReadOnly<EndpointStore>),
@@ -241,15 +238,11 @@ pub enum Msg {
 	Retweet(HandlerId, Weak<RefCell<dyn ArticleData>>),
 }
 
-pub enum Response {
-	DefaultEndpoint(EndpointId),
-}
-
 impl Agent for TwitterAgent {
 	type Reach = Context<Self>;
 	type Message = Msg;
 	type Input = Request;
-	type Output = Response;
+	type Output = ();
 
 	fn create(link: AgentLink<Self>) -> Self {
 		let mut endpoint_store = EndpointStore::bridge(link.callback(Msg::EndpointStoreResponse));
@@ -285,7 +278,6 @@ impl Agent for TwitterAgent {
 		Self {
 			endpoint_store,
 			link,
-			subscribers: HashSet::new(),
 			actions_agent,
 			articles: HashMap::new(),
 			//auth_mode: AuthMode::NotLoggedIn,
@@ -294,33 +286,33 @@ impl Agent for TwitterAgent {
 
 	fn update(&mut self, msg: Self::Message) {
 		match msg {
-			Msg::DefaultEndpoint(e) => {
-				for sub in self.subscribers.iter() {
-					self.link.respond(*sub, Response::DefaultEndpoint(e));
-				}
-			}
 			Msg::EndpointFetchResponse(refresh_time, id, r) => {
+				let mut valid_rc = Vec::new();
 				if let Ok((articles, _)) = &r {
 					for (article, ref_article_opt) in articles {
 						let borrow = article.borrow();
-						self.articles.entry(borrow.id)
+						let valid_a_rc = self.articles.entry(borrow.id)
 							.and_modify(|a| a.borrow_mut().update(&(borrow as Ref<dyn ArticleData>)))
-							.or_insert_with(|| article.clone());
+							.or_insert_with(|| article.clone()).clone();
 
 						if let Some(ref_article) = ref_article_opt {
 							let ref_borrow = ref_article.borrow();
-							self.articles.entry(ref_borrow.id)
+							let valid_a_ref_rc = self.articles.entry(ref_borrow.id)
 								.and_modify(|a| a.borrow_mut().update(&(ref_borrow as Ref<dyn ArticleData>)))
-								.or_insert_with(|| ref_article.clone());
+								.or_insert_with(|| ref_article.clone()).clone();
+
+							valid_rc.push((valid_a_rc, Some(valid_a_ref_rc)));
+						}else {
+							valid_rc.push((valid_a_rc, None));
 						}
 					}
 				}
 				self.endpoint_store.send(EndpointRequest::EndpointFetchResponse(
 					refresh_time,
 					id,
-					r.map(|(articles, ratelimit)|
+					r.map(move |(_, ratelimit)|
 						(
-							articles.into_iter()
+							valid_rc.into_iter()
 								.map(|(article, ref_article_opt)|
 									(
 										article as Rc<RefCell<dyn ArticleData>>,
@@ -377,10 +369,6 @@ impl Agent for TwitterAgent {
 		};
 	}
 
-	fn connected(&mut self, id: HandlerId) {
-		self.subscribers.insert(id);
-	}
-
 	fn handle_input(&mut self, msg: Self::Input, _id: HandlerId) {
 		match msg {
 			Request::FetchTweets(refresh_time, id, path) =>
@@ -392,9 +380,5 @@ impl Agent for TwitterAgent {
 					Msg::EndpointFetchResponse(refresh_time, id, fetch_tweet(&path).await.map(|a| (vec![a.0], a.1)))
 				})
 		}
-	}
-
-	fn disconnected(&mut self, id: HandlerId) {
-		self.subscribers.remove(&id);
 	}
 }
