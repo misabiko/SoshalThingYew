@@ -9,16 +9,20 @@ use crate::services::endpoints::{Endpoint, EndpointId, RateLimit, RefreshTime};
 pub struct UserTimelineEndpoint {
 	id: EndpointId,
 	username: String,
+	include_retweets: bool,
+	include_replies: bool,
 	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
 	agent: Dispatcher<TwitterAgent>,
 	ratelimit: RateLimit,
 }
 
 impl UserTimelineEndpoint {
-	pub fn new(id: EndpointId, username: String) -> Self {
+	pub fn new(id: EndpointId, username: String, include_retweets: bool, include_replies: bool) -> Self {
 		Self {
 			id,
 			username,
+			include_retweets,
+			include_replies,
 			articles: Vec::new(),
 			agent: TwitterAgent::dispatcher(),
 			ratelimit: RateLimit::default()
@@ -26,7 +30,7 @@ impl UserTimelineEndpoint {
 	}
 
 	pub fn from_json(id: EndpointId, value: serde_json::Value) -> Self {
-		Self::new(id, value["username"].as_str().unwrap().to_owned())
+		Self::new(id, value["username"].as_str().unwrap().to_owned(), false, false)
 	}
 }
 
@@ -59,7 +63,7 @@ impl Endpoint for UserTimelineEndpoint {
 		self.agent.send(TwitterRequest::FetchTweets(
 			refresh_time,
 			id,
-			format!("/proxy/twitter/user/{}?count=20", &self.username)
+			format!("/proxy/twitter/user/{}?replies={:?}&rts={:?}&count=20", self.username, &self.include_replies, &self.include_retweets)
 		))
 	}
 
@@ -70,7 +74,7 @@ impl Endpoint for UserTimelineEndpoint {
 				self.agent.send(TwitterRequest::FetchTweets(
 					refresh_time,
 					id,
-					format!("/proxy/twitter/user/{}?max_id={}", &self.username, &last_id.upgrade().unwrap().borrow().id())
+					format!("/proxy/twitter/user/{}?replies={:?}&rts={:?}&max_id={}", &self.username, &self.include_replies, &self.include_retweets, &last_id.upgrade().unwrap().borrow().id())
 				))
 			}
 			None => self.refresh(refresh_time)

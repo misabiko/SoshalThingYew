@@ -242,7 +242,7 @@ fn parse_pathname(ctx: &Context<Model>, pathname: &str) {
 		ctx.link().send_message(
 			Msg::AddEndpoint(Box::new(move |id| {
 				callback.emit(id);
-				Box::new(UserTimelineEndpoint::new(id, username.clone()))
+				Box::new(UserTimelineEndpoint::new(id, username.clone(), false, false))
 			}))
 		);
 	} else if pathname.starts_with("/twitter/home") {
