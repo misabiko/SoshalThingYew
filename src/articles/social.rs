@@ -3,8 +3,7 @@ use js_sys::Date;
 use wasm_bindgen::JsValue;
 use web_sys::console;
 use std::cell::Ref;
-use yew_agent::{Bridge, Bridged, Dispatched, Dispatcher};
-use std::rc::Weak;
+use yew_agent::{Bridge, Bridged};
 
 use crate::articles::{ArticleData, ArticleRefType, Props};
 use crate::dropdown::{Dropdown, DropdownLabel};

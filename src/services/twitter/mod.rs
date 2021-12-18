@@ -323,7 +323,7 @@ impl Agent for TwitterAgent {
 						))
 				));
 			}
-			Msg::FetchResponse(id, r) => {
+			Msg::FetchResponse(_id, r) => {
 				if let Ok((articles, _)) = &r {
 					let mut valid_rc = Vec::new();
 					for article in articles {
