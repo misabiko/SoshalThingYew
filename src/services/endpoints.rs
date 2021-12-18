@@ -7,7 +7,8 @@ use std::cell::RefCell;
 use reqwest::header::HeaderMap;
 
 use crate::error::{Error, FetchResult};
-use crate::articles::{ArticleData, sort_by_id};
+use crate::articles::ArticleData;
+use crate::timeline::sort_methods::sort_by_id;
 
 #[derive(Clone, Debug)]
 pub struct RateLimit {

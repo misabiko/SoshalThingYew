@@ -69,12 +69,6 @@ impl PartialEq<Props> for Props {
 	}
 }
 
-pub fn sort_by_id(a: &Weak<RefCell<dyn ArticleData>>, b: &Weak<RefCell<dyn ArticleData>>) -> std::cmp::Ordering {
-	let a_id = a.upgrade().map(|s| s.borrow().id()).unwrap_or("0".to_owned());
-	let b_id = b.upgrade().map(|s| s.borrow().id()).unwrap_or("0".to_owned());
-	b_id.partial_cmp(&a_id).unwrap()
-}
-
 #[derive(Clone, PartialEq, Eq)]
 pub enum ArticleComponent {
 	Social,

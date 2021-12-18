@@ -301,8 +301,6 @@ fn main() {
 //TODO Save fetched articles
 //TODO Load timeline data
 //TODO Parse tweet text
-//TODO Filters
-//TODO Sort
 //TODO Auto refresh
 //TODO Display timeline errors
 //TODO Youtube articles
