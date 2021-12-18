@@ -81,6 +81,7 @@ pub enum Msg {
 	ToggleFilterInverted(usize),
 	SetSortMethod(Option<usize>),
 	ToggleSortReversed,
+	ScrollTop,
 }
 
 #[derive(Properties, Clone)]
@@ -308,6 +309,15 @@ impl Component for Timeline {
 				}
 				true
 			}
+			Msg::ScrollTop => {
+				if let Some(container) = self.container_ref.cast::<Element>() {
+					let mut options = web_sys::ScrollToOptions::new();
+					options.top(0.0);
+					options.behavior(web_sys::ScrollBehavior::Smooth);
+					container.scroll_to_with_scroll_to_options(&options);
+				}
+				false
+			}
 		}
 	}
 
@@ -350,7 +360,7 @@ impl Component for Timeline {
 				}
 				<div class="timelineHeader">
 					<div class="timelineLeftHeader">
-						<strong>{&ctx.props().name}</strong>
+						<strong onclick={ctx.link().callback(|_| Msg::ScrollTop)}>{&ctx.props().name}</strong>
 						{ if ctx.props().children.is_empty() {
 							html! {}
 						}else {
