@@ -4,8 +4,9 @@ use yew::prelude::*;
 use yew_agent::Bridge;
 use yew_agent::utils::store::{StoreWrapper, ReadOnly, Bridgeable};
 use wasm_bindgen::JsCast;
-use web_sys::HtmlInputElement;
+use web_sys::{Element, HtmlInputElement};
 use rand::{thread_rng, seq::SliceRandom};
+use wasm_bindgen::closure::Closure;
 
 use crate::articles::{ArticleComponent, ArticleData, sort_by_id};
 use crate::services::endpoints::{EndpointStore, TimelineEndpoints, Request as EndpointRequest};
@@ -13,6 +14,23 @@ use crate::containers::{Container, view_container, Props as ContainerProps};
 use crate::modals::Modal;
 use crate::choose_endpoints::ChooseEndpoints;
 use crate::dropdown::{Dropdown, DropdownLabel};
+
+enum ScrollDirection {
+	Up,
+	Down,
+}
+
+struct AutoscrollAnim {
+	request_id: i32,
+	scroll_step: Closure<dyn FnMut()>,
+	scroll_stop: Closure<dyn FnMut()>,
+}
+
+struct Autoscroll {
+	direction: ScrollDirection,
+	speed: f64,
+	anim: Option<AutoscrollAnim>,
+}
 
 pub struct Timeline {
 	endpoints: Rc<RefCell<TimelineEndpoints>>,
@@ -29,6 +47,8 @@ pub struct Timeline {
 	sorted: bool,
 	article_component: ArticleComponent,
 	show_choose_endpoint: bool,
+	container_ref: NodeRef,
+	autoscroll: Rc<RefCell<Autoscroll>>,
 }
 
 pub enum Msg {
@@ -49,6 +69,7 @@ pub enum Msg {
 	ChangeWidth(u8),
 	Shuffle,
 	SetChooseEndpointModal(bool),
+	Autoscroll,
 }
 
 #[derive(Properties, Clone)]
@@ -69,12 +90,12 @@ pub struct Props {
 impl PartialEq for Props {
 	fn eq(&self, other: &Self) -> bool {
 		self.name == other.name &&
-		self.endpoints == other.endpoints &&
-		self.main_timeline == other.main_timeline &&
-		self.column_count == other.column_count &&
-		self.children == other.children &&
-		self.articles.iter().zip(other.articles.iter())
-			.all(|(ai, bi)| Weak::ptr_eq(&ai, &bi))
+			self.endpoints == other.endpoints &&
+			self.main_timeline == other.main_timeline &&
+			self.column_count == other.column_count &&
+			self.children == other.children &&
+			self.articles.iter().zip(other.articles.iter())
+				.all(|(ai, bi)| Weak::ptr_eq(&ai, &bi))
 	}
 }
 
@@ -111,6 +132,12 @@ impl Component for Timeline {
 			sorted: true,
 			article_component: ArticleComponent::Social,
 			show_choose_endpoint: false,
+			container_ref: NodeRef::default(),
+			autoscroll: Rc::new(RefCell::new(Autoscroll {
+				direction: ScrollDirection::Down,
+				speed: 3.0,
+				anim: None,
+			})),
 		}
 	}
 
@@ -158,37 +185,30 @@ impl Component for Timeline {
 				self.compact = !self.compact;
 				true
 			}
-
 			Msg::ChangeContainer(c) => {
 				self.container = c;
 				true
 			}
-
 			Msg::ToggleContainerDropdown => {
 				self.show_container_dropdown = !self.show_container_dropdown;
 				true
 			}
-
 			Msg::ChangeArticleComponent(c) => {
 				self.article_component = c;
 				true
 			}
-
 			Msg::ToggleArticleComponentDropdown => {
 				self.show_article_component_dropdown = !self.show_article_component_dropdown;
 				true
 			}
-
 			Msg::ChangeColumnCount(new_column_count) => {
 				self.column_count = new_column_count;
 				true
 			}
-
 			Msg::ChangeWidth(new_width) => {
 				self.width = new_width;
 				true
 			}
-
 			Msg::Shuffle => {
 				self.articles.shuffle(&mut thread_rng());
 				self.sorted = false;
@@ -197,7 +217,69 @@ impl Component for Timeline {
 			Msg::SetChooseEndpointModal(value) => {
 				self.show_choose_endpoint = value;
 				true
-			},
+			}
+			Msg::Autoscroll => {
+				let anim_autoscroll = self.autoscroll.clone();
+				let event_autoscroll = self.autoscroll.clone();
+				let container_ref_c = self.container_ref.clone();
+
+				let mut outer_borrow_mut = self.autoscroll.borrow_mut();
+
+				let window = web_sys::window().expect("no global window");
+				outer_borrow_mut.anim = {
+					let anim = AutoscrollAnim {
+						scroll_step: Closure::wrap(Box::new(move || {
+							let mut borrow = anim_autoscroll.borrow_mut();
+							if let Some(container) = container_ref_c.cast::<Element>() {
+								let should_keep_scrolling = match borrow.direction {
+									ScrollDirection::Up => container.scroll_top() > 0,
+									ScrollDirection::Down => container.scroll_top() < container.scroll_height() - container.client_height(),
+								};
+
+								if should_keep_scrolling {
+									container.scroll_by_with_x_and_y(0.0, match borrow.direction {
+										ScrollDirection::Up => -borrow.speed,
+										ScrollDirection::Down => borrow.speed,
+									});
+								} else {
+									borrow.direction = match borrow.direction {
+										ScrollDirection::Up => ScrollDirection::Down,
+										ScrollDirection::Down => ScrollDirection::Up,
+									};
+								}
+							}
+
+							let mut anim = borrow.anim.as_mut().unwrap();
+							anim.request_id = web_sys::window().expect("no global window")
+								.request_animation_frame(anim.scroll_step.as_ref().unchecked_ref())
+								.unwrap();
+						}) as Box<dyn FnMut()>),
+						request_id: 0,
+						scroll_stop: Closure::once(Box::new(move || {
+							let mut borrow = event_autoscroll.borrow_mut();
+							if let Some(anim) = &borrow.anim {
+								web_sys::window().expect("no global window")
+									.cancel_animation_frame(anim.request_id)
+									.unwrap();
+							}
+
+							borrow.anim = None;
+						}) as Box<dyn FnOnce()>)
+					};
+					let mut options = web_sys::AddEventListenerOptions::new();
+					window.add_event_listener_with_callback_and_add_event_listener_options(
+						"mousedown",
+						anim.scroll_stop.as_ref().unchecked_ref(),
+						options.once(true),
+					).unwrap();
+
+					window.request_animation_frame(anim.scroll_step.as_ref().unchecked_ref()).unwrap();
+					Some(anim)
+				};
+
+
+				false
+			}
 		}
 	}
 
@@ -249,6 +331,11 @@ impl Component for Timeline {
 								<i class="fas fa-random fa-lg"/>
 							</span>
 						</button>
+						<button onclick={ctx.link().callback(|_| Msg::Autoscroll)} title="Autoscroll">
+							<span class="icon">
+								<i class="fas fa-scroll fa-lg"/>
+							</span>
+						</button>
 						<button onclick={ctx.link().callback(|_| Msg::Refresh)} title="Refresh">
 							<span class="icon">
 								<i class="fas fa-sync-alt fa-lg"/>
@@ -268,6 +355,7 @@ impl Component for Timeline {
 				</div>
 				{ self.view_options(ctx) }
 				{ view_container(&self.container, yew::props! {ContainerProps {
+					container_ref: self.container_ref.clone(),
 					compact: self.compact,
 					column_count: self.column_count,
 					article_component: self.article_component.clone(),

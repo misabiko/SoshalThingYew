@@ -37,6 +37,7 @@ pub fn view_container(container: &Container, props: Props) -> Html {
 
 #[derive(Properties)]
 pub struct Props {
+	pub container_ref: NodeRef,
 	pub compact: bool,
 	#[prop_or(1)]
 	pub column_count: u8,
@@ -59,7 +60,7 @@ impl PartialEq for Props {
 #[function_component(ColumnContainer)]
 pub fn column_container(props: &Props) -> Html {
 	html! {
-		<div class="articlesContainer columnContainer">
+		<div class="articlesContainer columnContainer" ref={props.container_ref.clone()}>
 			{ for props.articles.iter().map(|article| view_article(&props.article_component, article.clone()))}
 		</div>
 	}
@@ -77,7 +78,7 @@ pub fn row_container(props: &Props) -> Html {
 		/>
 	}*/
 	html! {
-		<div class="articlesContainer rowContainer">
+		<div class="articlesContainer rowContainer" ref={props.container_ref.clone()}>
 			{ for props.articles.iter().map(|article| view_article(&props.article_component, article.clone())) }
 		</div>
 	}
@@ -131,7 +132,7 @@ pub fn masonry_container(props: &Props) -> Html {
 	let columns = to_columns(strongs.iter(), &props.column_count);
 
 	html! {
-		<div class="articlesContainer masonryContainer">
+		<div class="articlesContainer masonryContainer" ref={props.container_ref.clone()}>
 			{ for columns.enumerate().map(|(column_index, column)| html! {
 				<div class="masonryColumn" key={column_index}>
 					{ for column.map(|article| view_article(&props.article_component, Rc::downgrade(article)))}
