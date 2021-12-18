@@ -3727,6 +3727,7 @@ name = "soshalthing-yew"
 version = "0.1.0"
 dependencies = [
  "getrandom 0.2.3",
+ "gloo-storage",
  "gloo-utils",
  "js-sys",
  "log",

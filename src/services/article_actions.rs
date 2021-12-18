@@ -9,6 +9,7 @@ use crate::articles::ArticleData;
 pub struct ServiceActions {
 	pub like: Callback<(HandlerId, Weak<RefCell<dyn ArticleData>>)>,
 	pub repost: Callback<(HandlerId, Weak<RefCell<dyn ArticleData>>)>,
+	pub mark_as_read: Callback<(HandlerId, Weak<RefCell<dyn ArticleData>>, bool)>,
 }
 
 pub struct ArticleActionsAgent {
@@ -22,6 +23,7 @@ pub enum Request {
 	Callback(Vec<Weak<RefCell<dyn ArticleData>>>),
 	Like(Weak<RefCell<dyn ArticleData>>),
 	Repost(Weak<RefCell<dyn ArticleData>>),
+	MarkAsRead(Weak<RefCell<dyn ArticleData>>, bool),
 }
 
 pub enum Response {
@@ -71,6 +73,12 @@ impl Agent for ArticleActionsAgent {
 				let borrow = strong.borrow();
 
 				self.services.get(&borrow.service()).map(|s| s.repost.emit((id, article.clone())));
+			}
+			Request::MarkAsRead(article, value) => {
+				let strong = article.upgrade().unwrap();
+				let borrow = strong.borrow();
+
+				self.services.get(&borrow.service()).map(|s| s.mark_as_read.emit((id, article.clone(), value)));
 			}
 		};
 	}

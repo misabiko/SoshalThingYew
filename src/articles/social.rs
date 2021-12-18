@@ -84,6 +84,7 @@ impl Component for SocialArticle {
 					ArticleRefType::NoRef => {
 						let marked_as_read = borrow.marked_as_read();
 						borrow.set_marked_as_read(!marked_as_read);
+						self.article_actions.send(ArticleActionsRequest::MarkAsRead(ctx.props().data.clone(), !marked_as_read));
 					},
 					ArticleRefType::Repost(a) | ArticleRefType::Quote(a) => {
 						let strong = a.upgrade().unwrap();
@@ -91,6 +92,7 @@ impl Component for SocialArticle {
 
 						let marked_as_read = borrow.marked_as_read();
 						borrow.set_marked_as_read(!marked_as_read);
+						self.article_actions.send(ArticleActionsRequest::MarkAsRead(a.clone(), !marked_as_read));
 					}
 				};
 
@@ -309,7 +311,7 @@ impl SocialArticle {
 						true => html! {},
 					} }
 					<Dropdown current_label={DropdownLabel::Icon("fas fa-ellipsis-h".to_owned())} label_classes={classes!("articleButton")}>
-						<div class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ToggleMarkAsRead)}> {"Mark as red"} </div>
+						<div class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ToggleMarkAsRead)}> {"Mark as read"} </div>
 						<div class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ToggleHide)}> {"Hide"} </div>
 						<div class="dropdown-item" onclick={&ontoggle_compact}> { if self.is_compact(ctx) { "Show expanded" } else { "Show compact" } } </div>
 						<div class="dropdown-item"> {"Fetch Status"} </div>
