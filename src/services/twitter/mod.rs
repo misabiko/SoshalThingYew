@@ -10,7 +10,7 @@ use serde::{Serialize, Deserialize};
 
 pub mod endpoints;
 
-use crate::articles::{ArticleData, ArticleRefType};
+use crate::articles::{ArticleData, ArticleMedia, ArticleRefType};
 use crate::services::endpoints::{EndpointStore, Request as EndpointRequest, EndpointId, EndpointConstructor, RefreshTime, RateLimit};
 use crate::error::{Error, FetchResult};
 use crate::services::twitter::endpoints::{UserTimelineEndpoint, HomeTimelineEndpoint, ListEndpoint, SingleTweetEndpoint};
@@ -32,7 +32,7 @@ pub struct TweetArticleData {
 	retweeted: bool,
 	like_count: i64,	//TODO Try casting i64 to i32
 	retweet_count: i64,
-	media: Vec<String>,
+	media: Vec<ArticleMedia>,
 	raw_json: serde_json::Value,
 	referenced_article: ArticleRefType,
 	marked_as_read: bool,
@@ -77,7 +77,7 @@ impl ArticleData for TweetArticleData {
 		self.retweeted.clone()
 	}
 
-	fn media(&self) -> Vec<String> {
+	fn media(&self) -> Vec<ArticleMedia> {
 		self.media.clone()
 	}
 	fn json(&self) -> serde_json::Value { self.raw_json.clone() }
@@ -155,14 +155,24 @@ impl TweetArticleData {
 			like_count: json["favorite_count"].as_i64().unwrap(),
 			retweet_count: json["retweet_count"].as_i64().unwrap(),
 			media: match medias_opt {
-				Some(medias) => medias.iter()
-					.map(|m|
-						m.get("media_url_https")
-							.and_then(|url| url.as_str())
-							.map(|url| url.to_owned())
-					)
-					.filter_map(std::convert::identity)
-					.collect(),
+				Some(medias) => {
+					medias.iter()
+						.map(|m| {
+							m.get("video_info")
+								.and_then(|v| v.get("variants"))
+								.and_then(|v| v.as_array())
+								.and_then(|v| v.first())
+								.and_then(|v| v.get("url"))
+								.and_then(|url| url.as_str())
+								.map(|url| ArticleMedia::Video(url.to_owned()))
+							.or(m.get("media_url_https")
+								.and_then(|url| url.as_str())
+								.map(|url| ArticleMedia::Image(url.to_owned()))
+							)
+						})
+						.filter_map(std::convert::identity)
+						.collect()
+				},
 				None => Vec::new()
 			},
 			raw_json: json.clone(),
@@ -303,7 +313,6 @@ impl Agent for TwitterAgent {
 			Some(storage) => storage.articles_marked_as_read.iter().map(|id| id.parse().unwrap()).collect(),
 			None => HashSet::new(),
 		};
-		log::debug!("Found cached {:?}", &cached_marked_as_read);
 
 		Self {
 			endpoint_store,

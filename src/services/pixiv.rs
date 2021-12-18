@@ -4,7 +4,7 @@ use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher, Br
 use yew_agent::utils::store::{StoreWrapper, ReadOnly, Bridgeable};
 use js_sys::Date;
 
-use crate::articles::ArticleData;
+use crate::articles::{ArticleData, ArticleMedia};
 use crate::services::endpoints::{EndpointStore, Endpoint, Request as EndpointRequest, EndpointId, RefreshTime};
 
 pub struct PixivArticleData {
@@ -44,8 +44,8 @@ impl ArticleData for PixivArticleData {
 		format!("https://www.pixiv.net/en/users/{}", &self.author_id)
 	}
 
-	fn media(&self) -> Vec<String> {
-		vec![self.src.clone()]
+	fn media(&self) -> Vec<ArticleMedia> {
+		vec![ArticleMedia::Image(self.src.clone())]
 	}
 
 	fn url(&self) -> String {
@@ -53,7 +53,10 @@ impl ArticleData for PixivArticleData {
 	}
 
 	fn update(&mut self, new: &Ref<dyn ArticleData>) {
-		self.src = new.media().first().unwrap().clone();
+		self.src = match new.media().first() {
+			Some(ArticleMedia::Image(src)) => src.clone(),
+			_ => "".to_owned(),
+		};
 		self.title = new.text();
 	}
 	fn marked_as_read(&self) -> bool {

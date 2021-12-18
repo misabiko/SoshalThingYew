@@ -2,7 +2,7 @@ use yew::prelude::*;
 use yew_agent::{Bridge, Bridged};
 use std::rc::Weak;
 
-use crate::articles::{ArticleRefType, Props};
+use crate::articles::{ArticleRefType, Props, ArticleMedia};
 use crate::services::article_actions::{ArticleActionsAgent, Response as ArticleActionsResponse};
 
 pub struct GalleryArticle {
@@ -61,8 +61,10 @@ impl Component for GalleryArticle {
 
 		html! {
 			<article class="article galleryArticle" articleId={actual_borrow.id()} style={ctx.props().style.clone()}>
-				{ for actual_borrow.media().iter().map(|m| html! {
-					<img src={m.clone()}/>
+				{ for actual_borrow.media().iter().map(|m| match m {
+					ArticleMedia::Image(src) | ArticleMedia::Video(src) => html! {
+						<img src={src.clone()}/>
+					}
 				}) }
 			</article>
 		}

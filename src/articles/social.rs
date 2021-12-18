@@ -5,7 +5,7 @@ use web_sys::console;
 use std::cell::Ref;
 use yew_agent::{Bridge, Bridged};
 
-use crate::articles::{ArticleData, ArticleRefType, Props};
+use crate::articles::{ArticleData, ArticleRefType, Props, ArticleMedia};
 use crate::dropdown::{Dropdown, DropdownLabel};
 use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest, Response as ArticleActionsResponse};
 
@@ -332,45 +332,52 @@ impl SocialArticle {
 	}
 
 	fn view_media(&self, ctx: &Context<Self>, actual_borrow: &Ref<dyn ArticleData>) -> Html {
-		let images_classes = classes!(
-			"postMedia",
-			"postImages",
-			if self.is_compact(ctx) { Some("postImagesCompact") } else { None }
-		);
+		match &actual_borrow.media()[..] {
+			[ArticleMedia::Image(_), ..] => {
+				let images_classes = classes!(
+						"postMedia",
+						"postImages",
+						if self.is_compact(ctx) { Some("postImagesCompact") } else { None }
+					);
 
-		if actual_borrow.media().len() == 0 {
-			html! {}
-		} else {
-			html! {
-				<div>
+				html! {
 					<div class={images_classes.clone()}> {
 						match &actual_borrow.media()[..] {
-							[image] => self.view_image(ctx, actual_borrow, image.clone(), false),
-							[i1, i2] => html! {
+							[ArticleMedia::Image(image)] => self.view_image(ctx, actual_borrow, image.clone(), false),
+							[ArticleMedia::Image(i1), ArticleMedia::Image(i2)] => html! {
 								<>
 									{ self.view_image(ctx, actual_borrow, i1.clone(), false) }
 									{ self.view_image(ctx, actual_borrow, i2.clone(), false) }
 								</>
 							},
-							[i1, i2, i3] => html! {
+							[ArticleMedia::Image(i1), ArticleMedia::Image(i2), ArticleMedia::Image(i3)] => html! {
 								<>
 									{ self.view_image(ctx, actual_borrow, i1.clone(), false) }
 									{ self.view_image(ctx, actual_borrow, i2.clone(), false) }
 									{ self.view_image(ctx, actual_borrow, i3.clone(), true) }
 								</>
 							},
-							_ => html! {
+							[ArticleMedia::Image(i1), ArticleMedia::Image(i2), ArticleMedia::Image(i3), ArticleMedia::Image(i4), ..] => html! {
 								<>
-									{ self.view_image(ctx, actual_borrow, actual_borrow.media()[0].clone(), false) }
-									{ self.view_image(ctx, actual_borrow, actual_borrow.media()[1].clone(), false) }
-									{ self.view_image(ctx, actual_borrow, actual_borrow.media()[2].clone(), false) }
-									{ self.view_image(ctx, actual_borrow, actual_borrow.media()[3].clone(), false) }
+									{ self.view_image(ctx, actual_borrow, i1.clone(), false) }
+									{ self.view_image(ctx, actual_borrow, i2.clone(), false) }
+									{ self.view_image(ctx, actual_borrow, i3.clone(), false) }
+									{ self.view_image(ctx, actual_borrow, i4.clone(), false) }
 								</>
-							}
+							},
+							_ => html! {{"unexpected media format"}}
 						}
 					} </div>
-				</div>
+				}
 			}
+			[ArticleMedia::Video(video_src)] => html! {
+				<div class="postMedia postVideo">
+					<video controls=true onclick={ctx.link().callback(|_| Msg::OnImageClick)}>
+						<source src={video_src.clone()} type="video/mp4"/>
+					</video>
+				</div>
+			},
+			_ => html! {{"unexpected media format"}}
 		}
 	}
 

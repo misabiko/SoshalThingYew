@@ -16,6 +16,12 @@ pub enum ArticleRefType {
 	Quote(Weak<RefCell<dyn ArticleData>>),
 }
 
+#[derive(Clone, PartialEq, Eq)]
+pub enum ArticleMedia {
+	Image(String),
+	Video(String),
+}
+
 pub trait ArticleData {
 	fn service(&self) -> &'static str;
 	fn id(&self) -> String;
@@ -29,7 +35,7 @@ pub trait ArticleData {
 	fn repost_count(&self) -> i64 { 0 }
 	fn liked(&self) -> bool { false }
 	fn reposted(&self) -> bool { false }
-	fn media(&self) -> Vec<String>;
+	fn media(&self) -> Vec<ArticleMedia>;
 	fn json(&self) -> serde_json::Value { serde_json::Value::Null }
 	fn referenced_article(&self) -> ArticleRefType { ArticleRefType::NoRef }
 	fn url(&self) -> String;
