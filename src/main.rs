@@ -73,7 +73,7 @@ impl Component for Model {
 		let (pathname_opt, search_opt) = parse_url();
 
 		if let Some(pathname) = pathname_opt {
-			parse_pathname(ctx, &pathname);
+			parse_pathname(ctx, &pathname, &search_opt);
 		}
 
 		let single_timeline_bool = search_opt.as_ref()
@@ -226,7 +226,7 @@ fn parse_url() -> (Option<String>, Option<web_sys::UrlSearchParams>) {
 	}
 }
 
-fn parse_pathname(ctx: &Context<Model>, pathname: &str) {
+fn parse_pathname(ctx: &Context<Model>, pathname: &str, search_opt: &Option<web_sys::UrlSearchParams>) {
 	if let Some(tweet_id) = pathname.strip_prefix("/twitter/status/").and_then(|s| s.parse::<u64>().ok()) {
 		let callback = ctx.link().callback(|id|Msg::AddTimeline("Tweet".to_owned(), id));
 
@@ -237,12 +237,23 @@ fn parse_pathname(ctx: &Context<Model>, pathname: &str) {
 			}))
 		);
 	} else if let Some(username) = pathname.strip_prefix("/twitter/user/").map(str::to_owned) {
+		let (retweets, replies) = match search_opt {
+			Some(search) => (
+				search.get("rts")
+					.and_then(|s| s.parse().ok())
+					.unwrap_or_default(),
+				search.get("replies")
+				.and_then(|s| s.parse().ok())
+				.unwrap_or_default()
+			),
+			None => (false, false)
+		};
 		let callback = ctx.link().callback(|id| Msg::AddTimeline("User".to_owned(), id));
 
 		ctx.link().send_message(
 			Msg::AddEndpoint(Box::new(move |id| {
 				callback.emit(id);
-				Box::new(UserTimelineEndpoint::new(id, username.clone(), false, false))
+				Box::new(UserTimelineEndpoint::new(id, username.clone(), retweets, replies))
 			}))
 		);
 	} else if pathname.starts_with("/twitter/home") {
