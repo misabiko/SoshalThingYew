@@ -2,15 +2,19 @@ use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 use yew::prelude::*;
 use yew_agent::Bridge;
-use yew_agent::utils::store::{StoreWrapper, ReadOnly, Bridgeable};
+use yew_agent::utils::store::{Bridgeable, ReadOnly, StoreWrapper};
 use wasm_bindgen::JsCast;
 use web_sys::{Element, HtmlInputElement};
-use rand::{thread_rng, seq::SliceRandom};
+use rand::{seq::SliceRandom, thread_rng};
 use wasm_bindgen::closure::Closure;
 
+mod containers;
+mod filters;
+
+use containers::{Container, view_container, Props as ContainerProps};
+use filters::{Filter, default_filters};
 use crate::articles::{ArticleComponent, ArticleData, sort_by_id};
-use crate::services::endpoints::{EndpointStore, TimelineEndpoints, Request as EndpointRequest};
-use crate::containers::{Container, view_container, Props as ContainerProps};
+use crate::services::endpoints::{EndpointStore, Request as EndpointRequest, TimelineEndpoints};
 use crate::modals::Modal;
 use crate::choose_endpoints::ChooseEndpoints;
 use crate::dropdown::{Dropdown, DropdownLabel};
@@ -38,7 +42,7 @@ pub struct Timeline {
 	options_shown: bool,
 	compact: bool,
 	endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
-	filters: Vec<fn(&Weak<RefCell<dyn ArticleData>>) -> bool>,
+	filters: Vec<Filter>,
 	container: Container,
 	show_container_dropdown: bool,
 	show_article_component_dropdown: bool,
@@ -118,12 +122,7 @@ impl Component for Timeline {
 			options_shown: false,
 			compact: false,
 			endpoint_store,
-			filters: vec![/*|a| {
-				match a.upgrade() {
-					Some(strong) => strong.borrow().media().len() > 0,
-					None => false,
-				}
-			}*/],
+			filters: default_filters(),
 			container: if ctx.props().main_timeline { Container::Masonry } else { Container::Column },
 			show_container_dropdown: false,
 			show_article_component_dropdown: false,
@@ -286,7 +285,7 @@ impl Component for Timeline {
 	fn view(&self, ctx: &Context<Self>) -> Html {
 		let mut articles = self.articles.clone();
 		for filter in &self.filters {
-			articles = articles.into_iter().filter(filter).collect();
+			articles = articles.into_iter().filter(filter.predicate).collect();
 		}
 
 		if self.sorted {

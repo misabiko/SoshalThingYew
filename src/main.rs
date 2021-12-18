@@ -1,11 +1,10 @@
 use yew::prelude::*;
-use yew_agent::{Bridge, Dispatcher, Dispatched};
+use yew_agent::{Bridge, Dispatched, Dispatcher};
 use yew_agent::utils::store::{Bridgeable, ReadOnly, StoreWrapper};
 use std::collections::HashSet;
 
 pub mod error;
 pub mod timeline;
-pub mod containers;
 pub mod articles;
 pub mod services;
 pub mod modals;
@@ -18,8 +17,8 @@ use crate::sidebar::Sidebar;
 use crate::timeline::{Props as TimelineProps, Timeline};
 use crate::services::{
 	endpoints::{Endpoint, EndpointId, EndpointStore, Request as EndpointRequest, TimelineEndpoints},
-	pixiv::{PixivAgent, FollowEndpoint},
-	twitter::{TwitterAgent, endpoints::{HomeTimelineEndpoint, SingleTweetEndpoint, UserTimelineEndpoint}},
+	pixiv::{FollowEndpoint, PixivAgent},
+	twitter::{endpoints::{HomeTimelineEndpoint, SingleTweetEndpoint, UserTimelineEndpoint}, TwitterAgent},
 };
 use crate::favviewer::{PageInfo, pixiv::PixivPageInfo};
 use crate::modals::AddTimelineModal;
