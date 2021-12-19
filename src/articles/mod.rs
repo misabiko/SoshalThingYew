@@ -68,12 +68,15 @@ pub struct Props {
 	pub style: Option<String>,
 	#[prop_or_default]
 	pub animated_as_gifs: bool,
+	#[prop_or_default]
+	pub hide_text: bool,
 }
 
 impl PartialEq<Props> for Props {
 	fn eq(&self, other: &Props) -> bool {
 		self.compact == other.compact &&
 		self.animated_as_gifs == other.animated_as_gifs &&
+		self.hide_text == other.hide_text &&
 			self.style == other.style &&
 			Weak::ptr_eq(&self.data, &other.data)
 	}
@@ -94,13 +97,13 @@ impl ArticleComponent {
 	}
 }
 
-pub fn view_article(component: &ArticleComponent, compact: bool, animated_as_gifs: bool, style: Option<String>, article: Weak<RefCell<dyn ArticleData>>) -> Html {
+pub fn view_article(component: &ArticleComponent, compact: bool, animated_as_gifs: bool, hide_text: bool, style: Option<String>, article: Weak<RefCell<dyn ArticleData>>) -> Html {
 	match component {
 		ArticleComponent::Social => html! {
-			<SocialArticle {compact} {animated_as_gifs} {style} data={article.clone()}/>
+			<SocialArticle {compact} {animated_as_gifs} {hide_text} {style} data={article.clone()}/>
 		},
 		ArticleComponent::Gallery => html! {
-			<GalleryArticle {compact} {animated_as_gifs} {style} data={article.clone()}/>
+			<GalleryArticle {compact} {animated_as_gifs} {hide_text} {style} data={article.clone()}/>
 		},
 	}
 }

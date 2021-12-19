@@ -45,6 +45,7 @@ pub struct Timeline {
 	options_shown: bool,
 	compact: bool,
 	animated_as_gifs: bool,
+	hide_text: bool,
 	endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
 	filters: Vec<Filter>,
 	sort_methods: Vec<SortMethod>,
@@ -72,6 +73,7 @@ pub enum Msg {
 	ToggleOptions,
 	ToggleCompact,
 	ToggleAnimatedAsGifs,
+	ToggleHideText,
 	ChangeContainer(Container),
 	ToggleContainerDropdown,
 	ChangeArticleComponent(ArticleComponent),
@@ -135,6 +137,7 @@ impl Component for Timeline {
 			options_shown: false,
 			compact: false,
 			animated_as_gifs: false,
+			hide_text: false,
 			endpoint_store,
 			filters: default_filters(),
 			sort_methods: default_sort_methods(),
@@ -202,6 +205,10 @@ impl Component for Timeline {
 			}
 			Msg::ToggleAnimatedAsGifs => {
 				self.animated_as_gifs = !self.animated_as_gifs;
+				true
+			}
+			Msg::ToggleHideText => {
+				self.hide_text = !self.hide_text;
 				true
 			}
 			Msg::ChangeContainer(c) => {
@@ -420,6 +427,7 @@ impl Component for Timeline {
 					container_ref: self.container_ref.clone(),
 					compact: self.compact,
 					animated_as_gifs: self.animated_as_gifs,
+					hide_text: self.hide_text,
 					column_count: self.column_count,
 					article_component: self.article_component.clone(),
 					articles
@@ -482,6 +490,12 @@ impl Timeline {
 							<label class="checkbox">
 								<input type="checkbox" checked={self.animated_as_gifs} onclick={ctx.link().callback(|_| Msg::ToggleAnimatedAsGifs)}/>
 								{ "Show all animated as gifs" }
+							</label>
+						</div>
+						<div class="control">
+							<label class="checkbox">
+								<input type="checkbox" checked={self.hide_text} onclick={ctx.link().callback(|_| Msg::ToggleHideText)}/>
+								{ "Hide text" }
 							</label>
 						</div>
 					</div>

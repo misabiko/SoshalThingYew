@@ -170,7 +170,10 @@ impl Component for SocialArticle {
 						{ match self.is_filtered_out(&quote_borrow) {
 							false => html! {
 								<>
-									<p class="refArticleParagraph">{quote_borrow.text()}</p>
+									{ match ctx.props().hide_text {
+									 	false => html! { <p class="refArticleParagraph">{quote_borrow.text()}</p> },
+										true => html! {},
+									} }
 									{ self.view_media(ctx, &quote_borrow) }
 								</>
 							},
@@ -200,7 +203,7 @@ impl Component for SocialArticle {
 								</a>
 								{ self.view_timestamp(ctx, &actual_borrow) }
 							</div>
-							{ match self.is_filtered_out(&actual_borrow) {
+							{ match ctx.props().hide_text || self.is_filtered_out(&actual_borrow) {
 								false => html! {<p class="articleParagraph">{ actual_borrow.text() }</p>},
 								true => html! {},
 							} }

@@ -40,6 +40,7 @@ pub struct Props {
 	pub container_ref: NodeRef,
 	pub compact: bool,
 	pub animated_as_gifs: bool,
+	pub hide_text: bool,
 	#[prop_or(1)]
 	pub column_count: u8,
 	pub article_component: ArticleComponent,
@@ -50,6 +51,7 @@ impl PartialEq for Props {
 	fn eq(&self, other: &Self) -> bool {
 		self.compact == other.compact &&
 		self.animated_as_gifs == other.animated_as_gifs &&
+		self.hide_text == other.hide_text &&
 		self.column_count == other.column_count &&
 			self.article_component == other.article_component &&
 			self.articles.len() == other.articles.len() &&
@@ -67,6 +69,7 @@ pub fn column_container(props: &Props) -> Html {
 				&props.article_component,
 				props.compact.clone(),
 				props.animated_as_gifs.clone(),
+				props.hide_text.clone(),
 				None,
 				article.clone()))}
 		</div>
@@ -82,6 +85,7 @@ pub fn row_container(props: &Props) -> Html {
 				&props.article_component,
 				props.compact.clone(),
 				props.animated_as_gifs.clone(),
+				props.hide_text.clone(),
 				Some(format!("width: {}%", 100.0 / (props.column_count as f64))),
 				article.clone()
 			)) }
@@ -144,6 +148,7 @@ pub fn masonry_container(props: &Props) -> Html {
 						&props.article_component,
 						props.compact.clone(),
 						props.animated_as_gifs.clone(),
+						props.hide_text.clone(),
 						None,
 						Rc::downgrade(article)
 					))}
