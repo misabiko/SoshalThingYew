@@ -314,8 +314,6 @@ impl SocialArticle {
 						<div class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ToggleMarkAsRead)}> {"Mark as read"} </div>
 						<div class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ToggleHide)}> {"Hide"} </div>
 						<div class="dropdown-item" onclick={&ontoggle_compact}> { if self.is_compact(ctx) { "Show expanded" } else { "Show compact" } } </div>
-						<div class="dropdown-item"> {"Fetch Status"} </div>
-						<div class="dropdown-item"> {"Expand"} </div>
 						<a
 							class="dropdown-item"
 							href={ actual_borrow.url() }
@@ -384,6 +382,7 @@ impl SocialArticle {
 					</video>
 				</div>
 			},
+			[] => html! {},
 			_ => html! {{"unexpected media format"}}
 		}
 	}

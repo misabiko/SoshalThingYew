@@ -48,7 +48,7 @@ pub fn default_filters() -> Vec<Filter> {
 					Some(strong) => {
 						let borrow = strong.borrow();
 						(match borrow.referenced_article() {
-							ArticleRefType::NoRef => (borrow.media().len() > 0),
+							ArticleRefType::NoRef => borrow.media().iter().any(|m| is_animated(m)),
 							ArticleRefType::Repost(a) => a.upgrade().map(|r| r.borrow().media().len() > 0).unwrap_or(false),
 							ArticleRefType::Quote(a) => (a.upgrade().map(|r| r.borrow().media().len() > 0).unwrap_or(false) || (borrow.media().len() > 0)),
 						}) != inverted
@@ -63,7 +63,7 @@ pub fn default_filters() -> Vec<Filter> {
 					Some(strong) => {
 						let borrow = strong.borrow();
 						(match borrow.referenced_article() {
-							ArticleRefType::NoRef => (borrow.media().len() > 0),
+							ArticleRefType::NoRef => borrow.media().iter().any(|m| is_animated(m)),
 							ArticleRefType::Repost(a) => a.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false),
 							ArticleRefType::Quote(a) => (a.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false) || (borrow.media().iter().any(|m| is_animated(m)))),
 						}) != inverted
