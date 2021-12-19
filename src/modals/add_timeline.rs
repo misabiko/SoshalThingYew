@@ -19,7 +19,7 @@ pub enum Msg {
 
 #[derive(Properties, PartialEq, Clone)]
 pub struct Props {
-	pub add_timeline_callback: Callback<TimelineProps>,
+	pub add_timeline_callback: Callback<Box<dyn FnOnce(i16) -> TimelineProps>>,
 	pub close_modal_callback: Callback<MouseEvent>,
 }
 
@@ -41,10 +41,14 @@ impl Component for AddTimelineModal {
 					Some(input) => input.value(),
 					None => "Timeline".to_owned(),
 				};
-				ctx.props().add_timeline_callback.emit(yew::props! { TimelineProps {
-					name,
-					endpoints: self.endpoints.borrow().clone(),
-				}});
+				let endpoints = self.endpoints.borrow().clone();
+				ctx.props().add_timeline_callback.emit(Box::new(|id| {
+					yew::props! { TimelineProps {
+						name,
+						id,
+						endpoints,
+					}}
+				}));
 
 				self.endpoints.replace(TimelineEndpoints::default());
 			}

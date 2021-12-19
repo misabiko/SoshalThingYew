@@ -45,6 +45,7 @@ struct Model {
 	show_add_timeline: bool,
 	_twitter: Dispatcher<TwitterAgent>,
 	_pixiv: Dispatcher<PixivAgent>,
+	timeline_counter: i16,
 }
 
 enum Msg {
@@ -52,8 +53,9 @@ enum Msg {
 	AddTimeline(String, EndpointId),
 	ToggleFavViewer,
 	SetAddTimelineModal(bool),
-	AddTimelineProps(TimelineProps),
+	AddTimelineProps(Box<dyn FnOnce(i16) -> TimelineProps>),
 	EndpointStoreResponse(ReadOnly<EndpointStore>),
+	ToggleDisplayMode,
 }
 
 #[derive(Properties, PartialEq, Default)]
@@ -106,6 +108,7 @@ impl Component for Model {
 			show_add_timeline: false,
 			_twitter: TwitterAgent::dispatcher(),
 			_pixiv: PixivAgent::dispatcher(),
+			timeline_counter: i16::MIN,
 		}
 	}
 
@@ -120,15 +123,18 @@ impl Component for Model {
 				endpoints.insert(id);
 				self.timelines.push(yew::props! { TimelineProps {
 					name,
+					id: self.timeline_counter,
 					endpoints: TimelineEndpoints {
 						start: endpoints.clone(),
 						refresh: endpoints,
 					}
 				}});
+				self.timeline_counter += 1;
 				true
 			}
 			Msg::AddTimelineProps(props) => {
-				self.timelines.push(props);
+				self.timelines.push((props)(self.timeline_counter.clone()));
+				self.timeline_counter += 1;
 				self.show_add_timeline = false;
 
 				true
@@ -145,11 +151,30 @@ impl Component for Model {
 				self.show_add_timeline = value;
 				true
 			},
-			Msg::EndpointStoreResponse(_) => false
+			Msg::EndpointStoreResponse(_) => false,
+			Msg::ToggleDisplayMode => {
+				self.display_mode = match self.display_mode {
+					DisplayMode::Default => DisplayMode::Single {column_count: 5},
+					DisplayMode::Single { .. } => DisplayMode::Default,
+				};
+				true
+			}
 		}
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
+		let (dm_title, dm_icon) = match self.display_mode {
+			DisplayMode::Default => ("Single Timeline", "fa-expand-alt"),
+			DisplayMode::Single { .. } => ("Multiple Timeline", "fa-columns"),
+		};
+		let display_mode_toggle = html! {
+			<button onclick={ctx.link().callback(|_| Msg::ToggleDisplayMode)} title={dm_title}>
+				<span class="icon">
+					<i class={classes!("fas", "fa-2x", dm_icon)}/>
+				</span>
+			</button>
+		};
+
 		html! {
 			<>
 				{
@@ -168,34 +193,51 @@ impl Component for Model {
 						.map(PageInfo::view)
 						.unwrap_or_default()
 				}
-				{ if ctx.props().favviewer { html! {} } else { html! {<Sidebar add_timeline_callback={ctx.link().callback(|_| Msg::SetAddTimelineModal(true))}/>} }}
+				{
+					match ctx.props().favviewer {
+						false => html! {
+							<Sidebar>
+								<button onclick={ctx.link().callback(|_| Msg::SetAddTimelineModal(true))} title="Add new timeline">
+									<span class="icon">
+										<i class="fas fa-plus fa-2x"/>
+									</span>
+								</button>
+								{ display_mode_toggle }
+							</Sidebar>
+						},
+						true => html! {},
+					}
+				}
 				<div id="timelineContainer">
 					{
 						match self.display_mode {
 							DisplayMode::Default => html! {
 								{for self.timelines.iter().map(|props| html! {
-									<Timeline ..props.clone()/>
+									<Timeline key={props.id.clone()} ..props.clone()/>
 								})}
 							},
-							DisplayMode::Single {column_count} => if let Some(props) = self.timelines.first() {
-								html! {
-									<Timeline main_timeline=true {column_count} ..props.clone()>
-										{
-											match ctx.props().favviewer {
-												true => html! {
-													<button title="Toggle FavViewer" onclick={ctx.link().callback(|_| Msg::ToggleFavViewer)}>
-														<span class="icon">
-															<i class="fas fa-eye-slash fa-lg"/>
-														</span>
-													</button>
-												},
-												false => html! {}
+							DisplayMode::Single {column_count} => html! {
+								{for self.timelines.iter().enumerate().map(|(i, props)| match i {
+									0 => html! {
+										<Timeline key={props.id.clone()} main_timeline=true {column_count} ..props.clone()>
+											{
+												match ctx.props().favviewer {
+													true => html! {
+														<button title="Toggle FavViewer" onclick={ctx.link().callback(|_| Msg::ToggleFavViewer)}>
+															<span class="icon">
+																<i class="fas fa-eye-slash fa-lg"/>
+															</span>
+														</button>
+													},
+													false => html! {}
+												}
 											}
-										}
-									</Timeline>
-								}
-							}else {
-								html! {}
+										</Timeline>
+									},
+									_ => html! {
+										<Timeline hide=true key={props.id.clone()} ..props.clone()/>
+									}
+								})}
 							}
 						}
 					}

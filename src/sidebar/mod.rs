@@ -14,7 +14,7 @@ pub enum Msg {
 
 #[derive(Properties, PartialEq, Clone)]
 pub struct Props {
-	pub add_timeline_callback: Callback<MouseEvent>,
+	pub children: Children,
 }
 
 impl Component for Sidebar {
@@ -60,11 +60,7 @@ impl Component for Sidebar {
 								<i class={classes!("fas", "fa-2x", if self.expanded { "fa-angle-double-left" } else { "fa-angle-double-right" })}/>
 							</span>
 						</button>
-						<button onclick={ctx.props().add_timeline_callback.clone()} title="Add new timeline">
-							<span class="icon">
-								<i class="fas fa-plus fa-2x"/>
-							</span>
-						</button>
+						{ for ctx.props().children.iter() }
 					</div>
 					<div title="Github">
 						<a href="https://github.com/misabiko/SoshalThingYew">

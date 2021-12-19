@@ -94,8 +94,9 @@ pub enum Msg {
 #[derive(Properties, Clone)]
 pub struct Props {
 	pub name: String,
+	pub id: i16,
 	#[prop_or_default]
-	pub articles: Vec<Weak<RefCell<dyn ArticleData>>>,
+	pub hide: bool,
 	#[prop_or_default]
 	pub endpoints: Option<TimelineEndpoints>,
 	#[prop_or_default]
@@ -104,11 +105,15 @@ pub struct Props {
 	pub column_count: u8,
 	#[prop_or_default]
 	pub children: Children,
+	#[prop_or_default]
+	pub articles: Vec<Weak<RefCell<dyn ArticleData>>>,
 }
 
 impl PartialEq for Props {
 	fn eq(&self, other: &Self) -> bool {
 		self.name == other.name &&
+			self.id == other.id &&
+			self.hide == other.hide &&
 			self.endpoints == other.endpoints &&
 			self.main_timeline == other.main_timeline &&
 			self.column_count == other.column_count &&
@@ -123,6 +128,7 @@ impl Component for Timeline {
 	type Properties = Props;
 
 	fn create(ctx: &Context<Self>) -> Self {
+		log::debug!("Creating timeline!");
 		let endpoints = match ctx.props().endpoints.clone() {
 			Some(endpoints) => Rc::new(RefCell::new(endpoints)),
 			None => Rc::new(RefCell::new(TimelineEndpoints::default()))
@@ -345,6 +351,10 @@ impl Component for Timeline {
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
+		if ctx.props().hide {
+			return html! {}
+		}
+
 		let mut articles = self.articles.clone();
 		for filter in &self.filters {
 			if filter.enabled {
