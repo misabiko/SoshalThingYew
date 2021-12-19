@@ -9,13 +9,13 @@ use yew_agent::{Bridge, Bridged, Dispatcher, Dispatched};
 use crate::articles::{ArticleData, ArticleRefType, Props, ArticleMedia};
 use crate::dropdown::{Dropdown, DropdownLabel};
 use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest, Response as ArticleActionsResponse};
-use crate::modals::add_timeline::{AddTimelineAgent, Request as AddTimelineRequest};
+use crate::modals::add_timeline::{TimelineAgent, Request as TimelineAgentRequest};
 
 pub struct SocialArticle {
 	compact: Option<bool>,
 	article_actions: Box<dyn Bridge<ArticleActionsAgent>>,
 	video_ref: NodeRef,
-	add_timeline_agent: Dispatcher<AddTimelineAgent>,
+	add_timeline_agent: Dispatcher<TimelineAgent>,
 }
 
 pub enum Msg {
@@ -39,7 +39,7 @@ impl Component for SocialArticle {
 			compact: None,
 			article_actions: ArticleActionsAgent::bridge(ctx.link().callback(Msg::ActionsCallback)),
 			video_ref: NodeRef::default(),
-			add_timeline_agent: AddTimelineAgent::dispatcher(),
+			add_timeline_agent: TimelineAgent::dispatcher(),
 		}
 	}
 
@@ -154,7 +154,7 @@ impl Component for SocialArticle {
 				}
 			}
 			Msg::AddUserTimeline(service, username) => {
-				self.add_timeline_agent.send(AddTimelineRequest::AddUserTimeline(service, username));
+				self.add_timeline_agent.send(TimelineAgentRequest::AddUserTimeline(service, username));
 				false
 			}
 		}

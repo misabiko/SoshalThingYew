@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use yew_agent::{Agent, AgentLink, Bridge, Bridged, HandlerId, Context as AgentContext};
 
 use super::Modal;
-use crate::timeline::{Props as TimelineProps};
+use crate::timeline::{Props as TimelineProps, TimelineId};
 use crate::services::endpoints::TimelineEndpoints;
 use crate::choose_endpoints::ChooseEndpoints;
 
@@ -13,7 +13,7 @@ pub struct AddTimelineModal {
 	enabled: bool,
 	title_ref: NodeRef,
 	endpoints: Rc<RefCell<TimelineEndpoints>>,
-	_agent: Box<dyn Bridge<AddTimelineAgent>>,
+	_agent: Box<dyn Bridge<TimelineAgent>>,
 }
 
 pub enum Msg {
@@ -24,7 +24,7 @@ pub enum Msg {
 
 #[derive(Properties, PartialEq, Clone)]
 pub struct Props {
-	pub add_timeline_callback: Callback<Box<dyn FnOnce(i16) -> TimelineProps>>,
+	pub add_timeline_callback: Callback<Box<dyn FnOnce(TimelineId) -> TimelineProps>>,
 }
 
 impl Component for AddTimelineModal {
@@ -32,7 +32,7 @@ impl Component for AddTimelineModal {
 	type Properties = Props;
 
 	fn create(ctx: &Context<Self>) -> Self {
-		let mut _agent = AddTimelineAgent::bridge(ctx.link().callback(Msg::AgentResponse));
+		let mut _agent = TimelineAgent::bridge(ctx.link().callback(Msg::AgentResponse));
 		_agent.send(Request::RegisterModal);
 
 		Self {
@@ -90,6 +90,7 @@ impl Component for AddTimelineModal {
 					self.enabled = true;
 					true
 				},
+				_ => false,
 			}
 			Msg::SetEnabled(value) => {
 				self.enabled = value;
@@ -123,26 +124,32 @@ impl Component for AddTimelineModal {
 	}
 }
 
-pub struct AddTimelineAgent {
+pub struct TimelineAgent {
 	link: AgentLink<Self>,
 	modal: Option<HandlerId>,
 	choose_endpoints: Option<HandlerId>,
+	timeline_container: Option<HandlerId>,
 }
 
 pub enum Request {
 	RegisterModal,
 	RegisterChooseEndpoints,
+	RegisterTimelineContainer,
 	AddTimeline,
 	AddUserTimeline(String, String),
+	SetMainTimeline(TimelineId),
+	RemoveTimeline(TimelineId),
 }
 
 pub enum Response {
 	AddTimeline,
 	AddBlankTimeline,
 	AddUserTimeline(String, String),
+	SetMainTimeline(TimelineId),
+	RemoveTimeline(TimelineId),
 }
 
-impl Agent for AddTimelineAgent {
+impl Agent for TimelineAgent {
 	type Reach = AgentContext<Self>;
 	type Message = ();
 	type Input = Request;
@@ -153,6 +160,7 @@ impl Agent for AddTimelineAgent {
 			link,
 			modal: None,
 			choose_endpoints: None,
+			timeline_container: None,
 		}
 	}
 
@@ -162,6 +170,7 @@ impl Agent for AddTimelineAgent {
 		match msg {
 			Request::RegisterModal => self.modal = Some(id),
 			Request::RegisterChooseEndpoints => self.choose_endpoints = Some(id),
+			Request::RegisterTimelineContainer => self.timeline_container = Some(id),
 			Request::AddTimeline => {
 				if let Some(choose_endpoints) = self.choose_endpoints {
 					self.link.respond(choose_endpoints, Response::AddBlankTimeline)
@@ -178,6 +187,16 @@ impl Agent for AddTimelineAgent {
 					self.link.respond(modal, Response::AddUserTimeline(service, username))
 				}
 			}
+			Request::SetMainTimeline(id) => {
+				if let Some(timeline_container) = self.timeline_container {
+					self.link.respond(timeline_container, Response::SetMainTimeline(id));
+				}
+			}
+			Request::RemoveTimeline(id) => {
+				if let Some(timeline_container) = self.timeline_container {
+					self.link.respond(timeline_container, Response::RemoveTimeline(id));
+				}
+			}
 		}
 	}
 
@@ -186,6 +205,8 @@ impl Agent for AddTimelineAgent {
 			self.modal = None
 		}else if self.choose_endpoints == Some(id) {
 			self.choose_endpoints = None
+		}else if self.timeline_container == Some(id) {
+			self.timeline_container = None
 		}
 	}
 }

@@ -4,11 +4,11 @@ use yew_agent::{Dispatcher, Dispatched};
 mod ratelimits;
 
 use ratelimits::RateLimitView;
-use crate::modals::add_timeline::{AddTimelineAgent, Request as AddTimelineRequest};
+use crate::modals::add_timeline::{TimelineAgent, Request as TimelineAgentRequest};
 
 pub struct Sidebar {
 	expanded: bool,
-	add_timeline_agent: Dispatcher<AddTimelineAgent>,
+	add_timeline_agent: Dispatcher<TimelineAgent>,
 }
 
 pub enum Msg {
@@ -28,7 +28,7 @@ impl Component for Sidebar {
 	fn create(_ctx: &Context<Self>) -> Self {
 		Self {
 			expanded: false,
-			add_timeline_agent: AddTimelineAgent::dispatcher(),
+			add_timeline_agent: TimelineAgent::dispatcher(),
 		}
 	}
 
@@ -39,7 +39,7 @@ impl Component for Sidebar {
 				true
 			}
 			Msg::AddTimeline => {
-				self.add_timeline_agent.send(AddTimelineRequest::AddTimeline);
+				self.add_timeline_agent.send(TimelineAgentRequest::AddTimeline);
 				false
 			}
 		}

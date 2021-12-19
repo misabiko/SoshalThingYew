@@ -1,7 +1,7 @@
 use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 use yew::prelude::*;
-use yew_agent::{Bridge, Bridged};
+use yew_agent::{Bridge, Bridged, Dispatched, Dispatcher};
 use yew_agent::utils::store::{Bridgeable, ReadOnly, StoreWrapper};
 use wasm_bindgen::JsCast;
 use web_sys::{Element, HtmlInputElement};
@@ -21,6 +21,9 @@ use crate::modals::Modal;
 use crate::choose_endpoints::ChooseEndpoints;
 use crate::dropdown::{Dropdown, DropdownLabel};
 use crate::services::article_actions::{ArticleActionsAgent, Response as ArticleActionsResponse};
+use crate::modals::add_timeline::{TimelineAgent, Request as TimelineAgentRequest};
+
+pub type TimelineId = i32;
 
 enum ScrollDirection {
 	Up,
@@ -60,6 +63,7 @@ pub struct Timeline {
 	container_ref: NodeRef,
 	autoscroll: Rc<RefCell<Autoscroll>>,
 	_article_actions: Box<dyn Bridge<ArticleActionsAgent>>,
+	timeline_agent: Dispatcher<TimelineAgent>,
 }
 
 pub enum Msg {
@@ -89,12 +93,14 @@ pub enum Msg {
 	ToggleSortReversed,
 	ScrollTop,
 	ActionsCallback(ArticleActionsResponse),
+	SetMainTimeline,
+	RemoveTimeline,
 }
 
 #[derive(Properties, Clone)]
 pub struct Props {
 	pub name: String,
-	pub id: i16,
+	pub id: TimelineId,
 	#[prop_or_default]
 	pub hide: bool,
 	#[prop_or_default]
@@ -162,10 +168,11 @@ impl Component for Timeline {
 				anim: None,
 			})),
 			_article_actions: ArticleActionsAgent::bridge(ctx.link().callback(Msg::ActionsCallback)),
+			timeline_agent: TimelineAgent::dispatcher(),
 		}
 	}
 
-	fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
+	fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
 		match msg {
 			Msg::Refresh => {
 				self.endpoint_store.send(EndpointRequest::Refresh(Rc::downgrade(&self.endpoints)));
@@ -347,6 +354,14 @@ impl Component for Timeline {
 					ArticleActionsResponse::Callback(_articles) => true
 				}
 			}
+			Msg::SetMainTimeline => {
+				self.timeline_agent.send(TimelineAgentRequest::SetMainTimeline(ctx.props().id.clone()));
+				false
+			}
+			Msg::RemoveTimeline => {
+				self.timeline_agent.send(TimelineAgentRequest::RemoveTimeline(ctx.props().id.clone()));
+				false
+			}
 		}
 	}
 
@@ -515,6 +530,23 @@ impl Timeline {
 					<div class="block">
 						<div class="control">
 							<button class="button" onclick={ctx.link().callback(|_| Msg::ClearArticles)}>{"Clear Articles"}</button>
+						</div>
+					</div>
+					{
+						match ctx.props().main_timeline.clone() {
+							false => html! {
+								<div class="block">
+									<div class="control">
+										<button class="button" onclick={ctx.link().callback(|_| Msg::SetMainTimeline)}>{"Set as main timeline"}</button>
+									</div>
+								</div>
+							},
+							true => html! {}
+						}
+					}
+					<div class="block">
+						<div class="control">
+							<button class="button" onclick={ctx.link().callback(|_| Msg::RemoveTimeline)}>{"Remove timeline"}</button>
 						</div>
 					</div>
 					{ self.view_filters(ctx) }

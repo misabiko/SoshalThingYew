@@ -1,5 +1,5 @@
 use yew::prelude::*;
-use yew_agent::{Bridge, Dispatched, Dispatcher};
+use yew_agent::{Bridge, Bridged, Dispatched, Dispatcher};
 use yew_agent::utils::store::{Bridgeable, ReadOnly, StoreWrapper};
 use std::collections::HashSet;
 
@@ -14,13 +14,14 @@ mod favviewer;
 pub mod choose_endpoints;
 
 use crate::sidebar::Sidebar;
-use crate::timeline::{Props as TimelineProps, Timeline};
+use crate::timeline::{Props as TimelineProps, Timeline, TimelineId};
 use crate::services::{
 	endpoints::{Endpoint, EndpointId, EndpointStore, Request as EndpointRequest, TimelineEndpoints},
 	pixiv::{FollowEndpoint, PixivAgent},
 	twitter::{endpoints::{HomeTimelineEndpoint, SingleTweetEndpoint, UserTimelineEndpoint}, TwitterAgent},
 };
 use crate::favviewer::{PageInfo, PixivPageInfo};
+use crate::modals::add_timeline::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse};
 use crate::modals::AddTimelineModal;
 
 #[derive(PartialEq, Clone)]
@@ -39,21 +40,24 @@ impl Default for DisplayMode {
 
 struct Model {
 	endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
+	_timeline_agent: Box<dyn Bridge<TimelineAgent>>,
 	display_mode: DisplayMode,
 	timelines: Vec<TimelineProps>,
 	page_info: Option<Box<dyn PageInfo>>,
 	_twitter: Dispatcher<TwitterAgent>,
 	_pixiv: Dispatcher<PixivAgent>,
-	timeline_counter: i16,
+	timeline_counter: TimelineId,
+	main_timeline: TimelineId,
 }
 
 enum Msg {
 	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
 	AddTimeline(String, EndpointId),
 	ToggleFavViewer,
-	AddTimelineProps(Box<dyn FnOnce(i16) -> TimelineProps>),
+	AddTimelineProps(Box<dyn FnOnce(TimelineId) -> TimelineProps>),
 	EndpointStoreResponse(ReadOnly<EndpointStore>),
 	ToggleDisplayMode,
+	TimelineAgentResponse(TimelineAgentResponse),
 }
 
 #[derive(Properties, PartialEq, Default)]
@@ -98,18 +102,23 @@ impl Component for Model {
 			false => None
 		};
 
+		let mut _timeline_agent = TimelineAgent::bridge(ctx.link().callback(Msg::TimelineAgentResponse));
+		_timeline_agent.send(TimelineAgentRequest::RegisterTimelineContainer);
+
 		Self {
+			_timeline_agent,
 			display_mode,
 			timelines: Vec::new(),
 			endpoint_store: EndpointStore::bridge(ctx.link().callback(Msg::EndpointStoreResponse)),
 			page_info,
 			_twitter: TwitterAgent::dispatcher(),
 			_pixiv: PixivAgent::dispatcher(),
-			timeline_counter: i16::MIN,
+			timeline_counter: i32::MIN,
+			main_timeline: i32::MIN,
 		}
 	}
 
-	fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
+	fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
 		match msg {
 			Msg::AddEndpoint(e) => {
 				self.endpoint_store.send(EndpointRequest::AddEndpoint(e));
@@ -124,14 +133,19 @@ impl Component for Model {
 					endpoints: TimelineEndpoints {
 						start: endpoints.clone(),
 						refresh: endpoints,
-					}
+					},
 				}});
 				self.timeline_counter += 1;
+
+				ctx.link().send_message(Msg::TimelineAgentResponse(TimelineAgentResponse::SetMainTimeline(id)));
 				true
 			}
 			Msg::AddTimelineProps(props) => {
-				self.timelines.push((props)(self.timeline_counter.clone()));
+				let id = self.timeline_counter.clone();
+				self.timelines.push((props)(id.clone()));
 				self.timeline_counter += 1;
+
+				ctx.link().send_message(Msg::TimelineAgentResponse(TimelineAgentResponse::SetMainTimeline(id)));
 
 				true
 			}
@@ -146,10 +160,38 @@ impl Component for Model {
 			Msg::EndpointStoreResponse(_) => false,
 			Msg::ToggleDisplayMode => {
 				self.display_mode = match self.display_mode {
-					DisplayMode::Default => DisplayMode::Single {column_count: 5},
+					DisplayMode::Default => DisplayMode::Single {column_count: 4},
 					DisplayMode::Single { .. } => DisplayMode::Default,
 				};
 				true
+			},
+			Msg::TimelineAgentResponse(response) => match response {
+				TimelineAgentResponse::SetMainTimeline(id) => {
+					log::debug!("Set main timeline! {}", &id);
+					self.main_timeline = id;
+					if let DisplayMode::Default = self.display_mode {
+						self.display_mode = DisplayMode::Single {
+							column_count: 4
+						};
+					};
+					true
+				}
+				TimelineAgentResponse::RemoveTimeline(id) => {
+					let index = self.timelines.iter().position(|t| t.id == id);
+					if let Some(index) = index {
+						let id = self.timelines[index].id.clone();
+						self.timelines.remove(index);
+
+						if id == self.main_timeline {
+							self.main_timeline = match self.timelines.first() {
+								Some(t) => t.id.clone(),
+								None => self.timeline_counter.clone(),
+							}
+						}
+					}
+					true
+				}
+				_ => false
 			}
 		}
 	}
@@ -196,8 +238,8 @@ impl Component for Model {
 								})}
 							},
 							DisplayMode::Single {column_count} => html! {
-								{for self.timelines.iter().enumerate().map(|(i, props)| match i {
-									0 => html! {
+								{for self.timelines.iter().map(|props| if props.id == self.main_timeline {
+									 html! {
 										<Timeline key={props.id.clone()} main_timeline=true {column_count} ..props.clone()>
 											{
 												match ctx.props().favviewer {
@@ -212,8 +254,9 @@ impl Component for Model {
 												}
 											}
 										</Timeline>
-									},
-									_ => html! {
+									}
+								}else  {
+									html! {
 										<Timeline hide=true key={props.id.clone()} ..props.clone()/>
 									}
 								})}

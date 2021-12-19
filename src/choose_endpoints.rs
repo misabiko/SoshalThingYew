@@ -11,7 +11,7 @@ use web_sys::HtmlInputElement;
 
 use crate::services::endpoints::{Request as EndpointRequest, EndpointStore, TimelineEndpoints, EndpointId, RefreshTime, EndpointConstructors};
 use crate::dropdown::{Dropdown, DropdownLabel};
-use crate::modals::add_timeline::{AddTimelineAgent, Request as AddTimelineRequest, Response as AddTimelineResponse};
+use crate::modals::add_timeline::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse};
 
 struct EndpointView {
 	name: String
@@ -26,7 +26,7 @@ struct EndpointForm {
 
 pub struct ChooseEndpoints {
 	endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
-	_add_timeline_agent: Option<Box<dyn Bridge<AddTimelineAgent>>>,
+	_add_timeline_agent: Option<Box<dyn Bridge<TimelineAgent>>>,
 	show_start_endpoint_dropdown: bool,
 	show_refresh_endpoint_dropdown: bool,
 	endpoint_views: HashMap<EndpointId, EndpointView>,
@@ -36,7 +36,7 @@ pub struct ChooseEndpoints {
 
 pub enum Msg {
 	EndpointStoreResponse(ReadOnly<EndpointStore>),
-	AddTimelineResponse(AddTimelineResponse),
+	TimelineAgentResponse(TimelineAgentResponse),
 	ToggleStartEndpointDropdown,
 	ToggleRefreshEndpointDropdown,
 	NewEndpoint(RefreshTime),
@@ -68,8 +68,8 @@ impl Component for ChooseEndpoints {
 	fn create(ctx: &Context<Self>) -> Self {
 		let _add_timeline_agent = match ctx.props().inside_add_timeline {
 			true => {
-				let mut agent = AddTimelineAgent::bridge(ctx.link().callback(Msg::AddTimelineResponse));
-				agent.send(AddTimelineRequest::RegisterChooseEndpoints);
+				let mut agent = TimelineAgent::bridge(ctx.link().callback(Msg::TimelineAgentResponse));
+				agent.send(TimelineAgentRequest::RegisterChooseEndpoints);
 				Some(agent)
 			},
 			false => None,
@@ -102,12 +102,12 @@ impl Component for ChooseEndpoints {
 
 				true
 			}
-			Msg::AddTimelineResponse(response) => match response {
-				AddTimelineResponse::AddBlankTimeline => {
+			Msg::TimelineAgentResponse(response) => match response {
+				TimelineAgentResponse::AddBlankTimeline => {
 					self.endpoint_form = None;
 					true
 				}
-				AddTimelineResponse::AddUserTimeline(service, username) => {
+				TimelineAgentResponse::AddUserTimeline(service, username) => {
 					if let Some(endpoint_type) = self.services[&service].user_endpoint.clone() {
 						self.endpoint_form = Some(EndpointForm {
 							refresh_time: RefreshTime::Start,
