@@ -3,6 +3,7 @@ use js_sys::Date;
 use wasm_bindgen::JsValue;
 use web_sys::console;
 use std::cell::Ref;
+use wasm_bindgen::closure::Closure;
 use yew_agent::{Bridge, Bridged};
 
 use crate::articles::{ArticleData, ArticleRefType, Props, ArticleMedia};
@@ -12,6 +13,7 @@ use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleAc
 pub struct SocialArticle {
 	compact: Option<bool>,
 	article_actions: Box<dyn Bridge<ArticleActionsAgent>>,
+	video_ref: NodeRef,
 }
 
 pub enum Msg {
@@ -33,6 +35,7 @@ impl Component for SocialArticle {
 		Self {
 			compact: None,
 			article_actions: ArticleActionsAgent::bridge(ctx.link().callback(Msg::ActionsCallback)),
+			video_ref: NodeRef::default(),
 		}
 	}
 
@@ -213,6 +216,29 @@ impl Component for SocialArticle {
 			</article>
 		}
 	}
+
+	fn rendered(&mut self, ctx: &Context<Self>, _first_render: bool) {
+		if let Some(video) = self.video_ref.cast::<web_sys::HtmlVideoElement>() {
+			match ctx.props().animated_as_gifs {
+				true => {
+					video.set_muted(true);
+					match video.play() {
+						Ok(promise) => {
+							let _ = promise.catch(&Closure::once(Box::new(|err| log::warn!("Failed to play video.\n{:?}", &err))));
+						}
+						Err(err) => log::warn!("Failed to try and play the video.\n{:?}", &err)
+					}
+				},
+				false => {
+					video.set_muted(false);
+					match video.pause() {
+						Err(err) => log::warn!("Failed to try and pause the video.\n{:?}", &err),
+						Ok(_) => {}
+					}
+				},
+			};
+		}
+	}
 }
 
 impl SocialArticle {
@@ -295,15 +321,15 @@ impl SocialArticle {
 									<span>{actual_borrow.like_count()}</span>
 								</a>
 								{
-									match actual_borrow.media().len() {
-										0 => html! {},
-										_ => html! {
+									match &actual_borrow.media()[..] {
+										[ArticleMedia::Image(_), ..] => html! {
 											<a class="level-item articleButton" onclick={&ontoggle_compact}>
 												<span class="icon">
 													<i class={classes!("fas", if self.is_compact(ctx) { "fa-compress" } else { "fa-expand" })}/>
 												</span>
 											</a>
-										}
+										},
+										_ => html! {},
 									}
 								}
 							</>
@@ -330,8 +356,8 @@ impl SocialArticle {
 	}
 
 	fn view_media(&self, ctx: &Context<Self>, actual_borrow: &Ref<dyn ArticleData>) -> Html {
-		match &actual_borrow.media()[..] {
-			[ArticleMedia::Image(_), ..] => {
+		match (&ctx.props().animated_as_gifs, &actual_borrow.media()[..]) {
+			(_, [ArticleMedia::Image(_), ..]) => {
 				let images_classes = classes!(
 						"postMedia",
 						"postImages",
@@ -368,21 +394,21 @@ impl SocialArticle {
 					} </div>
 				}
 			}
-			[ArticleMedia::Video(video_src)] => html! {
+			(false, [ArticleMedia::Video(video_src)]) => html! {
 				<div class="postMedia postVideo">
-					<video controls=true onclick={ctx.link().callback(|_| Msg::OnImageClick)}>
+					<video ref={self.video_ref.clone()} controls=true onclick={ctx.link().callback(|_| Msg::OnImageClick)}>
 						<source src={video_src.clone()} type="video/mp4"/>
 					</video>
 				</div>
 			},
-			[ArticleMedia::Gif(gif_src)] => html! {
+			(_, [ArticleMedia::Gif(gif_src)]) | (true, [ArticleMedia::Video(gif_src)]) => html! {
 				<div class="postMedia postVideo">
-					<video controls=true autoplay=true loop=true muted=true onclick={ctx.link().callback(|_| Msg::OnImageClick)}>
+					<video ref={self.video_ref.clone()} controls=true autoplay=true loop=true muted=true onclick={ctx.link().callback(|_| Msg::OnImageClick)}>
 						<source src={gif_src.clone()} type="video/mp4"/>
 					</video>
 				</div>
 			},
-			[] => html! {},
+			(_, []) => html! {},
 			_ => html! {{"unexpected media format"}}
 		}
 	}

@@ -44,6 +44,7 @@ pub struct Timeline {
 	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
 	options_shown: bool,
 	compact: bool,
+	animated_as_gifs: bool,
 	endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
 	filters: Vec<Filter>,
 	sort_methods: Vec<SortMethod>,
@@ -70,6 +71,7 @@ pub enum Msg {
 	EndpointStoreResponse(ReadOnly<EndpointStore>),
 	ToggleOptions,
 	ToggleCompact,
+	ToggleAnimatedAsGifs,
 	ChangeContainer(Container),
 	ToggleContainerDropdown,
 	ChangeArticleComponent(ArticleComponent),
@@ -132,6 +134,7 @@ impl Component for Timeline {
 			articles: ctx.props().articles.clone(),
 			options_shown: false,
 			compact: false,
+			animated_as_gifs: false,
 			endpoint_store,
 			filters: default_filters(),
 			sort_methods: default_sort_methods(),
@@ -195,6 +198,10 @@ impl Component for Timeline {
 			}
 			Msg::ToggleCompact => {
 				self.compact = !self.compact;
+				true
+			}
+			Msg::ToggleAnimatedAsGifs => {
+				self.animated_as_gifs = !self.animated_as_gifs;
 				true
 			}
 			Msg::ChangeContainer(c) => {
@@ -412,6 +419,7 @@ impl Component for Timeline {
 				{ view_container(&self.container, yew::props! {ContainerProps {
 					container_ref: self.container_ref.clone(),
 					compact: self.compact,
+					animated_as_gifs: self.animated_as_gifs,
 					column_count: self.column_count,
 					article_component: self.article_component.clone(),
 					articles
@@ -468,6 +476,12 @@ impl Timeline {
 							<label class="checkbox">
 								<input type="checkbox" checked={self.compact} onclick={ctx.link().callback(|_| Msg::ToggleCompact)}/>
 								{ "Compact articles" }
+							</label>
+						</div>
+						<div class="control">
+							<label class="checkbox">
+								<input type="checkbox" checked={self.animated_as_gifs} onclick={ctx.link().callback(|_| Msg::ToggleAnimatedAsGifs)}/>
+								{ "Show all animated as gifs" }
 							</label>
 						</div>
 					</div>

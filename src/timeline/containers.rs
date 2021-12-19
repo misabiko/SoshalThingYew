@@ -39,6 +39,7 @@ pub fn view_container(container: &Container, props: Props) -> Html {
 pub struct Props {
 	pub container_ref: NodeRef,
 	pub compact: bool,
+	pub animated_as_gifs: bool,
 	#[prop_or(1)]
 	pub column_count: u8,
 	pub article_component: ArticleComponent,
@@ -48,6 +49,7 @@ pub struct Props {
 impl PartialEq for Props {
 	fn eq(&self, other: &Self) -> bool {
 		self.compact == other.compact &&
+		self.animated_as_gifs == other.animated_as_gifs &&
 		self.column_count == other.column_count &&
 			self.article_component == other.article_component &&
 			self.articles.len() == other.articles.len() &&
@@ -61,25 +63,28 @@ impl PartialEq for Props {
 pub fn column_container(props: &Props) -> Html {
 	html! {
 		<div class="articlesContainer columnContainer" ref={props.container_ref.clone()}>
-			{ for props.articles.iter().map(|article| view_article(&props.article_component, article.clone()))}
+			{ for props.articles.iter().map(|article| view_article(
+				&props.article_component,
+				props.compact.clone(),
+				props.animated_as_gifs.clone(),
+				None,
+				article.clone()))}
 		</div>
 	}
 }
 
 //TODO Support rtl
-//TODO Support compact and style
 #[function_component(RowContainer)]
 pub fn row_container(props: &Props) -> Html {
-	/* html! {
-		<SocialArticle
-			compact={props.compact}
-			data={data.clone()}
-			style={format!("width: {}%", 100.0 / (props.column_count as f64))}
-		/>
-	}*/
 	html! {
 		<div class="articlesContainer rowContainer" ref={props.container_ref.clone()}>
-			{ for props.articles.iter().map(|article| view_article(&props.article_component, article.clone())) }
+			{ for props.articles.iter().map(|article| view_article(
+				&props.article_component,
+				props.compact.clone(),
+				props.animated_as_gifs.clone(),
+				Some(format!("width: {}%", 100.0 / (props.column_count as f64))),
+				article.clone()
+			)) }
 		</div>
 	}
 }
@@ -135,7 +140,13 @@ pub fn masonry_container(props: &Props) -> Html {
 		<div class="articlesContainer masonryContainer" ref={props.container_ref.clone()}>
 			{ for columns.enumerate().map(|(column_index, column)| html! {
 				<div class="masonryColumn" key={column_index}>
-					{ for column.map(|article| view_article(&props.article_component, Rc::downgrade(article)))}
+					{ for column.map(|article| view_article(
+						&props.article_component,
+						props.compact.clone(),
+						props.animated_as_gifs.clone(),
+						None,
+						Rc::downgrade(article)
+					))}
 				</div>
 			})}
 		</div>

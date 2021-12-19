@@ -25,6 +25,7 @@ web-sys = { version = "0.3.55", features = [
     "AddEventListenerOptions",
     "ScrollToOptions",
     "ScrollBehavior",
+    "HtmlVideoElement",
 ] }
 js-sys = "0.3.55"
 reqwest = { version = "0.11.6", features = ["json"] }

@@ -61,16 +61,19 @@ impl PartialEq<dyn ArticleData> for dyn ArticleData {
 
 #[derive(Properties, Clone)]
 pub struct Props {
+	pub data: Weak<RefCell<dyn ArticleData>>,
 	#[prop_or_default]
 	pub compact: bool,
 	#[prop_or_default]
 	pub style: Option<String>,
-	pub data: Weak<RefCell<dyn ArticleData>>,
+	#[prop_or_default]
+	pub animated_as_gifs: bool,
 }
 
 impl PartialEq<Props> for Props {
 	fn eq(&self, other: &Props) -> bool {
 		self.compact == other.compact &&
+		self.animated_as_gifs == other.animated_as_gifs &&
 			self.style == other.style &&
 			Weak::ptr_eq(&self.data, &other.data)
 	}
@@ -91,13 +94,13 @@ impl ArticleComponent {
 	}
 }
 
-pub fn view_article(component: &ArticleComponent, article: Weak<RefCell<dyn ArticleData>>) -> Html {
+pub fn view_article(component: &ArticleComponent, compact: bool, animated_as_gifs: bool, style: Option<String>, article: Weak<RefCell<dyn ArticleData>>) -> Html {
 	match component {
 		ArticleComponent::Social => html! {
-			<SocialArticle compact={false} data={article.clone()}/>
+			<SocialArticle {compact} {animated_as_gifs} {style} data={article.clone()}/>
 		},
 		ArticleComponent::Gallery => html! {
-			<GalleryArticle compact={false} data={article.clone()}/>
+			<GalleryArticle {compact} {animated_as_gifs} {style} data={article.clone()}/>
 		},
 	}
 }

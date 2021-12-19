@@ -1,12 +1,14 @@
 use yew::prelude::*;
 use yew_agent::{Bridge, Bridged};
 use std::rc::Weak;
+use wasm_bindgen::closure::Closure;
 
 use crate::articles::{ArticleRefType, Props, ArticleMedia};
 use crate::services::article_actions::{ArticleActionsAgent, Response as ArticleActionsResponse};
 
 pub struct GalleryArticle {
 	compact: Option<bool>,
+	video_ref: NodeRef,
 	_article_actions: Box<dyn Bridge<ArticleActionsAgent>>,
 }
 
@@ -24,6 +26,7 @@ impl Component for GalleryArticle {
 		Self {
 			compact: None,
 			_article_actions: ArticleActionsAgent::bridge(ctx.link().callback(Msg::ActionsCallback)),
+			video_ref: NodeRef::default(),
 		}
 	}
 
@@ -61,22 +64,45 @@ impl Component for GalleryArticle {
 
 		html! {
 			<article class="article galleryArticle" articleId={actual_borrow.id()} style={ctx.props().style.clone()}>
-				{ for actual_borrow.media().iter().map(|m| match m {
-					ArticleMedia::Image(src) => html! {
+				{ for actual_borrow.media().iter().map(|m| match (&ctx.props().animated_as_gifs, m) {
+					(_, ArticleMedia::Image(src)) => html! {
 						<img src={src.clone()}/>
 					},
-					ArticleMedia::Video(video_src) => html! {
-						<video controls=true onclick={ctx.link().callback(|_| Msg::OnImageClick)}>
+					(false, ArticleMedia::Video(video_src)) => html! {
+						<video ref={self.video_ref.clone()} controls=true onclick={ctx.link().callback(|_| Msg::OnImageClick)}>
 							<source src={video_src.clone()} type="video/mp4"/>
 						</video>
 					},
-					ArticleMedia::Gif(gif_src) => html! {
-						<video controls=true autoplay=true loop=true muted=true onclick={ctx.link().callback(|_| Msg::OnImageClick)}>
+					(_, ArticleMedia::Gif(gif_src)) | (true, ArticleMedia::Video(gif_src)) => html! {
+						<video ref={self.video_ref.clone()} controls=true autoplay=true loop=true muted=true onclick={ctx.link().callback(|_| Msg::OnImageClick)}>
 							<source src={gif_src.clone()} type="video/mp4"/>
 						</video>
 					},
 				}) }
 			</article>
+		}
+	}
+
+	fn rendered(&mut self, ctx: &Context<Self>, _first_render: bool) {
+		if let Some(video) = self.video_ref.cast::<web_sys::HtmlVideoElement>() {
+			match ctx.props().animated_as_gifs {
+				true => {
+					video.set_muted(true);
+					match video.play() {
+						Ok(promise) => {
+							let _ = promise.catch(&Closure::once(Box::new(|err| log::warn!("Failed to play video.\n{:?}", &err))));
+						}
+						Err(err) => log::warn!("Failed to try and play the video.\n{:?}", &err)
+					}
+				},
+				false => {
+					video.set_muted(false);
+					match video.pause() {
+						Err(err) => log::warn!("Failed to try and pause the video.\n{:?}", &err),
+						Ok(_) => {}
+					}
+				},
+			};
 		}
 	}
 }
