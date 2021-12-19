@@ -63,6 +63,7 @@ impl PartialEq for Props {
 
 #[function_component(ColumnContainer)]
 pub fn column_container(props: &Props) -> Html {
+	log::debug!("Container {}", props.articles.len());
 	html! {
 		<div class="articlesContainer columnContainer" ref={props.container_ref.clone()}>
 			{ for props.articles.iter().map(|article| view_article(

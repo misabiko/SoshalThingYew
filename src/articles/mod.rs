@@ -110,11 +110,15 @@ pub fn view_article(component: &ArticleComponent, compact: bool, animated_as_gif
 }
 
 pub fn actual_article(article: &Weak<RefCell<dyn ArticleData>>) -> Weak<RefCell<dyn ArticleData>> {
-	let strong = article.upgrade().unwrap();
-	let borrow = strong.borrow();
+	if let Some(strong) = article.upgrade() {
+		let borrow = strong.borrow();
 
-	match borrow.referenced_article() {
-		ArticleRefType::NoRef | ArticleRefType::Quote(_) => article.clone(),
-		ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => a.clone()
+		match borrow.referenced_article() {
+			ArticleRefType::NoRef | ArticleRefType::Quote(_) => article.clone(),
+			ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => a.clone()
+		}
+	}else {
+		log::warn!("Couldn't unwrap article.");
+		article.clone()
 	}
 }

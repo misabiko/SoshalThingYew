@@ -3,6 +3,7 @@ use std::cell::{RefCell, Ref};
 use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher, Bridge};
 use yew_agent::utils::store::{StoreWrapper, ReadOnly, Bridgeable};
 use js_sys::Date;
+use std::collections::HashMap;
 
 use crate::articles::{ArticleData, ArticleMedia};
 use crate::services::endpoints::{EndpointStore, Endpoint, Request as EndpointRequest, EndpointId, RefreshTime, EndpointConstructors};
@@ -76,6 +77,7 @@ impl ArticleData for PixivArticleData {
 
 pub struct PixivAgent {
 	endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
+	articles: HashMap<u32, Rc<RefCell<PixivArticleData>>>,
 }
 
 pub enum Msg {
@@ -83,7 +85,7 @@ pub enum Msg {
 }
 
 pub enum Request {
-	AddArticles(RefreshTime, EndpointId, Vec<Rc<RefCell<dyn ArticleData>>>),
+	AddArticles(RefreshTime, EndpointId, Vec<Rc<RefCell<PixivArticleData>>>),
 }
 
 impl Agent for PixivAgent {
@@ -103,6 +105,7 @@ impl Agent for PixivAgent {
 
 		Self {
 			endpoint_store,
+			articles: HashMap::new(),
 		}
 	}
 
@@ -114,12 +117,24 @@ impl Agent for PixivAgent {
 
 	fn handle_input(&mut self, msg: Self::Input, _id: HandlerId) {
 		match msg {
-			Request::AddArticles(refresh_time, endpoint_id, articles) =>
+			Request::AddArticles(refresh_time, endpoint_id, articles) => {
+				let mut valid_rc = Vec::new();
+				for article in articles.into_iter() {
+					let borrow = article.borrow();
+					let valid_a_rc = self.articles.entry(borrow.id)
+						.and_modify(|a| a.borrow_mut().update(&(borrow as Ref<dyn ArticleData>)))
+						.or_insert_with(|| article.clone()).clone();
+
+					valid_rc.push(valid_a_rc);
+				}
 				self.endpoint_store.send(EndpointRequest::AddArticles(
 					refresh_time,
 					endpoint_id,
-					articles
-				)),
+					valid_rc.into_iter()
+						.map(|article| article as Rc<RefCell<dyn ArticleData>>)
+						.collect(),
+				))
+			},
 		};
 	}
 }
@@ -140,7 +155,7 @@ impl FollowEndpoint {
 	}
 }
 
-fn parse_article(element: web_sys::Element) -> Option<Rc<RefCell<dyn ArticleData>>> {
+fn parse_article(element: web_sys::Element) -> Option<Rc<RefCell<PixivArticleData>>> {
 	let anchors = element.get_elements_by_tag_name("a");
 	let id = match anchors.get_with_index(0) {
 		Some(a) => match a.get_attribute("data-gtm-value") {
