@@ -63,7 +63,7 @@ impl Component for GalleryArticle {
 		let actual_borrow = actual_article.borrow();
 
 		html! {
-			<article class="article galleryArticle" articleId={actual_borrow.id()} style={ctx.props().style.clone()}>
+			<article class="article galleryArticle" articleId={actual_borrow.id()} key={borrow.id()} style={ctx.props().style.clone()}>
 				{ for actual_borrow.media().iter().map(|m| match (&ctx.props().animated_as_gifs, m) {
 					(_, ArticleMedia::Image(src)) => html! {
 						<img src={src.clone()}/>
