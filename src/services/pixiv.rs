@@ -114,7 +114,7 @@ impl Agent for PixivAgent {
 				self.endpoint_store.send(EndpointRequest::AddArticles(
 					refresh_time,
 					endpoint_id,
-					articles.into_iter().map(|a| (a, None)).collect()
+					articles
 				)),
 		};
 	}

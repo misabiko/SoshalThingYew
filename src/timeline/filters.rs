@@ -51,6 +51,7 @@ pub fn default_filters() -> Vec<Filter> {
 							ArticleRefType::NoRef => borrow.media().iter().any(|m| is_animated(m)),
 							ArticleRefType::Repost(a) => a.upgrade().map(|r| r.borrow().media().len() > 0).unwrap_or(false),
 							ArticleRefType::Quote(a) => (a.upgrade().map(|r| r.borrow().media().len() > 0).unwrap_or(false) || (borrow.media().len() > 0)),
+							ArticleRefType::QuoteRepost(a, q) => (q.upgrade().map(|r| r.borrow().media().len() > 0).unwrap_or(false) || a.upgrade().map(|r| r.borrow().media().len() > 0).unwrap_or(false) || (borrow.media().len() > 0)),
 						}) != inverted
 					},
 					None => false,
@@ -66,6 +67,7 @@ pub fn default_filters() -> Vec<Filter> {
 							ArticleRefType::NoRef => borrow.media().iter().any(|m| is_animated(m)),
 							ArticleRefType::Repost(a) => a.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false),
 							ArticleRefType::Quote(a) => (a.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false) || (borrow.media().iter().any(|m| is_animated(m)))),
+							ArticleRefType::QuoteRepost(a, q) => (q.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false) || a.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false) || (borrow.media().iter().any(|m| is_animated(m)))),
 						}) != inverted
 					},
 					None => false,
@@ -81,6 +83,8 @@ pub fn default_filters() -> Vec<Filter> {
 							ArticleRefType::NoRef => (!borrow.marked_as_read()),
 							ArticleRefType::Repost(a) | ArticleRefType::Quote(a)
 								=> (a.upgrade().map(|r| !r.borrow().marked_as_read()).unwrap_or(false) && !borrow.marked_as_read()),
+							ArticleRefType::QuoteRepost(a, q)
+							=> (q.upgrade().map(|r| !r.borrow().marked_as_read()).unwrap_or(false) && a.upgrade().map(|r| !r.borrow().marked_as_read()).unwrap_or(false) && !borrow.marked_as_read()),
 						}) != inverted
 					},
 					None => false,
@@ -96,6 +100,8 @@ pub fn default_filters() -> Vec<Filter> {
 							ArticleRefType::NoRef => !borrow.hidden(),
 							ArticleRefType::Repost(a) | ArticleRefType::Quote(a)
 								=> a.upgrade().map(|r| !r.borrow().hidden()).unwrap_or(false) && !borrow.hidden(),
+							ArticleRefType::QuoteRepost(a, q)
+							=> q.upgrade().map(|r| !r.borrow().hidden()).unwrap_or(false) && a.upgrade().map(|r| !r.borrow().hidden()).unwrap_or(false) && !borrow.hidden(),
 						}) != inverted
 					},
 					None => false,
@@ -111,6 +117,8 @@ pub fn default_filters() -> Vec<Filter> {
 							ArticleRefType::NoRef => borrow.liked(),
 							ArticleRefType::Repost(a) | ArticleRefType::Quote(a)
 							=> a.upgrade().map(|r| r.borrow().liked()).unwrap_or(false) || borrow.liked(),
+							ArticleRefType::QuoteRepost(a, q)
+							=> q.upgrade().map(|r| r.borrow().liked()).unwrap_or(false) || a.upgrade().map(|r| r.borrow().liked()).unwrap_or(false) || borrow.liked(),
 						}) != inverted
 					},
 					None => false,
@@ -126,6 +134,8 @@ pub fn default_filters() -> Vec<Filter> {
 							ArticleRefType::NoRef => borrow.reposted(),
 							ArticleRefType::Repost(a) | ArticleRefType::Quote(a)
 							=> a.upgrade().map(|r| r.borrow().reposted()).unwrap_or(false) || borrow.reposted(),
+							ArticleRefType::QuoteRepost(a, q)
+							=> q.upgrade().map(|r| r.borrow().reposted()).unwrap_or(false) || a.upgrade().map(|r| r.borrow().reposted()).unwrap_or(false) || borrow.reposted(),
 						}) != inverted
 					},
 					None => false,

@@ -62,9 +62,8 @@ impl Component for SocialArticle {
 				let borrow = strong.borrow();
 
 				self.article_actions.send(ArticleActionsRequest::Like(match borrow.referenced_article() {
-					ArticleRefType::NoRef => ctx.props().data.clone(),
-					ArticleRefType::Repost(a) => a,
-					ArticleRefType::Quote(_) => ctx.props().data.clone(),
+					ArticleRefType::NoRef | ArticleRefType::Quote(_) => ctx.props().data.clone(),
+					ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => a,
 				}));
 				false
 			}
@@ -73,9 +72,8 @@ impl Component for SocialArticle {
 				let borrow = strong.borrow();
 
 				self.article_actions.send(ArticleActionsRequest::Repost(match borrow.referenced_article() {
-					ArticleRefType::NoRef => ctx.props().data.clone(),
-					ArticleRefType::Repost(a) => a,
-					ArticleRefType::Quote(_) => ctx.props().data.clone(),
+					ArticleRefType::NoRef | ArticleRefType::Quote(_) => ctx.props().data.clone(),
+					ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => a,
 				}));
 				false
 			}
@@ -92,12 +90,12 @@ impl Component for SocialArticle {
 				let mut borrow = strong.borrow_mut();
 
 				match borrow.referenced_article() {
-					ArticleRefType::NoRef => {
+					ArticleRefType::NoRef | ArticleRefType::Quote(_) => {
 						let marked_as_read = borrow.marked_as_read();
 						borrow.set_marked_as_read(!marked_as_read);
 						self.article_actions.send(ArticleActionsRequest::MarkAsRead(ctx.props().data.clone(), !marked_as_read));
 					},
-					ArticleRefType::Repost(a) | ArticleRefType::Quote(a) => {
+					ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => {
 						let strong = a.upgrade().unwrap();
 						let mut borrow = strong.borrow_mut();
 
@@ -122,11 +120,11 @@ impl Component for SocialArticle {
 				let mut borrow = strong.borrow_mut();
 
 				match borrow.referenced_article() {
-					ArticleRefType::NoRef => {
+					ArticleRefType::NoRef | ArticleRefType::Quote(_) => {
 						let hidden = borrow.hidden();
 						borrow.set_hidden(!hidden);
 					},
-					ArticleRefType::Repost(a) | ArticleRefType::Quote(a) => {
+					ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => {
 						let strong = a.upgrade().unwrap();
 						let mut borrow = strong.borrow_mut();
 
@@ -162,41 +160,21 @@ impl Component for SocialArticle {
 			ArticleRefType::NoRef => (strong.clone(), html! {}, html! {}),
 			ArticleRefType::Repost(a) => (
 				a.upgrade().unwrap(),
-				html! {
-					<div class="repostLabel"
-						href={borrow.url()}
-						target="_blank">
-						<a>{ format!("{} reposted", &borrow.author_name()) }</a>
-					</div>
-				},
+				view_repost_label(&borrow),
 				html! {}
 			),
 			ArticleRefType::Quote(a) => {
 				let quote_article = a.upgrade().unwrap();
 				let quote_borrow = quote_article.borrow();
-				(strong.clone(), html! {}, html! {
-					<div class="quotedPost">
-						<div class="articleHeader">
-							<a class="names" href={quote_borrow.author_url()} target="_blank" rel="noopener noreferrer">
-								<strong>{ quote_borrow.author_name() }</strong>
-								<small>{ format!("@{}", quote_borrow.author_username()) }</small>
-							</a>
-							{ self.view_timestamp(ctx, &quote_borrow) }
-						</div>
-						{ match self.is_filtered_out(&quote_borrow) {
-							false => html! {
-								<>
-									{ match ctx.props().hide_text {
-									 	false => html! { <p class="refArticleParagraph">{quote_borrow.text()}</p> },
-										true => html! {},
-									} }
-									{ self.view_media(ctx, &quote_borrow) }
-								</>
-							},
-							true => html! {},
-						} }
-					</div>
-				})
+				(strong.clone(), html! {}, self.view_quoted_post(ctx, &quote_borrow))
+			}
+			ArticleRefType::QuoteRepost(a, q) => {
+				let reposted_article = a.upgrade().unwrap();
+				let reposted_borrow = reposted_article.borrow();
+
+				let quoted_article = a.upgrade().unwrap();
+				let quoted_borrow = quoted_article.borrow();
+				(reposted_article.clone(), view_repost_label(&borrow), self.view_quoted_post(ctx, &quoted_borrow))
 			}
 		};
 		let actual_borrow = actual_article.borrow();
@@ -303,7 +281,7 @@ impl SocialArticle {
 		let ontoggle_compact = ctx.link().callback(|_| Msg::ToggleCompact);
 		let dropdown_buttons = match &borrow.referenced_article() {
 			ArticleRefType::NoRef => html! {},
-			ArticleRefType::Repost(_) => html! {
+			ArticleRefType::Repost(_) | ArticleRefType::QuoteRepost(_, _) => html! {
 				<a
 					class="dropdown-item"
 					href={ borrow.url() }
@@ -445,5 +423,41 @@ impl SocialArticle {
 				<img alt={actual_borrow.id()} src={image} onclick={ctx.link().callback(|_| Msg::OnImageClick)}/>
 			</div>
 		}
+	}
+
+	fn view_quoted_post(&self, ctx: &Context<SocialArticle>, quoted: &Ref<dyn ArticleData>) -> Html {
+		html! {
+		<div class="quotedPost">
+			<div class="articleHeader">
+				<a class="names" href={quoted.author_url()} target="_blank" rel="noopener noreferrer">
+					<strong>{ quoted.author_name() }</strong>
+					<small>{ format!("@{}", quoted.author_username()) }</small>
+				</a>
+				{ self.view_timestamp(ctx, &quoted) }
+			</div>
+			{ match self.is_filtered_out(&quoted) {
+				false => html! {
+					<>
+						{ match ctx.props().hide_text {
+							false => html! { <p class="refArticleParagraph">{quoted.text()}</p> },
+							true => html! {},
+						} }
+						{ self.view_media(ctx, &quoted) }
+					</>
+				},
+				true => html! {},
+			} }
+		</div>
+	}
+	}
+}
+
+fn view_repost_label(repost: &Ref<dyn ArticleData>) -> Html {
+	html! {
+		<div class="repostLabel"
+			href={repost.url()}
+			target="_blank">
+			<a>{ format!("{} reposted", &repost.author_name()) }</a>
+		</div>
 	}
 }

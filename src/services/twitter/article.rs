@@ -97,34 +97,55 @@ impl ArticleData for TweetArticleData {
 	}
 }
 
+pub type StrongArticleRefType = ArticleRefType<Rc<RefCell<TweetArticleData>>>;
+
 impl TweetArticleData {
-	pub fn from(json: &serde_json::Value, marked_as_read: &HashSet<u64>) -> (Rc<RefCell<Self>>, Option<Rc<RefCell<Self>>>) {
-		let referenced_article: Option<(Rc<RefCell<Self>>, bool)> = {
+	pub fn from(json: &serde_json::Value, marked_as_read: &HashSet<u64>) -> (Rc<RefCell<Self>>, StrongArticleRefType) {
+		let id = json["id"].as_u64().unwrap();
+
+		let referenced_article: StrongArticleRefType = {
 			let referenced = &json["retweeted_status"];
 			let quoted = &json["quoted_status"];
 
 			if !referenced.is_null() {
 				let parsed = TweetArticleData::from(&referenced.clone(), &marked_as_read);
-				if parsed.1.is_some() {
-					log::error!("Retweet of a quote/retweet on {:?}??", json["id"]);
+				match parsed.1 {
+					ArticleRefType::NoRef => StrongArticleRefType::Repost(parsed.0),
+					ArticleRefType::Quote(parsed_ref) => StrongArticleRefType::QuoteRepost(parsed.0, parsed_ref),
+					ArticleRefType::Repost(parsed_ref) => {
+						log::warn!("Retweet({}) of a retweet({})?", &id, &parsed_ref.borrow().id());
+						StrongArticleRefType::Repost(parsed.0)
+					}
+					ArticleRefType::QuoteRepost(parsed_ref, parsed_quoted) => {
+						log::warn!("Retweet({}) of a retweet({}) of a quote({})??", &id, &parsed_ref.borrow().id(), &parsed_quoted.borrow().id());
+						StrongArticleRefType::Repost(parsed.0)
+					}
 				}
-				Some((parsed.0, false))
 			}else if !quoted.is_null() {
 				let parsed = TweetArticleData::from(&quoted.clone(), &marked_as_read);
-				if parsed.1.is_some() {
-					log::error!("Quote of a quote/retweet on {:?}??\n(actually quite possible but I can't be bothered code it yet)", json["id"]);
+				match parsed.1 {
+					ArticleRefType::NoRef => StrongArticleRefType::Quote(parsed.0),
+					ArticleRefType::Quote(parsed_ref) => {
+						log::warn!("Quote({}) of a quote({})?", &id, &parsed_ref.borrow().id());
+						StrongArticleRefType::Quote(parsed.0)
+					}
+					ArticleRefType::Repost(parsed_ref) => {
+						log::warn!("Retweet({}) of a retweet({})?", &id, &parsed_ref.borrow().id());
+						StrongArticleRefType::Quote(parsed.0)
+					}
+					ArticleRefType::QuoteRepost(parsed_ref, parsed_quoted) => {
+						log::warn!("Retweet({}) of a retweet({}) of a quote({})??", &id, &parsed_ref.borrow().id(), &parsed_quoted.borrow().id());
+						StrongArticleRefType::Quote(parsed.0)
+					}
 				}
-				Some((parsed.0, true))
 			}else {
-				None
+				StrongArticleRefType::NoRef
 			}
 		};
 
 		let medias_opt = json["extended_entities"]
 			.get("media")
 			.and_then(|media| media.as_array());
-
-		let id = json["id"].as_u64().unwrap();
 
 		let data = Rc::new(RefCell::new(TweetArticleData {
 			id,
@@ -171,14 +192,18 @@ impl TweetArticleData {
 			},
 			raw_json: json.clone(),
 			referenced_article: match &referenced_article {
-				None => ArticleRefType::NoRef,
-				Some((a, false)) => ArticleRefType::Repost(Rc::downgrade(a) as Weak<RefCell<dyn ArticleData>>),
-				Some((a, true)) => ArticleRefType::Quote(Rc::downgrade(a) as Weak<RefCell<dyn ArticleData>>),
+				StrongArticleRefType::NoRef => ArticleRefType::NoRef,
+				StrongArticleRefType::Repost(a) => ArticleRefType::Repost(Rc::downgrade(a) as Weak<RefCell<dyn ArticleData>>),
+				StrongArticleRefType::Quote(a) => ArticleRefType::Quote(Rc::downgrade(a) as Weak<RefCell<dyn ArticleData>>),
+				StrongArticleRefType::QuoteRepost(quote, quoted) => ArticleRefType::QuoteRepost(
+					Rc::downgrade(quote) as Weak<RefCell<dyn ArticleData>>,
+					Rc::downgrade(quoted) as Weak<RefCell<dyn ArticleData>>
+				),
 			},
 			marked_as_read: marked_as_read.contains(&id),
 			hidden: false,
 		}));
-		(data, referenced_article.map(|(a, _)| a))
+		(data, referenced_article)
 	}
 }
 

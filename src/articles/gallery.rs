@@ -56,9 +56,8 @@ impl Component for GalleryArticle {
 		let strong = ctx.props().data.upgrade().unwrap();
 		let borrow = strong.borrow();
 		let actual_article = match &borrow.referenced_article() {
-			ArticleRefType::NoRef => strong.clone(),
-			ArticleRefType::Repost(a) => a.upgrade().unwrap(),
-			ArticleRefType::Quote(_) => strong.clone()
+			ArticleRefType::NoRef | ArticleRefType::Quote(_) => strong.clone(),
+			ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => a.upgrade().unwrap(),
 		};
 		let actual_borrow = actual_article.borrow();
 

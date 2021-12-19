@@ -10,10 +10,11 @@ pub use crate::articles::social::SocialArticle;
 pub use crate::articles::gallery::GalleryArticle;
 
 #[derive(Clone)]
-pub enum ArticleRefType {
+pub enum ArticleRefType<Pointer = Weak<RefCell<dyn ArticleData>>> {
 	NoRef,
-	Repost(Weak<RefCell<dyn ArticleData>>),
-	Quote(Weak<RefCell<dyn ArticleData>>),
+	Repost(Pointer),
+	Quote(Pointer),
+	QuoteRepost(Pointer, Pointer),
 }
 
 #[derive(Clone, PartialEq, Eq)]
