@@ -169,18 +169,18 @@ impl Agent for TwitterAgent {
 								let ref_borrow = a.borrow();
 								self.articles.entry(ref_borrow.id)
 									.and_modify(|a| a.borrow_mut().update(&(ref_borrow as Ref<dyn ArticleData>)))
-									.or_insert_with(|| a.clone()).clone();
+									.or_insert_with(|| a.clone());
 							}
 							StrongArticleRefType::QuoteRepost(a, q) => {
 								let a_borrow = a.borrow();
 								self.articles.entry(a_borrow.id)
 									.and_modify(|a| a.borrow_mut().update(&(a_borrow as Ref<dyn ArticleData>)))
-									.or_insert_with(|| a.clone()).clone();
+									.or_insert_with(|| a.clone());
 
 								let q_borrow = q.borrow();
 								self.articles.entry(q_borrow.id)
 									.and_modify(|a| a.borrow_mut().update(&(q_borrow as Ref<dyn ArticleData>)))
-									.or_insert_with(|| q.clone()).clone();
+									.or_insert_with(|| q.clone());
 							}
 							_ => {},
 						};
@@ -220,8 +220,7 @@ impl Agent for TwitterAgent {
 				let strong = article.upgrade().unwrap();
 				let borrow = strong.borrow();
 
-				//TODO Support liking quotes
-				if let ArticleRefType::NoRef = borrow.referenced_article() {
+				if let ArticleRefType::NoRef | ArticleRefType::Quote(_) = borrow.referenced_article() {
 					let path = format!("/proxy/twitter/{}/{}", if borrow.liked() { "unlike" } else { "like" }, borrow.id());
 					let marked_as_read = self.cached_marked_as_read.clone();
 
@@ -234,8 +233,7 @@ impl Agent for TwitterAgent {
 				let strong = article.upgrade().unwrap();
 				let borrow = strong.borrow();
 
-				//TODO Support retweeting quotes
-				if let ArticleRefType::NoRef = borrow.referenced_article() {
+				if let ArticleRefType::NoRef | ArticleRefType::Quote(_) = borrow.referenced_article() {
 					let path = format!("/proxy/twitter/{}/{}", if borrow.reposted() { "unretweet" } else { "retweet" }, borrow.id());
 					let marked_as_read = self.cached_marked_as_read.clone();
 

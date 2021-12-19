@@ -170,9 +170,8 @@ impl Component for SocialArticle {
 			}
 			ArticleRefType::QuoteRepost(a, q) => {
 				let reposted_article = a.upgrade().unwrap();
-				let reposted_borrow = reposted_article.borrow();
 
-				let quoted_article = a.upgrade().unwrap();
+				let quoted_article = q.upgrade().unwrap();
 				let quoted_borrow = quoted_article.borrow();
 				(reposted_article.clone(), view_repost_label(&borrow), self.view_quoted_post(ctx, &quoted_borrow))
 			}
