@@ -12,7 +12,7 @@ mod article;
 pub use article::TweetArticleData;
 use article::{TwitterUser, StrongArticleRefType};
 use crate::articles::{ArticleData, ArticleRefType};
-use crate::services::endpoints::{EndpointStore, Request as EndpointRequest, EndpointId, EndpointConstructor, RefreshTime, RateLimit};
+use crate::services::endpoints::{EndpointStore, Request as EndpointRequest, EndpointId, EndpointConstructor, EndpointConstructors, RefreshTime, RateLimit};
 use crate::error::{Error, FetchResult};
 use crate::services::twitter::endpoints::{UserTimelineEndpoint, HomeTimelineEndpoint, ListEndpoint, SingleTweetEndpoint};
 use crate::services::article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest};
@@ -101,28 +101,34 @@ impl Agent for TwitterAgent {
 
 	fn create(link: AgentLink<Self>) -> Self {
 		let mut endpoint_store = EndpointStore::bridge(link.callback(Msg::EndpointStoreResponse));
-		endpoint_store.send(EndpointRequest::InitService("Twitter".to_owned(), vec![
-			EndpointConstructor {
-				name: "User Timeline",
-				param_template: vec!["username"],
-				callback: Rc::new(|id, params| Box::new(UserTimelineEndpoint::from_json(id, params))),
-			},
-			EndpointConstructor {
-				name: "Home Timeline",
-				param_template: vec![],
-				callback: Rc::new(|id, _params| Box::new(HomeTimelineEndpoint::new(id))),
-			},
-			EndpointConstructor {
-				name: "List",
-				param_template: vec!["username", "slug"],
-				callback: Rc::new(|id, params| Box::new(ListEndpoint::from_json(id, params))),
-			},
-			EndpointConstructor {
-				name: "Single Tweet",
-				param_template: vec!["id"],
-				callback: Rc::new(|id, params| Box::new(SingleTweetEndpoint::from_json(id, params))),
-			},
-		]));
+		endpoint_store.send(EndpointRequest::InitService(
+			"Twitter".to_owned(),
+			 EndpointConstructors {
+				endpoint_types: vec![
+					EndpointConstructor {
+						name: "Home Timeline",
+						param_template: vec![],
+						callback: Rc::new(|id, _params| Box::new(HomeTimelineEndpoint::new(id))),
+					},
+					EndpointConstructor {
+						name: "User Timeline",
+						param_template: vec!["username"],
+						callback: Rc::new(|id, params| Box::new(UserTimelineEndpoint::from_json(id, params))),
+					},
+					EndpointConstructor {
+						name: "List",
+						param_template: vec!["username", "slug"],
+						callback: Rc::new(|id, params| Box::new(ListEndpoint::from_json(id, params))),
+					},
+					EndpointConstructor {
+						name: "Single Tweet",
+						param_template: vec!["id"],
+						callback: Rc::new(|id, params| Box::new(SingleTweetEndpoint::from_json(id, params))),
+					},
+				],
+				user_endpoint: Some(1)
+			}
+		));
 
 		let mut actions_agent = ArticleActionsAgent::dispatcher();
 		actions_agent.send(ArticleActionsRequest::Init("Twitter", ServiceActions {

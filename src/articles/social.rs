@@ -4,16 +4,18 @@ use wasm_bindgen::JsValue;
 use web_sys::console;
 use std::cell::Ref;
 use wasm_bindgen::closure::Closure;
-use yew_agent::{Bridge, Bridged};
+use yew_agent::{Bridge, Bridged, Dispatcher, Dispatched};
 
 use crate::articles::{ArticleData, ArticleRefType, Props, ArticleMedia};
 use crate::dropdown::{Dropdown, DropdownLabel};
 use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest, Response as ArticleActionsResponse};
+use crate::modals::add_timeline::{AddTimelineAgent, Request as AddTimelineRequest};
 
 pub struct SocialArticle {
 	compact: Option<bool>,
 	article_actions: Box<dyn Bridge<ArticleActionsAgent>>,
 	video_ref: NodeRef,
+	add_timeline_agent: Dispatcher<AddTimelineAgent>,
 }
 
 pub enum Msg {
@@ -25,6 +27,7 @@ pub enum Msg {
 	ToggleMarkAsRead,
 	ToggleHide,
 	ActionsCallback(ArticleActionsResponse),
+	AddUserTimeline(String, String),
 }
 
 impl Component for SocialArticle {
@@ -36,6 +39,7 @@ impl Component for SocialArticle {
 			compact: None,
 			article_actions: ArticleActionsAgent::bridge(ctx.link().callback(Msg::ActionsCallback)),
 			video_ref: NodeRef::default(),
+			add_timeline_agent: AddTimelineAgent::dispatcher(),
 		}
 	}
 
@@ -149,6 +153,10 @@ impl Component for SocialArticle {
 					}
 				}
 			}
+			Msg::AddUserTimeline(service, username) => {
+				self.add_timeline_agent.send(AddTimelineRequest::AddUserTimeline(service, username));
+				false
+			}
 		}
 	}
 
@@ -178,6 +186,13 @@ impl Component for SocialArticle {
 		};
 		let actual_borrow = actual_article.borrow();
 
+		let actual_c = actual_article.clone();
+		let on_username_click = ctx.link().callback(move |e: MouseEvent| {
+			let borrow = actual_c.borrow();
+			e.prevent_default();
+			Msg::AddUserTimeline(borrow.service().to_owned(), borrow.author_username())
+		});
+
 		html! {
 			<article class="article" articleId={borrow.id()} key={borrow.id()} style={ctx.props().style.clone()}>
 				{ retweet_header }
@@ -190,7 +205,7 @@ impl Component for SocialArticle {
 					<div class="media-content">
 						<div class="content">
 							<div class="articleHeader">
-								<a class="names" href={actual_borrow.author_url()} target="_blank" rel="noopener noreferrer">
+								<a class="names" href={actual_borrow.author_url()} target="_blank" rel="noopener noreferrer" onclick={on_username_click}>
 									<strong>{ actual_borrow.author_name() }</strong>
 									<small>{ format!("@{}", actual_borrow.author_username()) }</small>
 								</a>
@@ -426,28 +441,28 @@ impl SocialArticle {
 
 	fn view_quoted_post(&self, ctx: &Context<SocialArticle>, quoted: &Ref<dyn ArticleData>) -> Html {
 		html! {
-		<div class="quotedPost">
-			<div class="articleHeader">
-				<a class="names" href={quoted.author_url()} target="_blank" rel="noopener noreferrer">
-					<strong>{ quoted.author_name() }</strong>
-					<small>{ format!("@{}", quoted.author_username()) }</small>
-				</a>
-				{ self.view_timestamp(ctx, &quoted) }
+			<div class="quotedPost">
+				<div class="articleHeader">
+					<a class="names" href={quoted.author_url()} target="_blank" rel="noopener noreferrer">
+						<strong>{ quoted.author_name() }</strong>
+						<small>{ format!("@{}", quoted.author_username()) }</small>
+					</a>
+					{ self.view_timestamp(ctx, &quoted) }
+				</div>
+				{ match self.is_filtered_out(&quoted) {
+					false => html! {
+						<>
+							{ match ctx.props().hide_text {
+								false => html! { <p class="refArticleParagraph">{quoted.text()}</p> },
+								true => html! {},
+							} }
+							{ self.view_media(ctx, &quoted) }
+						</>
+					},
+					true => html! {},
+				} }
 			</div>
-			{ match self.is_filtered_out(&quoted) {
-				false => html! {
-					<>
-						{ match ctx.props().hide_text {
-							false => html! { <p class="refArticleParagraph">{quoted.text()}</p> },
-							true => html! {},
-						} }
-						{ self.view_media(ctx, &quoted) }
-					</>
-				},
-				true => html! {},
-			} }
-		</div>
-	}
+		}
 	}
 }
 

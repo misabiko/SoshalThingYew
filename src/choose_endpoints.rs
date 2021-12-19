@@ -1,5 +1,5 @@
 use yew::prelude::*;
-use yew_agent::Bridge;
+use yew_agent::{Bridge, Bridged};
 use yew_agent::utils::store::{StoreWrapper, ReadOnly, Bridgeable};
 use std::rc::Weak;
 use std::collections::HashMap;
@@ -9,8 +9,9 @@ use serde_json::json;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlInputElement;
 
-use crate::services::endpoints::{Request as EndpointRequest, EndpointStore, TimelineEndpoints, EndpointId, RefreshTime, EndpointConstructor};
+use crate::services::endpoints::{Request as EndpointRequest, EndpointStore, TimelineEndpoints, EndpointId, RefreshTime, EndpointConstructors};
 use crate::dropdown::{Dropdown, DropdownLabel};
+use crate::modals::add_timeline::{AddTimelineAgent, Request as AddTimelineRequest, Response as AddTimelineResponse};
 
 struct EndpointView {
 	name: String
@@ -25,15 +26,17 @@ struct EndpointForm {
 
 pub struct ChooseEndpoints {
 	endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
+	_add_timeline_agent: Option<Box<dyn Bridge<AddTimelineAgent>>>,
 	show_start_endpoint_dropdown: bool,
 	show_refresh_endpoint_dropdown: bool,
 	endpoint_views: HashMap<EndpointId, EndpointView>,
 	endpoint_form: Option<EndpointForm>,
-	services: HashMap<String, Vec<EndpointConstructor>>,
+	services: HashMap<String, EndpointConstructors>,
 }
 
 pub enum Msg {
 	EndpointStoreResponse(ReadOnly<EndpointStore>),
+	AddTimelineResponse(AddTimelineResponse),
 	ToggleStartEndpointDropdown,
 	ToggleRefreshEndpointDropdown,
 	NewEndpoint(RefreshTime),
@@ -48,6 +51,8 @@ pub enum Msg {
 #[derive(Properties, Clone)]
 pub struct Props {
 	pub timeline_endpoints: Weak<RefCell<TimelineEndpoints>>,
+	#[prop_or_default]
+	pub inside_add_timeline: bool,
 }
 
 impl PartialEq for Props {
@@ -61,8 +66,18 @@ impl Component for ChooseEndpoints {
 	type Properties = Props;
 
 	fn create(ctx: &Context<Self>) -> Self {
+		let _add_timeline_agent = match ctx.props().inside_add_timeline {
+			true => {
+				let mut agent = AddTimelineAgent::bridge(ctx.link().callback(Msg::AddTimelineResponse));
+				agent.send(AddTimelineRequest::RegisterChooseEndpoints);
+				Some(agent)
+			},
+			false => None,
+		};
+
 		Self {
 			endpoint_store: EndpointStore::bridge(ctx.link().callback(Msg::EndpointStoreResponse)),
+			_add_timeline_agent,
 			show_start_endpoint_dropdown: false,
 			show_refresh_endpoint_dropdown: false,
 			endpoint_views: HashMap::new(),
@@ -86,6 +101,26 @@ impl Component for ChooseEndpoints {
 				self.services = state.services.clone();
 
 				true
+			}
+			Msg::AddTimelineResponse(response) => match response {
+				AddTimelineResponse::AddBlankTimeline => {
+					self.endpoint_form = None;
+					true
+				}
+				AddTimelineResponse::AddUserTimeline(service, username) => {
+					if let Some(endpoint_type) = self.services[&service].user_endpoint.clone() {
+						self.endpoint_form = Some(EndpointForm {
+							refresh_time: RefreshTime::Start,
+							service,
+							endpoint_type,
+							params: json!({
+								"username": username,
+							})
+						});
+						true
+					}else { false }
+				}
+				_ => false
 			}
 			Msg::ToggleStartEndpointDropdown => {
 				self.show_start_endpoint_dropdown = !self.show_start_endpoint_dropdown;
@@ -146,7 +181,7 @@ impl Component for ChooseEndpoints {
 			Msg::CreateEndpoint => {
 				let mut created = false;
 				if let Some(form) = &mut self.endpoint_form {
-					let constructor = self.services[&form.service].index(form.endpoint_type.clone()).clone();
+					let constructor = self.services[&form.service].endpoint_types.index(form.endpoint_type.clone()).clone();
 					let refresh_time_c = form.refresh_time.clone();
 					let callback = ctx.link().callback(move |id| Msg::AddTimelineEndpoint(refresh_time_c.clone(), id));
 					let params = form.params.clone();
@@ -202,6 +237,7 @@ impl ChooseEndpoints {
 		let new_endpoint = match &self.endpoint_form {
 			Some(form) => if form.refresh_time == refresh_time {
 				let services = self.services.clone();
+				let params = form.params.clone();
 				html! {
 					<div class="control">
 						<label class="label">{ "Service" }</label>
@@ -216,26 +252,28 @@ impl ChooseEndpoints {
 							}}) }
 						</Dropdown>
 						<label class="label">{ "Type" }</label>
-						<Dropdown current_label={DropdownLabel::Text(services[&form.service].index(form.endpoint_type.clone()).name.clone().to_string())}>
-							{ for services[&form.service].iter().enumerate().map(|(i, endpoint_con)| {
+						<Dropdown current_label={DropdownLabel::Text(services[&form.service].endpoint_types.index(form.endpoint_type.clone()).name.clone().to_string())}>
+							{ for services[&form.service].endpoint_types.iter().enumerate().map(|(i, endpoint_con)| {
 								html! {
 									<a class="dropdown-item" onclick={ctx.link().callback(move |_| Msg::SetFormType(i))}>
 										{ endpoint_con.name.clone() }
 									</a>
 							}}) }
 						</Dropdown>
-						{ for services[&form.service].index(form.endpoint_type.clone()).param_template.iter().map(|param| {
+						{ for services[&form.service].endpoint_types.index(form.endpoint_type.clone()).param_template.iter().map(move |param| {
 							let param_c = param.to_string();
+							let value: String = params[&param_c].as_str().unwrap().to_owned();
 							let oninput = ctx.link().batch_callback(move |e: InputEvent|
 								e.target()
 									.and_then(|t| t.dyn_into::<HtmlInputElement>().ok())
 									.map(|i| Msg::SetFormParamValue(param_c.clone(), i.value()))
 							);
+
 							html! {
 								<div class="field">
 									<label class="label">{param.clone()}</label>
 									<div class="control">
-										<input type="text" class="input" {oninput}/>
+										<input type="text" class="input" {oninput} {value}/>
 									</div>
 								</div>
 							}

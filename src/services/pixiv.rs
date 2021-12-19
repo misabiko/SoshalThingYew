@@ -5,7 +5,7 @@ use yew_agent::utils::store::{StoreWrapper, ReadOnly, Bridgeable};
 use js_sys::Date;
 
 use crate::articles::{ArticleData, ArticleMedia};
-use crate::services::endpoints::{EndpointStore, Endpoint, Request as EndpointRequest, EndpointId, RefreshTime};
+use crate::services::endpoints::{EndpointStore, Endpoint, Request as EndpointRequest, EndpointId, RefreshTime, EndpointConstructors};
 
 pub struct PixivArticleData {
 	id: u32,
@@ -94,9 +94,12 @@ impl Agent for PixivAgent {
 
 	fn create(link: AgentLink<Self>) -> Self {
 		let mut endpoint_store = EndpointStore::bridge(link.callback(Msg::EndpointStoreResponse));
-		endpoint_store.send(EndpointRequest::InitService("Pixiv".to_owned(), vec![
-
-		]));
+		endpoint_store.send(EndpointRequest::InitService(
+			"Pixiv".to_owned(),
+			EndpointConstructors {
+				endpoint_types: vec![],
+				user_endpoint: None,
+			}));
 
 		Self {
 			endpoint_store,

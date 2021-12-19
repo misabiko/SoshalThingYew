@@ -42,7 +42,6 @@ struct Model {
 	display_mode: DisplayMode,
 	timelines: Vec<TimelineProps>,
 	page_info: Option<Box<dyn PageInfo>>,
-	show_add_timeline: bool,
 	_twitter: Dispatcher<TwitterAgent>,
 	_pixiv: Dispatcher<PixivAgent>,
 	timeline_counter: i16,
@@ -52,7 +51,6 @@ enum Msg {
 	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
 	AddTimeline(String, EndpointId),
 	ToggleFavViewer,
-	SetAddTimelineModal(bool),
 	AddTimelineProps(Box<dyn FnOnce(i16) -> TimelineProps>),
 	EndpointStoreResponse(ReadOnly<EndpointStore>),
 	ToggleDisplayMode,
@@ -105,7 +103,6 @@ impl Component for Model {
 			timelines: Vec::new(),
 			endpoint_store: EndpointStore::bridge(ctx.link().callback(Msg::EndpointStoreResponse)),
 			page_info,
-			show_add_timeline: false,
 			_twitter: TwitterAgent::dispatcher(),
 			_pixiv: PixivAgent::dispatcher(),
 			timeline_counter: i16::MIN,
@@ -135,7 +132,6 @@ impl Component for Model {
 			Msg::AddTimelineProps(props) => {
 				self.timelines.push((props)(self.timeline_counter.clone()));
 				self.timeline_counter += 1;
-				self.show_add_timeline = false;
 
 				true
 			}
@@ -147,10 +143,6 @@ impl Component for Model {
 					false
 				}
 			}
-			Msg::SetAddTimelineModal(value) => {
-				self.show_add_timeline = value;
-				true
-			},
 			Msg::EndpointStoreResponse(_) => false,
 			Msg::ToggleDisplayMode => {
 				self.display_mode = match self.display_mode {
@@ -177,15 +169,7 @@ impl Component for Model {
 
 		html! {
 			<>
-				{
-					match self.show_add_timeline {
-						true => html! {<AddTimelineModal
-							add_timeline_callback={ctx.link().callback(|props| Msg::AddTimelineProps(props))}
-							close_modal_callback={ctx.link().callback(|_| Msg::SetAddTimelineModal(false))}
-						/>},
-						false => html! {},
-					}
-				}
+				<AddTimelineModal add_timeline_callback={ctx.link().callback(|props| Msg::AddTimelineProps(props))}/>
 				{
 					self.page_info
 						.as_ref()
@@ -197,11 +181,6 @@ impl Component for Model {
 					match ctx.props().favviewer {
 						false => html! {
 							<Sidebar>
-								<button onclick={ctx.link().callback(|_| Msg::SetAddTimelineModal(true))} title="Add new timeline">
-									<span class="icon">
-										<i class="fas fa-plus fa-2x"/>
-									</span>
-								</button>
 								{ display_mode_toggle }
 							</Sidebar>
 						},

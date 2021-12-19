@@ -1,6 +1,6 @@
 use yew::prelude::*;
 
-mod add_timeline;
+pub mod add_timeline;
 
 pub use add_timeline::AddTimelineModal;
 
@@ -11,12 +11,14 @@ pub struct Props {
 	pub close_modal_callback: Callback<MouseEvent>,
 	#[prop_or_default]
 	pub footer: Html,
+	#[prop_or_default]
+	pub enabled: bool,
 }
 
 #[function_component(Modal)]
 pub fn modal(props: &Props) -> Html {
 	html! {
-		<div class="modal is-active">
+		<div class={classes!("modal", if props.enabled { Some("is-active") } else { None })}>
 			<div class="modal-background"/>
 			<div class="modal-content">
 				<div class="card">

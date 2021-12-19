@@ -1,15 +1,19 @@
 use yew::prelude::*;
+use yew_agent::{Dispatcher, Dispatched};
 
 mod ratelimits;
 
 use ratelimits::RateLimitView;
+use crate::modals::add_timeline::{AddTimelineAgent, Request as AddTimelineRequest};
 
 pub struct Sidebar {
-	expanded: bool
+	expanded: bool,
+	add_timeline_agent: Dispatcher<AddTimelineAgent>,
 }
 
 pub enum Msg {
 	ToggleExpanded,
+	AddTimeline,
 }
 
 #[derive(Properties, PartialEq, Clone)]
@@ -22,7 +26,10 @@ impl Component for Sidebar {
 	type Properties = Props;
 
 	fn create(_ctx: &Context<Self>) -> Self {
-		Self { expanded: false}
+		Self {
+			expanded: false,
+			add_timeline_agent: AddTimelineAgent::dispatcher(),
+		}
 	}
 
 	fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
@@ -30,6 +37,10 @@ impl Component for Sidebar {
 			Msg::ToggleExpanded => {
 				self.expanded = !self.expanded;
 				true
+			}
+			Msg::AddTimeline => {
+				self.add_timeline_agent.send(AddTimelineRequest::AddTimeline);
+				false
 			}
 		}
 	}
@@ -58,6 +69,11 @@ impl Component for Sidebar {
 						<button title="Expand sidebar" onclick={ctx.link().callback(|_| Msg::ToggleExpanded)}>
 							<span class="icon">
 								<i class={classes!("fas", "fa-2x", if self.expanded { "fa-angle-double-left" } else { "fa-angle-double-right" })}/>
+							</span>
+						</button>
+						<button onclick={ctx.link().callback(|_| Msg::AddTimeline)} title="Add new timeline">
+							<span class="icon">
+								<i class="fas fa-plus fa-2x"/>
 							</span>
 						</button>
 						{ for ctx.props().children.iter() }

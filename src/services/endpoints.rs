@@ -118,7 +118,7 @@ pub enum Request {
 	EndpointFetchResponse(RefreshTime, EndpointId, FetchResult<Vec<Rc<RefCell<dyn ArticleData>>>>),
 	AddArticles(RefreshTime, EndpointId, Vec<Rc<RefCell<dyn ArticleData>>>),
 	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
-	InitService(String, Vec<EndpointConstructor>),
+	InitService(String, EndpointConstructors),
 	UpdateRateLimit(EndpointId, RateLimit),
 }
 
@@ -129,7 +129,7 @@ pub enum Action {
 	Refreshed(RefreshTime, EndpointId, (Vec<Rc<RefCell<dyn ArticleData>>>, Option<RateLimit>)),
 	RefreshFail(Error),
 	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
-	InitService(String, Vec<EndpointConstructor>),
+	InitService(String, EndpointConstructors),
 	UpdateRateLimit(EndpointId, RateLimit),
 }
 
@@ -142,12 +142,18 @@ pub struct EndpointConstructor {
 	pub callback: Rc<dyn Fn(EndpointId, serde_json::Value) -> Box<dyn Endpoint>>
 }
 
+#[derive(Clone)]
+pub struct EndpointConstructors {
+	pub endpoint_types: Vec<EndpointConstructor>,
+	pub user_endpoint: Option<usize>,
+}
+
 pub struct EndpointStore {
 	endpoint_counter: EndpointId,
 	pub endpoints: HashMap<EndpointId, Box<dyn Endpoint>>,
 	timeline_counter: TimelineId,
 	pub timelines: HashMap<TimelineId, (Weak<RefCell<TimelineEndpoints>>, Callback<Vec<Weak<RefCell<dyn ArticleData>>>>)>,
-	pub services: HashMap<String, Vec<EndpointConstructor>>,
+	pub services: HashMap<String, EndpointConstructors>,
 }
 
 impl Store for EndpointStore {
@@ -185,8 +191,8 @@ impl Store for EndpointStore {
 				link.send_message(Action::Refreshed(refresh_time, id, (articles, None))),
 			Request::AddEndpoint(endpoint) =>
 				link.send_message(Action::AddEndpoint(endpoint)),
-			Request::InitService(name, endpoint_types) =>
-				link.send_message(Action::InitService(name, endpoint_types)),
+			Request::InitService(name, endpoints) =>
+				link.send_message(Action::InitService(name, endpoints)),
 			Request::UpdateRateLimit(endpoint_id, ratelimit) =>
 				link.send_message(Action::UpdateRateLimit(endpoint_id, ratelimit)),
 		}
@@ -255,8 +261,8 @@ impl Store for EndpointStore {
 				self.endpoints.insert(self.endpoint_counter, endpoint(self.endpoint_counter));
 				self.endpoint_counter += 1;
 			}
-			Action::InitService(name, endpoint_types) => {
-				self.services.insert(name, endpoint_types);
+			Action::InitService(name, endpoints) => {
+				self.services.insert(name, endpoints);
 			}
 			Action::UpdateRateLimit(endpoint_id, ratelimit) => {
 				self.endpoints.get_mut(&endpoint_id).unwrap().update_ratelimit(ratelimit)

@@ -323,7 +323,6 @@ impl Component for Timeline {
 				true
 			}
 			Msg::SetSortMethod(sort_index) => {
-				log::debug!("Set sort method to {:?}", &sort_index);
 				self.sort_method = sort_index;
 				true
 			}
@@ -383,18 +382,12 @@ impl Component for Timeline {
 		};
 		html! {
 			<div class={classes!("timeline", if ctx.props().main_timeline { Some("mainTimeline") } else { None })} {style}>
-				{
-					match self.show_choose_endpoint {
-						true => html! {
-							<Modal modal_title="Choose Endpoints" close_modal_callback={ctx.link().callback(|_| Msg::SetChooseEndpointModal(false))}>
-								<ChooseEndpoints
-									timeline_endpoints={Rc::downgrade(&self.endpoints)}
-								/>
-							</Modal>
-						},
-						false => html! {},
-					}
-				}
+				<Modal enabled={self.show_choose_endpoint.clone()} modal_title="Choose Endpoints" close_modal_callback={ctx.link().callback(|_| Msg::SetChooseEndpointModal(false))}>
+					<ChooseEndpoints
+						timeline_endpoints={Rc::downgrade(&self.endpoints)}
+					/>
+				</Modal>
+
 				<div class="timelineHeader">
 					<div class="timelineLeftHeader">
 						<strong onclick={ctx.link().callback(|_| Msg::ScrollTop)}>{&ctx.props().name}</strong>
