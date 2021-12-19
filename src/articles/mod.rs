@@ -20,6 +20,7 @@ pub enum ArticleRefType {
 pub enum ArticleMedia {
 	Image(String),
 	Video(String),
+	Gif(String),
 }
 
 pub trait ArticleData {

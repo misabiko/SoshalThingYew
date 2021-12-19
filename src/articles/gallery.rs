@@ -62,9 +62,19 @@ impl Component for GalleryArticle {
 		html! {
 			<article class="article galleryArticle" articleId={actual_borrow.id()} style={ctx.props().style.clone()}>
 				{ for actual_borrow.media().iter().map(|m| match m {
-					ArticleMedia::Image(src) | ArticleMedia::Video(src) => html! {
+					ArticleMedia::Image(src) => html! {
 						<img src={src.clone()}/>
-					}
+					},
+					ArticleMedia::Video(video_src) => html! {
+						<video controls=true onclick={ctx.link().callback(|_| Msg::OnImageClick)}>
+							<source src={video_src.clone()} type="video/mp4"/>
+						</video>
+					},
+					ArticleMedia::Gif(gif_src) => html! {
+						<video controls=true autoplay=true loop=true muted=true onclick={ctx.link().callback(|_| Msg::OnImageClick)}>
+							<source src={gif_src.clone()} type="video/mp4"/>
+						</video>
+					},
 				}) }
 			</article>
 		}

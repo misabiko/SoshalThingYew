@@ -66,7 +66,6 @@ impl ArticleData for TweetArticleData {
 	fn reposted(&self) -> bool {
 		self.retweeted.clone()
 	}
-
 	fn media(&self) -> Vec<ArticleMedia> {
 		self.media.clone()
 	}
@@ -77,7 +76,6 @@ impl ArticleData for TweetArticleData {
 	fn url(&self) -> String {
 		format!("https://twitter.com/{}/status/{}", &self.author_username(), &self.id())
 	}
-
 	fn update(&mut self, new: &Ref<dyn ArticleData>) {
 		self.liked = new.liked();
 		self.retweeted = new.reposted();
@@ -148,17 +146,41 @@ impl TweetArticleData {
 				Some(medias) => {
 					medias.iter()
 						.map(|m| {
-							m.get("video_info")
-								.and_then(|v| v.get("variants"))
-								.and_then(|v| v.as_array())
-								.and_then(|v| v.first())
-								.and_then(|v| v.get("url"))
-								.and_then(|url| url.as_str())
-								.map(|url| ArticleMedia::Video(url.to_owned()))
-								.or(m.get("media_url_https")
-									.and_then(|url| url.as_str())
-									.map(|url| ArticleMedia::Image(url.to_owned()))
-								)
+							m.get("type")
+								.and_then(|t| t.as_str())
+								.and_then(|t| match t {
+									"photo" => m.get("media_url_https")
+										.and_then(|url| url.as_str())
+										.map(|url| ArticleMedia::Image(url.to_owned())),
+									"animated_gif" => m.get("video_info")
+										.and_then(|v| v.get("variants"))
+										.and_then(|v| v.as_array())
+										.and_then(|v| v.iter().find(|v|
+											v.get("content_type")
+											.and_then(|t| t.as_str())
+											.map(|t| t == "video/mp4")
+											.unwrap_or(false)
+										))
+										.and_then(|v| v.get("url"))
+										.and_then(|url| url.as_str())
+										.map(|url| ArticleMedia::Gif(url.to_owned())),
+									"video" => m.get("video_info")
+										.and_then(|v| v.get("variants"))
+										.and_then(|v| v.as_array())
+										.and_then(|v| v.iter().find(|v|
+											v.get("content_type")
+												.and_then(|t| t.as_str())
+												.map(|t| t == "video/mp4")
+												.unwrap_or(false)
+										))
+										.and_then(|v| v.get("url"))
+										.and_then(|url| url.as_str())
+										.map(|url| ArticleMedia::Gif(url.to_owned())),
+									other_type => {
+										log::warn!("Unexpected media type \"{}\"", &other_type);
+										None
+									}
+								})
 						})
 						.filter_map(std::convert::identity)
 						.collect()

@@ -1,7 +1,7 @@
 use std::rc::Weak;
 use std::cell::RefCell;
 
-use crate::articles::{ArticleData, ArticleRefType};
+use crate::articles::{ArticleData, ArticleMedia, ArticleRefType};
 
 pub type FilterPredicate = fn(&Weak<RefCell<dyn ArticleData>>, inverted: bool) -> bool;
 
@@ -32,9 +32,16 @@ impl Filter {
 	}
 }
 
+fn is_animated(media: &ArticleMedia) -> bool {
+	match media {
+		ArticleMedia::Video(_) | ArticleMedia::Gif(_) => true,
+		ArticleMedia::Image(_) => false,
+	}
+}
+
 pub fn default_filters() -> Vec<Filter> {
 	vec![
-		Filter::new(
+		Filter::new_disabled(
 			"Media".to_owned(),
 			|a, inverted| {
 				match a.upgrade() {
@@ -49,6 +56,21 @@ pub fn default_filters() -> Vec<Filter> {
 					None => false,
 				}
 		}),
+		Filter::new_disabled(
+			"Animated".to_owned(),
+			|a, inverted| {
+				match a.upgrade() {
+					Some(strong) => {
+						let borrow = strong.borrow();
+						(match borrow.referenced_article() {
+							ArticleRefType::NoRef => (borrow.media().len() > 0),
+							ArticleRefType::Repost(a) => a.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false),
+							ArticleRefType::Quote(a) => (a.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false) || (borrow.media().iter().any(|m| is_animated(m)))),
+						}) != inverted
+					},
+					None => false,
+				}
+			}),
 		Filter::new(
 			"Not marked as read".to_owned(),
 			|a, inverted| {

@@ -377,6 +377,13 @@ impl SocialArticle {
 					</video>
 				</div>
 			},
+			[ArticleMedia::Gif(gif_src)] => html! {
+				<div class="postMedia postVideo">
+					<video controls=true autoplay=true loop=true muted=true onclick={ctx.link().callback(|_| Msg::OnImageClick)}>
+						<source src={gif_src.clone()} type="video/mp4"/>
+					</video>
+				</div>
+			},
 			_ => html! {{"unexpected media format"}}
 		}
 	}
