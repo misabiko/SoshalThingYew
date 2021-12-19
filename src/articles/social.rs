@@ -80,6 +80,14 @@ impl Component for SocialArticle {
 				false
 			}
 			Msg::ToggleMarkAsRead => {
+				if let Some(video) = self.video_ref.cast::<web_sys::HtmlVideoElement>() {
+					video.set_muted(true);
+					match video.pause() {
+						Err(err) => log::warn!("Failed to try and pause the video.\n{:?}", &err),
+						Ok(_) => {}
+					}
+				}
+
 				let strong = ctx.props().data.upgrade().unwrap();
 				let mut borrow = strong.borrow_mut();
 
@@ -102,6 +110,14 @@ impl Component for SocialArticle {
 				true
 			}
 			Msg::ToggleHide => {
+				if let Some(video) = self.video_ref.cast::<web_sys::HtmlVideoElement>() {
+					video.set_muted(true);
+					match video.pause() {
+						Err(err) => log::warn!("Failed to try and pause the video.\n{:?}", &err),
+						Ok(_) => {}
+					}
+				}
+
 				let strong = ctx.props().data.upgrade().unwrap();
 				let mut borrow = strong.borrow_mut();
 
