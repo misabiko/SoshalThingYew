@@ -9,6 +9,7 @@ use reqwest::header::HeaderMap;
 use crate::error::{Error, FetchResult};
 use crate::articles::ArticleData;
 use crate::timeline::sort_methods::sort_by_id;
+use crate::TimelineId;
 
 #[derive(Clone, Debug)]
 pub struct RateLimit {
@@ -112,7 +113,8 @@ pub enum RefreshTime {
 }
 
 pub enum Request {
-	InitTimeline(Rc<RefCell<TimelineEndpoints>>, Callback<Vec<Weak<RefCell<dyn ArticleData>>>>),
+	InitTimeline(TimelineId, Rc<RefCell<TimelineEndpoints>>, Callback<Vec<Weak<RefCell<dyn ArticleData>>>>),
+	RemoveTimeline(TimelineId),
 	Refresh(Weak<RefCell<TimelineEndpoints>>),
 	LoadBottom(Weak<RefCell<TimelineEndpoints>>),
 	EndpointFetchResponse(RefreshTime, EndpointId, FetchResult<Vec<Rc<RefCell<dyn ArticleData>>>>),
@@ -123,7 +125,8 @@ pub enum Request {
 }
 
 pub enum Action {
-	InitTimeline(Rc<RefCell<TimelineEndpoints>>, Callback<Vec<Weak<RefCell<dyn ArticleData>>>>),
+	InitTimeline(TimelineId, Rc<RefCell<TimelineEndpoints>>, Callback<Vec<Weak<RefCell<dyn ArticleData>>>>),
+	RemoveTimeline(TimelineId),
 	Refresh(HashSet<EndpointId>),
 	LoadBottom(HashSet<EndpointId>),
 	Refreshed(RefreshTime, EndpointId, (Vec<Rc<RefCell<dyn ArticleData>>>, Option<RateLimit>)),
@@ -132,8 +135,6 @@ pub enum Action {
 	InitService(String, EndpointConstructors),
 	UpdateRateLimit(EndpointId, RateLimit),
 }
-
-type TimelineId = i32;
 
 #[derive(Clone)]
 pub struct EndpointConstructor {
@@ -151,11 +152,11 @@ pub struct EndpointConstructors {
 pub struct EndpointStore {
 	endpoint_counter: EndpointId,
 	pub endpoints: HashMap<EndpointId, Box<dyn Endpoint>>,
-	timeline_counter: TimelineId,
 	pub timelines: HashMap<TimelineId, (Weak<RefCell<TimelineEndpoints>>, Callback<Vec<Weak<RefCell<dyn ArticleData>>>>)>,
 	pub services: HashMap<String, EndpointConstructors>,
 }
 
+//TODO Reimplement with Agent
 impl Store for EndpointStore {
 	type Input = Request;
 	type Action = Action;
@@ -164,7 +165,6 @@ impl Store for EndpointStore {
 		Self {
 			endpoint_counter: i32::MIN,
 			endpoints: HashMap::new(),
-			timeline_counter: i32::MIN,
 			timelines: HashMap::new(),
 			services: HashMap::new(),
 		}
@@ -172,7 +172,8 @@ impl Store for EndpointStore {
 
 	fn handle_input(&self, link: AgentLink<StoreWrapper<Self>>, msg: Self::Input) {
 		match msg {
-			Request::InitTimeline(endpoints, callback) => link.send_message(Action::InitTimeline(endpoints, callback)),
+			Request::InitTimeline(id, endpoints, callback) => link.send_message(Action::InitTimeline(id, endpoints, callback)),
+			Request::RemoveTimeline(id) => link.send_message(Action::RemoveTimeline(id)),
 			Request::Refresh(endpoints_weak) => {
 				let endpoints = endpoints_weak.upgrade().unwrap();
 				link.send_message(Action::Refresh(endpoints.borrow().refresh.clone()));
@@ -200,9 +201,8 @@ impl Store for EndpointStore {
 
 	fn reduce(&mut self, msg: Self::Action) {
 		match msg {
-			Action::InitTimeline(endpoints, callback) => {
-				self.timelines.insert(self.timeline_counter.clone(), (Rc::downgrade(&endpoints), callback));
-				self.timeline_counter += 1;
+			Action::InitTimeline(id, endpoints, callback) => {
+				self.timelines.insert(id, (Rc::downgrade(&endpoints), callback));
 
 				for endpoint_id in &endpoints.borrow().start {
 					let endpoint = self.endpoints.get_mut(&endpoint_id).unwrap();
@@ -212,6 +212,9 @@ impl Store for EndpointStore {
 						log::warn!("Can't refresh {}", &endpoint.name());
 					}
 				}
+			}
+			Action::RemoveTimeline(id) => {
+				self.timelines.remove(&id);
 			}
 			Action::Refresh(endpoints) => {
 				for endpoint_id in endpoints {

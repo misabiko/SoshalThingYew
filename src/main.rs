@@ -113,8 +113,8 @@ impl Component for Model {
 			page_info,
 			_twitter: TwitterAgent::dispatcher(),
 			_pixiv: PixivAgent::dispatcher(),
-			timeline_counter: i32::MIN,
-			main_timeline: i32::MIN,
+			timeline_counter: TimelineId::MIN,
+			main_timeline: TimelineId::MIN,
 		}
 	}
 
@@ -124,12 +124,14 @@ impl Component for Model {
 				self.endpoint_store.send(EndpointRequest::AddEndpoint(e));
 				false
 			}
-			Msg::AddTimeline(name, id) => {
+			Msg::AddTimeline(name, endpoint_id) => {
 				let mut endpoints = HashSet::new();
-				endpoints.insert(id);
+				let timeline_id = self.timeline_counter.clone();
+				endpoints.insert(endpoint_id);
+
 				self.timelines.push(yew::props! { TimelineProps {
 					name,
-					id: self.timeline_counter,
+					id: timeline_id.clone(),
 					endpoints: TimelineEndpoints {
 						start: endpoints.clone(),
 						refresh: endpoints,
@@ -137,7 +139,7 @@ impl Component for Model {
 				}});
 				self.timeline_counter += 1;
 
-				ctx.link().send_message(Msg::TimelineAgentResponse(TimelineAgentResponse::SetMainTimeline(id)));
+				ctx.link().send_message(Msg::TimelineAgentResponse(TimelineAgentResponse::SetMainTimeline(timeline_id)));
 				true
 			}
 			Msg::AddTimelineProps(props) => {

@@ -23,7 +23,7 @@ use crate::dropdown::{Dropdown, DropdownLabel};
 use crate::services::article_actions::{ArticleActionsAgent, Response as ArticleActionsResponse};
 use crate::modals::add_timeline::{TimelineAgent, Request as TimelineAgentRequest};
 
-pub type TimelineId = i32;
+pub type TimelineId = i8;
 
 enum ScrollDirection {
 	Up,
@@ -141,7 +141,7 @@ impl Component for Timeline {
 		};
 
 		let mut endpoint_store = EndpointStore::bridge(ctx.link().callback(Msg::EndpointStoreResponse));
-		endpoint_store.send(EndpointRequest::InitTimeline(endpoints.clone(), ctx.link().callback(Msg::NewArticles)));
+		endpoint_store.send(EndpointRequest::InitTimeline(ctx.props().id.clone(), endpoints.clone(), ctx.link().callback(Msg::NewArticles)));
 
 		Self {
 			endpoints,
@@ -360,6 +360,8 @@ impl Component for Timeline {
 			}
 			Msg::RemoveTimeline => {
 				self.timeline_agent.send(TimelineAgentRequest::RemoveTimeline(ctx.props().id.clone()));
+				self.endpoint_store.send(EndpointRequest::RemoveTimeline(ctx.props().id.clone()));
+
 				false
 			}
 		}
