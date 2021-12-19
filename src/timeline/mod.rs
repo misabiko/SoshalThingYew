@@ -15,7 +15,7 @@ mod filters;
 use containers::{Container, view_container, Props as ContainerProps};
 use filters::{Filter, default_filters};
 use sort_methods::{SortMethod, default_sort_methods};
-use crate::articles::{ArticleComponent, ArticleData};
+use crate::articles::{ArticleComponent, ArticleData, actual_article};
 use crate::services::endpoints::{EndpointStore, Request as EndpointRequest, TimelineEndpoints};
 use crate::modals::Modal;
 use crate::choose_endpoints::ChooseEndpoints;
@@ -323,6 +323,7 @@ impl Component for Timeline {
 				true
 			}
 			Msg::SetSortMethod(sort_index) => {
+				log::debug!("Set sort method to {:?}", &sort_index);
 				self.sort_method = sort_index;
 				true
 			}
@@ -365,9 +366,12 @@ impl Component for Timeline {
 		if !self.sort_methods.is_empty() {
 			if let Some(sort_method) = self.sort_method {
 				let method = &self.sort_methods[sort_method.clone()];
-				articles.sort_by(|a, b| match method.reversed {
-					false => (method.compare)(a, b),
-					true => (method.compare)(a, b).reverse(),
+				articles.sort_by(|a, b| {
+					let (actual_a, actual_b) = (actual_article(&a), actual_article(&b));
+					match method.reversed {
+						false => (method.compare)(&actual_a, &actual_b),
+						true => (method.compare)(&actual_a, &actual_b).reverse(),
+					}
 				});
 			}
 		}
