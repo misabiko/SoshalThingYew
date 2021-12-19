@@ -318,7 +318,7 @@ impl SocialArticle {
 								</a>
 								{
 									match &actual_borrow.media()[..] {
-										[ArticleMedia::Image(_), ..] => html! {
+										[ArticleMedia::Image(_, _), ..] => html! {
 											<a class="level-item articleButton" onclick={&ontoggle_compact}>
 												<span class="icon">
 													<i class={classes!("fas", if self.is_compact(ctx) { "fa-compress" } else { "fa-expand" })}/>
@@ -353,7 +353,7 @@ impl SocialArticle {
 
 	fn view_media(&self, ctx: &Context<Self>, actual_borrow: &Ref<dyn ArticleData>) -> Html {
 		match (&ctx.props().animated_as_gifs, &actual_borrow.media()[..]) {
-			(_, [ArticleMedia::Image(_), ..]) => {
+			(_, [ArticleMedia::Image(_, _), ..]) => {
 				let images_classes = classes!(
 						"postMedia",
 						"postImages",
@@ -363,21 +363,21 @@ impl SocialArticle {
 				html! {
 					<div class={images_classes.clone()}> {
 						match &actual_borrow.media()[..] {
-							[ArticleMedia::Image(image)] => self.view_image(ctx, actual_borrow, image.clone(), false),
-							[ArticleMedia::Image(i1), ArticleMedia::Image(i2)] => html! {
+							[ArticleMedia::Image(image, _)] => self.view_image(ctx, actual_borrow, image.clone(), false),
+							[ArticleMedia::Image(i1, _), ArticleMedia::Image(i2, _)] => html! {
 								<>
 									{ self.view_image(ctx, actual_borrow, i1.clone(), false) }
 									{ self.view_image(ctx, actual_borrow, i2.clone(), false) }
 								</>
 							},
-							[ArticleMedia::Image(i1), ArticleMedia::Image(i2), ArticleMedia::Image(i3)] => html! {
+							[ArticleMedia::Image(i1, _), ArticleMedia::Image(i2, _), ArticleMedia::Image(i3, _)] => html! {
 								<>
 									{ self.view_image(ctx, actual_borrow, i1.clone(), false) }
 									{ self.view_image(ctx, actual_borrow, i2.clone(), false) }
 									{ self.view_image(ctx, actual_borrow, i3.clone(), true) }
 								</>
 							},
-							[ArticleMedia::Image(i1), ArticleMedia::Image(i2), ArticleMedia::Image(i3), ArticleMedia::Image(i4), ..] => html! {
+							[ArticleMedia::Image(i1, _), ArticleMedia::Image(i2, _), ArticleMedia::Image(i3, _), ArticleMedia::Image(i4, _), ..] => html! {
 								<>
 									{ self.view_image(ctx, actual_borrow, i1.clone(), false) }
 									{ self.view_image(ctx, actual_borrow, i2.clone(), false) }
@@ -390,14 +390,14 @@ impl SocialArticle {
 					} </div>
 				}
 			}
-			(false, [ArticleMedia::Video(video_src)]) => html! {
+			(false, [ArticleMedia::Video(video_src, _)]) => html! {
 				<div class="postMedia postVideo">
 					<video ref={self.video_ref.clone()} controls=true onclick={ctx.link().callback(|_| Msg::OnImageClick)}>
 						<source src={video_src.clone()} type="video/mp4"/>
 					</video>
 				</div>
 			},
-			(_, [ArticleMedia::Gif(gif_src)]) | (true, [ArticleMedia::Video(gif_src)]) => html! {
+			(_, [ArticleMedia::Gif(gif_src, _)]) | (true, [ArticleMedia::Video(gif_src, _)]) => html! {
 				<div class="postMedia postVideo">
 					<video ref={self.video_ref.clone()} controls=true autoplay=true loop=true muted=true onclick={ctx.link().callback(|_| Msg::OnImageClick)}>
 						<source src={gif_src.clone()} type="video/mp4"/>

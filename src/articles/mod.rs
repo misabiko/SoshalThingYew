@@ -17,11 +17,11 @@ pub enum ArticleRefType<Pointer = Weak<RefCell<dyn ArticleData>>> {
 	QuoteRepost(Pointer, Pointer),
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq)]
 pub enum ArticleMedia {
-	Image(String),
-	Video(String),
-	Gif(String),
+	Image(String, f32),
+	Video(String, f32),
+	Gif(String, f32),
 }
 
 pub trait ArticleData {

@@ -45,7 +45,8 @@ impl ArticleData for PixivArticleData {
 	}
 
 	fn media(&self) -> Vec<ArticleMedia> {
-		vec![ArticleMedia::Image(self.src.clone())]
+		//TODO Pixiv image ratio
+		vec![ArticleMedia::Image(self.src.clone(), 1.0)]
 	}
 
 	fn url(&self) -> String {
@@ -54,7 +55,7 @@ impl ArticleData for PixivArticleData {
 
 	fn update(&mut self, new: &Ref<dyn ArticleData>) {
 		self.src = match new.media().first() {
-			Some(ArticleMedia::Image(src)) => src.clone(),
+			Some(ArticleMedia::Image(src, _ratio)) => src.clone(),
 			_ => "".to_owned(),
 		};
 		self.title = new.text();

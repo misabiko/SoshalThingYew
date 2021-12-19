@@ -2,7 +2,7 @@ use yew::prelude::*;
 use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 
-use crate::articles::{view_article, ArticleData, ArticleComponent};
+use crate::articles::{view_article, ArticleData, ArticleComponent, ArticleMedia};
 
 //TODO Make containers dynamic
 pub enum Container {
@@ -93,21 +93,25 @@ pub fn row_container(props: &Props) -> Html {
 	}
 }
 
-type RatioedArticle<'a> = (&'a Rc<RefCell<dyn ArticleData>>, u32);
+type RatioedArticle<'a> = (&'a Rc<RefCell<dyn ArticleData>>, f32);
 type Column<'a> = (u8, Vec<RatioedArticle<'a>>);
 
-//TODO Actually estimate article's size
-fn relative_height(article: &Rc<RefCell<dyn ArticleData>>) -> u32 {
-	1 + article.borrow().media().len() as u32
+fn relative_height(article: &Rc<RefCell<dyn ArticleData>>) -> f32 {
+	(1.0 as f32) + article.borrow()
+		.media().iter()
+		.map(|m| match m {
+			ArticleMedia::Image(_, ratio) | ArticleMedia::Video(_, ratio) | ArticleMedia::Gif(_, ratio) => ratio
+		})
+		.sum::<f32>()
 }
 
-fn height(column: &Column) -> u32 {
+fn height(column: &Column) -> f32 {
 	if column.1.is_empty() {
-		0
+		0.0
 	}else {
 		column.1.iter()
 			.map(|r| r.1)
-			.sum::<u32>()
+			.sum::<f32>()
 	}
 }
 

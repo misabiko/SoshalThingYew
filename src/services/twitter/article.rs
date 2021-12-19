@@ -171,14 +171,24 @@ impl TweetArticleData {
 								.and_then(|t| t.as_str())
 								.and_then(|t| match t {
 									"photo" => m.get("media_url_https")
-										.and_then(|url| url.as_str())
-										.map(|url| ArticleMedia::Image(url.to_owned())),
+											.and_then(|url| url.as_str())
+											.zip(m.get("sizes")
+												.and_then(|s| s.get("large"))
+												.and_then(|s|
+													s.get("w")
+														.and_then(|w| w.as_u64())
+														.zip(s.get("h")
+															.and_then(|h| h.as_u64())
+														)
+														.map(|(w, h)| h as f32 / w as f32)
+												))
+											.map(|(url, ratio)| ArticleMedia::Image(url.to_owned(), ratio)),
 									"animated_gif" => m.get("video_info")
-										.and_then(|v| get_mp4_src(v))
-										.map(|url| ArticleMedia::Gif(url.to_owned())),
+										.and_then(|v| get_mp4(v))
+										.map(|(url, ratio)| ArticleMedia::Gif(url.to_owned(), ratio)),
 									"video" => m.get("video_info")
-										.and_then(|v| get_mp4_src(v))
-										.map(|url| ArticleMedia::Video(url.to_owned())),
+										.and_then(|v| get_mp4(v))
+										.map(|(url, ratio)| ArticleMedia::Video(url.to_owned(), ratio)),
 									other_type => {
 										log::warn!("Unexpected media type \"{}\"", &other_type);
 										None
@@ -216,10 +226,18 @@ fn first_mp4(variants: &Vec<serde_json::Value>) -> Option<&serde_json::Value> {
 	)
 }
 
-fn get_mp4_src(video_info: &serde_json::Value) -> Option<&str> {
+fn get_mp4(video_info: &serde_json::Value) -> Option<(&str, f32)> {
 	video_info.get("variants")
 		.and_then(|v| v.as_array())
 		.and_then(|v| first_mp4(v))
 		.and_then(|v| v.get("url"))
 		.and_then(|url| url.as_str())
+		.zip(
+			video_info.get("aspect_ratio")
+				.and_then(|r| r.as_array())
+				.and_then(|r| r.get(0)
+					.and_then(|w| w.as_u64())
+					.zip(r.get(1).and_then(|w| w.as_u64())))
+				.map(|(w, h)| h as f32 / w as f32)
+		)
 }

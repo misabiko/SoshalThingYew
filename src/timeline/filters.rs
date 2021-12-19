@@ -34,8 +34,8 @@ impl Filter {
 
 fn is_animated(media: &ArticleMedia) -> bool {
 	match media {
-		ArticleMedia::Video(_) | ArticleMedia::Gif(_) => true,
-		ArticleMedia::Image(_) => false,
+		ArticleMedia::Video(_, _) | ArticleMedia::Gif(_, _) => true,
+		ArticleMedia::Image(_, _) => false,
 	}
 }
 
