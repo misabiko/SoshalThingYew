@@ -9,7 +9,7 @@ use yew_agent::{Bridge, Bridged, Dispatcher, Dispatched};
 use crate::articles::{ArticleData, ArticleRefType, Props, ArticleMedia};
 use crate::dropdown::{Dropdown, DropdownLabel};
 use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest, Response as ArticleActionsResponse};
-use crate::modals::add_timeline::{TimelineAgent, Request as TimelineAgentRequest};
+use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest};
 
 pub struct SocialArticle {
 	compact: Option<bool>,

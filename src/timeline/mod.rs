@@ -9,19 +9,20 @@ use rand::{seq::SliceRandom, thread_rng};
 use wasm_bindgen::closure::Closure;
 
 pub mod sort_methods;
+pub mod agent;
 mod containers;
 mod filters;
 
 use containers::{Container, view_container, Props as ContainerProps};
 use filters::{Filter, default_filters};
 use sort_methods::{SortMethod, default_sort_methods};
+use agent::{TimelineAgent, Request as TimelineAgentRequest};
 use crate::articles::{ArticleComponent, ArticleData, actual_article};
 use crate::services::endpoints::{EndpointStore, Request as EndpointRequest, TimelineEndpoints};
 use crate::modals::Modal;
 use crate::choose_endpoints::ChooseEndpoints;
 use crate::dropdown::{Dropdown, DropdownLabel};
 use crate::services::article_actions::{ArticleActionsAgent, Response as ArticleActionsResponse};
-use crate::modals::add_timeline::{TimelineAgent, Request as TimelineAgentRequest};
 
 pub type TimelineId = i8;
 

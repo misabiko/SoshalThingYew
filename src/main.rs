@@ -21,8 +21,8 @@ use crate::services::{
 	twitter::{endpoints::{HomeTimelineEndpoint, SingleTweetEndpoint, UserTimelineEndpoint}, TwitterAgent},
 };
 use crate::favviewer::{PageInfo, PixivPageInfo};
-use crate::modals::add_timeline::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse};
 use crate::modals::AddTimelineModal;
+use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse};
 
 #[derive(PartialEq, Clone)]
 enum DisplayMode {

@@ -4,7 +4,7 @@ use yew_agent::{Dispatcher, Dispatched};
 mod ratelimits;
 
 use ratelimits::RateLimitView;
-use crate::modals::add_timeline::{TimelineAgent, Request as TimelineAgentRequest};
+use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest};
 
 pub struct Sidebar {
 	expanded: bool,

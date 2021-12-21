@@ -1,6 +1,9 @@
 [watch]
 watch = ["src", "Cargo.toml", "index.html"]
 
+[serve]
+no_autoreload = true
+
 [[proxy]]
 backend = "http://localhost:3000/proxy"
 

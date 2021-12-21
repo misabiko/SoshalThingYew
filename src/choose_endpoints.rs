@@ -11,7 +11,7 @@ use web_sys::HtmlInputElement;
 
 use crate::services::endpoints::{Request as EndpointRequest, EndpointStore, TimelineEndpoints, EndpointId, RefreshTime, EndpointConstructors};
 use crate::dropdown::{Dropdown, DropdownLabel};
-use crate::modals::add_timeline::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse};
+use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse};
 
 struct EndpointView {
 	name: String
