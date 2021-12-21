@@ -13,7 +13,7 @@
 		"resources": [
 			"/generated_files.json",
 			"/dist/index-*",
-			"/node_modules/@fortawesome/fontawesome-free/webfonts/*"
+			"/webfonts/*"
 		],
 		"matches": ["https://*.pixiv.net/*"]
 	}]
