@@ -408,7 +408,7 @@ impl Component for Timeline {
 
 				<div class="timelineHeader">
 					<div class="timelineLeftHeader">
-						<strong onclick={ctx.link().callback(|_| Msg::ScrollTop)}>{format!("{} - {}", &ctx.props().name, self.articles.len())}</strong>
+						<strong onclick={ctx.link().callback(|_| Msg::ScrollTop)}>{ctx.props().name.clone()}</strong>
 						{ if ctx.props().children.is_empty() {
 							html! {}
 						}else {

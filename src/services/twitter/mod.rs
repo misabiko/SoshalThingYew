@@ -137,13 +137,7 @@ impl Agent for TwitterAgent {
 			mark_as_read: link.callback(|(id, article, value)| Msg::MarkAsRead(id, article, value)),
 		}));
 
-		let session_storage: Option<SoshalSessionStorage> = match gloo_storage::SessionStorage::get("SoshalThingYew") {
-			Ok(storage) => Some(storage),
-			Err(err) => {
-				log::debug!("Error getting session_storage {:?}", &err);
-				None
-			}
-		};
+		let session_storage: Option<SoshalSessionStorage> = gloo_storage::SessionStorage::get("SoshalThingYew").ok();
 		let cached_marked_as_read = match &session_storage.as_ref().map(|s| &s.services).and_then(|s| s.get("Twitter")) {
 			Some(storage) => storage.articles_marked_as_read.iter().map(|id| id.parse().unwrap()).collect(),
 			None => HashSet::new(),

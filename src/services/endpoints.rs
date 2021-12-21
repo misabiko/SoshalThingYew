@@ -100,6 +100,7 @@ pub trait Endpoint {
 
 pub type EndpointId = i32;
 
+//Maybe HashMap<RefreshTime, HashSet<EndpointId>> ?
 #[derive(Clone, PartialEq, Default)]
 pub struct TimelineEndpoints {
 	pub start: HashSet<EndpointId>,

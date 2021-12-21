@@ -5,10 +5,11 @@ use std::cell::RefCell;
 use yew_agent::{Bridge, Bridged};
 
 use super::Modal;
-use crate::timeline::{Props as TimelineProps, TimelineId};
+use crate::timeline::{Props as TimelineProps};
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse};
 use crate::services::endpoints::TimelineEndpoints;
 use crate::choose_endpoints::ChooseEndpoints;
+use crate::TimelinePropsClosure;
 
 pub struct AddTimelineModal {
 	enabled: bool,
@@ -25,7 +26,7 @@ pub enum Msg {
 
 #[derive(Properties, PartialEq, Clone)]
 pub struct Props {
-	pub add_timeline_callback: Callback<Box<dyn FnOnce(TimelineId) -> TimelineProps>>,
+	pub add_timeline_callback: Callback<TimelinePropsClosure>,
 }
 
 impl Component for AddTimelineModal {

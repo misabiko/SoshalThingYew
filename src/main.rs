@@ -38,6 +38,8 @@ impl Default for DisplayMode {
 	}
 }
 
+pub type TimelinePropsClosure = Box<dyn FnOnce(TimelineId) -> TimelineProps>;
+
 struct Model {
 	endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
 	_timeline_agent: Box<dyn Bridge<TimelineAgent>>,
@@ -54,7 +56,7 @@ enum Msg {
 	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
 	AddTimeline(String, EndpointId),
 	ToggleFavViewer,
-	AddTimelineProps(Box<dyn FnOnce(TimelineId) -> TimelineProps>),
+	AddTimelineProps(TimelinePropsClosure),
 	EndpointStoreResponse(ReadOnly<EndpointStore>),
 	ToggleDisplayMode,
 	TimelineAgentResponse(TimelineAgentResponse),
@@ -104,6 +106,7 @@ impl Component for Model {
 
 		let mut _timeline_agent = TimelineAgent::bridge(ctx.link().callback(Msg::TimelineAgentResponse));
 		_timeline_agent.send(TimelineAgentRequest::RegisterTimelineContainer);
+		_timeline_agent.send(TimelineAgentRequest::LoadStorageTimelines);
 
 		Self {
 			_timeline_agent,
@@ -147,7 +150,7 @@ impl Component for Model {
 				self.timelines.push((props)(id.clone()));
 				self.timeline_counter += 1;
 
-				ctx.link().send_message(Msg::TimelineAgentResponse(TimelineAgentResponse::SetMainTimeline(id)));
+				//ctx.link().send_message(Msg::TimelineAgentResponse(TimelineAgentResponse::SetMainTimeline(id)));
 
 				true
 			}
@@ -190,6 +193,13 @@ impl Component for Model {
 								None => self.timeline_counter.clone(),
 							}
 						}
+					}
+					true
+				}
+				TimelineAgentResponse::CreateTimelines(timelines) => {
+					for props in timelines {
+						self.timelines.push((props)(self.timeline_counter.clone()));
+						self.timeline_counter += 1;
 					}
 					true
 				}
@@ -374,7 +384,6 @@ fn main() {
 }
 
 //TODO Save fetched articles
-//TODO Load timeline data
 //TODO Parse tweet text
 //TODO Auto refresh
 //TODO Display timeline errors
@@ -384,7 +393,6 @@ fn main() {
 //TODO Social expanded view
 //TODO Prompt on not logged in
 //TODO Avoid refreshing endpoint every watch update
-//TODO HTTPS
 
 //TODO Show multiple article types in same timeline
 
