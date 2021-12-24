@@ -2,8 +2,7 @@ use yew_agent::{Agent, AgentLink, HandlerId, Context as AgentContext, Dispatcher
 use gloo_storage::Storage;
 use serde::{Serialize, Deserialize};
 
-use super::TimelineId;
-use crate::timeline::{Props as TimelineProps};
+use super::{TimelineId, Props as TimelineProps, Container};
 use crate::services::endpoint_agent::{TimelineEndpoints, Request as EndpointRequest, EndpointAgent};
 use crate::{TimelinePropsClosure, TimelinePropsEndpointsClosure};
 
@@ -115,6 +114,19 @@ impl Agent for TimelineAgent {
 						let name = t.title.clone();
 						let width = t.width.clone();
 						let column_count = t.column_count.clone();
+						let container = match Container::from(&t.container) {
+							Ok(c) => c,
+							Err(err) => {
+								log::error!("{:?}", err);
+								Container::Column
+							}
+						};
+						/*match name {
+							"Column" => Ok(Container::Column),
+							"Row" => Ok(Container::Row),
+							"Masonry" => Ok(Container::Masonry),
+							_ => Err(format!("Couldn't parse container \"{}\".", name).into()),
+						}*/
 						(
 							t.endpoints,
 							Box::new(move |id, endpoints|
@@ -122,6 +134,7 @@ impl Agent for TimelineAgent {
 									name,
 									id,
 									endpoints,
+									container,
 									width,
 									column_count,
 								}}

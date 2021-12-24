@@ -2,9 +2,14 @@ use yew::prelude::*;
 use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 
+use crate::error::Result;
 use crate::articles::{view_article, ArticleData, ArticleComponent, ArticleMedia};
 
-//TODO Make containers dynamic
+/*Make containers dynamic?
+	Would require to dynamically list container names without an enum/vec
+	Would require to dynamically create a container from said name
+ */
+#[derive(Clone, PartialEq, Eq)]
 pub enum Container {
 	Column,
 	Row,
@@ -12,6 +17,14 @@ pub enum Container {
 }
 
 impl Container {
+	pub fn from(name: &str) -> Result<Self> {
+		match name {
+			"Column" => Ok(Container::Column),
+			"Row" => Ok(Container::Row),
+			"Masonry" => Ok(Container::Masonry),
+			_ => Err(format!("Couldn't parse container \"{}\".", name).into()),
+		}
+	}
 	pub fn name(&self) -> &'static str {
 		match self {
 			Container::Column => "Column",

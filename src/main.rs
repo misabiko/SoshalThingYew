@@ -13,7 +13,7 @@ mod favviewer;
 pub mod choose_endpoints;
 
 use crate::sidebar::Sidebar;
-use crate::timeline::{Props as TimelineProps, Timeline, TimelineId};
+use crate::timeline::{Props as TimelineProps, Timeline, TimelineId, Container};
 use crate::services::{
 	Endpoint,
 	endpoint_agent::{EndpointId, EndpointAgent, Request as EndpointRequest, Response as EndpointResponse, TimelineEndpoints},
@@ -270,7 +270,7 @@ impl Component for Model {
 							DisplayMode::Single {column_count} => html! {
 								{for self.timelines.iter().map(|props| if props.id == self.main_timeline {
 									 html! {
-										<Timeline key={props.id.clone()} main_timeline=true {column_count} ..props.clone()>
+										<Timeline key={props.id.clone()} main_timeline=true container={Container::Masonry} {column_count} ..props.clone()>
 											{
 												match ctx.props().favviewer {
 													true => html! {
@@ -401,7 +401,7 @@ fn main() {
 	};
 }
 
-//TODO Load timeline container
+//TODO Avoid loading duplicate endpoints
 //TODO Parse tweet text
 //TODO Auto refresh
 //TODO Youtube articles

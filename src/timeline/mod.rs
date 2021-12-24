@@ -12,7 +12,8 @@ pub mod agent;
 mod containers;
 mod filters;
 
-use containers::{Container, view_container, Props as ContainerProps};
+pub use containers::Container;
+use containers::{view_container, Props as ContainerProps};
 use filters::{Filter, default_filters};
 use sort_methods::{SortMethod, default_sort_methods};
 use agent::{TimelineAgent, Request as TimelineAgentRequest};
@@ -106,6 +107,8 @@ pub struct Props {
 	pub endpoints: Option<TimelineEndpoints>,
 	#[prop_or_default]
 	pub main_timeline: bool,
+	#[prop_or(Container::Column)]
+	pub container: Container,
 	#[prop_or(1)]
 	pub width: u8,
 	#[prop_or(1)]
@@ -123,6 +126,7 @@ impl PartialEq for Props {
 			self.hide == other.hide &&
 			self.endpoints == other.endpoints &&
 			self.main_timeline == other.main_timeline &&
+			self.container == other.container &&
 			self.width == other.width &&
 			self.column_count == other.column_count &&
 			self.children == other.children &&
@@ -156,7 +160,7 @@ impl Component for Timeline {
 			filters: default_filters(),
 			sort_methods: default_sort_methods(),
 			sort_method: Some(0),
-			container: if ctx.props().main_timeline { Container::Masonry } else { Container::Column },
+			container: ctx.props().container.clone(),
 			show_container_dropdown: false,
 			show_article_component_dropdown: false,
 			column_count: ctx.props().column_count.clone(),
