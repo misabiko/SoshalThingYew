@@ -491,7 +491,25 @@ impl Component for Timeline {
 }
 
 impl Timeline {
+	//TODO Collapse boxes
 	fn view_options(&self, ctx: &Context<Self>) -> Html {
+		if self.options_shown {
+			html! {
+				<div class="timelineOptions">
+					{ self.view_container_options(ctx) }
+					{ self.view_section_options(ctx) }
+					{ self.view_articles_options(ctx) }
+					{ self.view_timeline_options(ctx) }
+					{ self.view_filters_options(ctx) }
+					{ self.view_sort_options(ctx) }
+				</div>
+			}
+		} else {
+			html! {}
+		}
+	}
+
+	fn view_container_options(&self, ctx: &Context<Self>) -> Html {
 		let on_column_count_input = ctx.link().batch_callback(|e: InputEvent|
 			e.target()
 				.and_then(|t| t.dyn_into::<HtmlInputElement>().ok())
@@ -504,93 +522,29 @@ impl Timeline {
 				.and_then(|i| i.value().parse::<u8>().ok())
 				.map(|v| Msg::ChangeWidth(v))
 		);
-		if self.options_shown {
-			html! {
-				<div class="timelineOptions">
-					<div class="block">
-						<div class="control">
-							<label class="label">{"Column Count"}</label>
-							<input type="number" value={self.column_count.clone().to_string()} min=1 oninput={on_column_count_input}/>
-						</div>
-						<div class="control">
-							<label class="label">{"Timeline Width"}</label>
-							<input type="number" value={self.width.clone().to_string()} min=1 oninput={on_width_input}/>
-						</div>
-						<div class="control">
-							<Dropdown current_label={DropdownLabel::Text(self.container.name().to_string())}>
-								<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeContainer(Container::Column))}> {"Column"} </a>
-								<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeContainer(Container::Row))}> {"Row"} </a>
-								<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeContainer(Container::Masonry))}> {"Masonry"} </a>
-							</Dropdown>
-						</div>
-					</div>
-					{ self.view_section(ctx) }
-					<div class="block">
-						<div class="control">
-							<Dropdown current_label={DropdownLabel::Text(self.article_component.name().to_string())}>
-								<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeArticleComponent(ArticleComponent::Social))}> {"Social"} </a>
-								<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeArticleComponent(ArticleComponent::Gallery))}> {"Gallery"} </a>
-							</Dropdown>
-						</div>
-					</div>
-					<div class="block">
-						<div class="control">
-							<label class="checkbox">
-								<input type="checkbox" checked={self.compact} onclick={ctx.link().callback(|_| Msg::ToggleCompact)}/>
-								{ "Compact articles" }
-							</label>
-						</div>
-						<div class="control">
-							<label class="checkbox">
-								<input type="checkbox" checked={self.animated_as_gifs} onclick={ctx.link().callback(|_| Msg::ToggleAnimatedAsGifs)}/>
-								{ "Show all animated as gifs" }
-							</label>
-						</div>
-						<div class="control">
-							<label class="checkbox">
-								<input type="checkbox" checked={self.hide_text} onclick={ctx.link().callback(|_| Msg::ToggleHideText)}/>
-								{ "Hide text" }
-							</label>
-						</div>
-					</div>
-					<div class="block">
-						<div class="control">
-							<label class="label">{"Endpoint"}</label>
-							<button class="button" onclick={ctx.link().callback(|_| Msg::SetChooseEndpointModal(true))}>{"Change"}</button>
-						</div>
-					</div>
-					<div class="block">
-						<div class="control">
-							<button class="button" onclick={ctx.link().callback(|_| Msg::ClearArticles)}>{"Clear Articles"}</button>
-						</div>
-					</div>
-					{
-						match ctx.props().main_timeline.clone() {
-							false => html! {
-								<div class="block">
-									<div class="control">
-										<button class="button" onclick={ctx.link().callback(|_| Msg::SetMainTimeline)}>{"Set as main timeline"}</button>
-									</div>
-								</div>
-							},
-							true => html! {}
-						}
-					}
-					<div class="block">
-						<div class="control">
-							<button class="button" onclick={ctx.link().callback(|_| Msg::RemoveTimeline)}>{"Remove timeline"}</button>
-						</div>
-					</div>
-					{ self.view_filters(ctx) }
-					{ self.view_sort_method(ctx) }
+
+		html! {
+			<div class="box">
+				<div class="block control">
+					<label class="label">{"Column Count"}</label>
+					<input class="input" type="number" value={self.column_count.clone().to_string()} min=1 oninput={on_column_count_input}/>
 				</div>
-			}
-		} else {
-			html! {}
+				<div class="block control">
+					<label class="label">{"Timeline Width"}</label>
+					<input class="input" type="number" value={self.width.clone().to_string()} min=1 oninput={on_width_input}/>
+				</div>
+				<div class="block control">
+					<Dropdown current_label={DropdownLabel::Text(self.container.name().to_string())}>
+						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeContainer(Container::Column))}> {"Column"} </a>
+						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeContainer(Container::Row))}> {"Row"} </a>
+						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeContainer(Container::Masonry))}> {"Masonry"} </a>
+					</Dropdown>
+				</div>
+			</div>
 		}
 	}
 
-	fn view_section(&self, ctx: &Context<Self>) -> Html {
+	fn view_section_options(&self, ctx: &Context<Self>) -> Html {
 		let on_min_input = ctx.link().batch_callback(|e: InputEvent|
 			e.target()
 				.and_then(|t| t.dyn_into::<HtmlInputElement>().ok())
@@ -605,36 +559,119 @@ impl Timeline {
 		);
 
 		html! {
-			<div class="block">
-				<div class="control">
+			<div class="box">
+				<div class="block control">
+					<label class="label">{"Section"}</label>
 					<label class="checkbox">
 						<input type="checkbox" checked={self.use_section} onclick={ctx.link().callback(|_| Msg::ToggleSection)}/>
-						{ "Section" }
+						{ " Limit listed articles" }
 					</label>
-					{match self.use_section {
-						true => html! {
-							<>
-								<input type="number" value={self.section.0.to_string()} min=0 max={self.section.1.to_string()} oninput={on_min_input}/>
-								<input type="number" value={self.section.1.to_string()} min={self.section.0.to_string()} oninput={on_max_input}/>
-							</>
-						},
-						false => html! {},
-					}}
+				</div>
+				{match self.use_section {
+					true => html! {
+						<>
+							<div class="block control">
+								<label class="label">{"Min"}</label>
+								<input class="input" type="number" value={self.section.0.to_string()} min=0 max={self.section.1.to_string()} oninput={on_min_input}/>
+							</div>
+							<div class="block control">
+								<label class="label">{"Max"}</label>
+								<input class="input" type="number" value={self.section.1.to_string()} min={self.section.0.to_string()} oninput={on_max_input}/>
+							</div>
+						</>
+					},
+					false => html! {},
+				}}
+			</div>
+		}
+	}
+
+	fn view_articles_options(&self, ctx: &Context<Self>) -> Html {
+		html! {
+			<div class="box">
+				<div class="block control">
+					<label class="label">{"Component"}</label>
+					<Dropdown current_label={DropdownLabel::Text(self.article_component.name().to_string())}>
+						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeArticleComponent(ArticleComponent::Social))}> {"Social"} </a>
+						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeArticleComponent(ArticleComponent::Gallery))}> {"Gallery"} </a>
+					</Dropdown>
+				</div>
+				<div class="control">
+					<label class="checkbox">
+						<input type="checkbox" checked={self.compact} onclick={ctx.link().callback(|_| Msg::ToggleCompact)}/>
+						{ " Compact articles" }
+					</label>
+				</div>
+				<div class="control">
+					<label class="checkbox">
+						<input type="checkbox" checked={self.animated_as_gifs} onclick={ctx.link().callback(|_| Msg::ToggleAnimatedAsGifs)}/>
+						{ " Show all animated as gifs" }
+					</label>
+				</div>
+				<div class="block control">
+					<label class="checkbox">
+						<input type="checkbox" checked={self.hide_text} onclick={ctx.link().callback(|_| Msg::ToggleHideText)}/>
+						{ " Hide text" }
+					</label>
+				</div>
+				<div class="block control">
+					<button class="button is-danger" onclick={ctx.link().callback(|_| Msg::ClearArticles)}>{"Clear Articles"}</button>
 				</div>
 			</div>
 		}
 	}
 
-	fn view_filters(&self, ctx: &Context<Self>) -> Html {
+	fn view_timeline_options(&self, ctx: &Context<Self>) -> Html {
 		html! {
-			<div class="block">
+			<div class="box">
+				<div class="block control">
+					<label class="label">{"Endpoint"}</label>
+					<button class="button" onclick={ctx.link().callback(|_| Msg::SetChooseEndpointModal(true))}>{"Change"}</button>
+				</div>
+				{
+					match ctx.props().main_timeline.clone() {
+						false => html! {
+							<div class="block control">
+								<button class="button" onclick={ctx.link().callback(|_| Msg::SetMainTimeline)}>{"Set as main timeline"}</button>
+							</div>
+						},
+						true => html! {}
+					}
+				}
+				<div class="block control">
+					<button class="button is-danger" onclick={ctx.link().callback(|_| Msg::RemoveTimeline)}>{"Remove timeline"}</button>
+				</div>
+			</div>
+		}
+	}
+
+	fn view_filters_options(&self, ctx: &Context<Self>) -> Html {
+		html! {
+			<div class="box">
 				{ for self.filters.iter().enumerate().map(|(i, filter)| {
 					let enabled_i = i.clone();
+					let (enabled_class, enabled_label) = match filter.enabled {
+						true => (Some("is-success"), "Enabled"),
+						false => (None, "Disabled"),
+					};
+					let (inverted_class, inverted_label) = match filter.inverted {
+						true => (Some("is-info"), "Inverted"),
+						false => (None, "Normal"),
+					};
+
 					html! {
-						<div class="control">
-							<label class="label">{ filter.name.clone() }</label>
-							<button class="button" onclick={ctx.link().callback(move |_| Msg::ToggleFilterEnabled(enabled_i))}>{if filter.enabled { "Enabled" } else { "Disabled" }}</button>
-							<button class="button" onclick={ctx.link().callback(move |_| Msg::ToggleFilterInverted(i))}>{if filter.inverted { "Inverted" } else { "Normal" }}</button>
+						<div class="block field has-addons">
+							<div class="field-label is-normal">
+								<label class="label">{ filter.name.clone() }</label>
+							</div>
+							<div class="field-body">
+								<div class="control">
+									<button class={classes!("button", enabled_class)} onclick={ctx.link().callback(move |_| Msg::ToggleFilterEnabled(enabled_i))}>{enabled_label}</button>
+								</div>
+								<div class="control">
+									<button class={classes!("button", inverted_class)} onclick={ctx.link().callback(move |_| Msg::ToggleFilterInverted(i))}>{inverted_label}</button>
+								</div>
+							</div>
 						</div>
 					}
 				}) }
@@ -642,7 +679,7 @@ impl Timeline {
 		}
 	}
 
-	fn view_sort_method(&self, ctx: &Context<Self>) -> Html {
+	fn view_sort_options(&self, ctx: &Context<Self>) -> Html {
 		let current_method = if !self.sort_methods.is_empty() {
 			if let Some(sort_method) = self.sort_method {
 				let method = &self.sort_methods[sort_method.clone()];
@@ -655,15 +692,26 @@ impl Timeline {
 		};
 
 		html! {
-			<div class="block">
-				<div class="control">
-					<Dropdown current_label={DropdownLabel::Text(current_method.as_ref().map(|m| m.0.clone()).unwrap_or("Unsorted".to_owned()))}>
-						{ for self.sort_methods.iter().enumerate().map(|(i, method)| html! {
-							<a class="dropdown-item" onclick={ctx.link().callback(move |_| Msg::SetSortMethod(Some(i)))}> {method.name.clone()} </a>
-						})}
-						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::SetSortMethod(None))}> {"Unsorted"} </a>
-					</Dropdown>
-					<button class="button" onclick={ctx.link().callback(|_| Msg::ToggleSortReversed)}>{ if current_method.map(|m| m.1).unwrap_or(false) { "Reversed" } else { "Normal" }}</button>
+			<div class="box">
+				<div class="block field has-addons">
+					<div class="field-label is-normal">
+						<label class="label">{"Sort Method"}</label>
+					</div>
+					<div class="field-body">
+						<div class="control">
+							<Dropdown current_label={DropdownLabel::Text(current_method.as_ref().map(|m| m.0.clone()).unwrap_or("Unsorted".to_owned()))}>
+								{ for self.sort_methods.iter().enumerate().map(|(i, method)| html! {
+									<a class="dropdown-item" onclick={ctx.link().callback(move |_| Msg::SetSortMethod(Some(i)))}> {method.name.clone()} </a>
+								})}
+								<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::SetSortMethod(None))}> {"Unsorted"} </a>
+							</Dropdown>
+						</div>
+						<div class="control">
+							<button class="button" onclick={ctx.link().callback(|_| Msg::ToggleSortReversed)}>
+								{ if current_method.map(|m| m.1).unwrap_or(false) { "Reversed" } else { "Normal" }}
+							</button>
+						</div>
+					</div>
 				</div>
 			</div>
 		}

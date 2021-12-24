@@ -1,4 +1,5 @@
 @use 'core' as *
+@use 'container' as *
 
 .timeline
 	@include pretty-scrollbar
@@ -60,31 +61,4 @@
 
 	& > .box
 		max-width: 100%
-
-.articlesContainer
-	overflow-y: scroll
-	overflow-x: hidden
-	flex-grow: 1
-	height: 100%
-
-	&.rowContainer
-		display: flex
-		flex-wrap: wrap
-		align-items: flex-start
-
-.masonryContainer
-	display: flex
-	flex-wrap: nowrap
-	align-items: flex-start
-	align-content: flex-start
-	position: relative
-
-.masonryColumn
-	flex: 1 1 0
-	min-width: 200px
-
-.masonryColumn img
-	width: 100%
-
-.mainTimeline .masonryColumn
-	width: unset
+		width: 100%
