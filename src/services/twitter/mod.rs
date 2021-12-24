@@ -105,6 +105,7 @@ impl Agent for TwitterAgent {
 		endpoint_agent.send(EndpointRequest::InitService(
 			"Twitter".to_owned(),
 			 EndpointConstructors {
+				 //TODO Needs to sync other eq_storage when modifying this
 				endpoint_types: vec![
 					EndpointConstructor {
 						name: "Home Timeline",

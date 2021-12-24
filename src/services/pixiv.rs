@@ -5,7 +5,7 @@ use js_sys::Date;
 use std::collections::HashMap;
 
 use crate::articles::{ArticleData, ArticleMedia};
-use crate::services::Endpoint;
+use crate::services::{Endpoint, EndpointStorage};
 use crate::services::endpoint_agent::{EndpointAgent, Request as EndpointRequest, EndpointId, RefreshTime, EndpointConstructors};
 
 pub struct PixivArticleData {
@@ -131,22 +131,6 @@ impl Agent for PixivAgent {
 	}
 }
 
-pub struct FollowEndpoint {
-	id: EndpointId,
-	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
-	agent: Dispatcher<PixivAgent>,
-}
-
-impl FollowEndpoint {
-	pub fn new(id: EndpointId) -> Self {
-		Self {
-			id,
-			articles: Vec::new(),
-			agent: PixivAgent::dispatcher(),
-		}
-	}
-}
-
 fn parse_article(element: web_sys::Element) -> Option<Rc<RefCell<PixivArticleData>>> {
 	let anchors = element.get_elements_by_tag_name("a");
 	let id = match anchors.get_with_index(0) {
@@ -174,8 +158,8 @@ fn parse_article(element: web_sys::Element) -> Option<Rc<RefCell<PixivArticleDat
 			},
 			None => return None
 		}, match a.text_content() {
-				Some(title) => title,
-				None => return None
+			Some(title) => title,
+			None => return None
 		}),
 		None => return None,
 	};
@@ -209,6 +193,22 @@ fn parse_article(element: web_sys::Element) -> Option<Rc<RefCell<PixivArticleDat
 	})))
 }
 
+pub struct FollowEndpoint {
+	id: EndpointId,
+	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
+	agent: Dispatcher<PixivAgent>,
+}
+
+impl FollowEndpoint {
+	pub fn new(id: EndpointId) -> Self {
+		Self {
+			id,
+			articles: Vec::new(),
+			agent: PixivAgent::dispatcher(),
+		}
+	}
+}
+
 impl Endpoint for FollowEndpoint {
 	fn name(&self) -> String {
 		"Follow Endpoint".to_owned()
@@ -237,5 +237,10 @@ impl Endpoint for FollowEndpoint {
 
 		let id = self.id().clone();
 		self.agent.send(Request::AddArticles(refresh_time, id, articles));
+	}
+
+	fn eq_storage(&self, storage: &EndpointStorage) -> bool {
+		storage.service == "Pixiv" &&
+		storage.endpoint_type == 0
 	}
 }

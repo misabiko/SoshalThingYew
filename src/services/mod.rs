@@ -1,6 +1,7 @@
 use std::rc::Weak;
 use std::cell::RefCell;
 use reqwest::header::HeaderMap;
+use serde::{Serialize, Deserialize};
 
 pub mod endpoint_agent;
 pub mod article_actions;
@@ -63,6 +64,13 @@ impl RateLimit {
 	}
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct EndpointStorage {
+	pub service: String,
+	pub endpoint_type: usize,
+	pub params: serde_json::Value,
+}
+
 pub trait Endpoint {
 	fn name(&self) -> String;
 
@@ -98,4 +106,6 @@ pub trait Endpoint {
 		log::debug!("{} doesn't implement load_bottom()", self.name());
 		self.refresh(refresh_time)
 	}
+
+	fn eq_storage(&self, storage: &EndpointStorage) -> bool;
 }

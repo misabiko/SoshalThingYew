@@ -401,7 +401,6 @@ fn main() {
 	};
 }
 
-//TODO Avoid loading duplicate endpoints
 //TODO Parse tweet text
 //TODO Auto refresh
 //TODO Youtube articles

@@ -4,7 +4,7 @@ use yew::prelude::*;
 use yew_agent::{Agent, Context as AgentContext, AgentLink, HandlerId};
 use std::cell::RefCell;
 
-use super::{Endpoint, RateLimit};
+use super::{Endpoint, EndpointStorage, RateLimit};
 use crate::error::{Error, FetchResult};
 use crate::articles::ArticleData;
 use crate::timeline::agent::TimelineEndpointsStorage;
@@ -206,27 +206,8 @@ impl Agent for EndpointAgent {
 			},
 			Request::BatchNewEndpoints(timelines) => {
 				let endpoints: Vec<(TimelineEndpoints, TimelinePropsEndpointsClosure)> = timelines.into_iter().map(|(constructor, callback)| {
-					let start = constructor.start.iter().map(|e| {
-						let constructor = self.services[&e.service].endpoint_types[e.endpoint_type.clone()].clone();
-						let params = e.params.clone();
-
-						let id = self.endpoint_counter.clone();
-						self.endpoints.insert(self.endpoint_counter, (constructor.callback)(id, params.clone()));
-						self.endpoint_counter += 1;
-
-						id
-					}).collect::<HashSet<EndpointId>>();
-
-					let refresh = constructor.refresh.iter().map(|e| {
-						let constructor = self.services[&e.service].endpoint_types[e.endpoint_type.clone()].clone();
-						let params = e.params.clone();
-
-						let id = self.endpoint_counter.clone();
-						self.endpoints.insert(self.endpoint_counter, (constructor.callback)(id, params.clone()));
-						self.endpoint_counter += 1;
-
-						id
-					}).collect::<HashSet<EndpointId>>();
+					let start = constructor.start.iter().map(|e| self.find_endpoint_or_create(e)).collect::<HashSet<EndpointId>>();
+					let refresh = constructor.refresh.iter().map(|e| self.find_endpoint_or_create(e)).collect::<HashSet<EndpointId>>();
 
 					(TimelineEndpoints { start, refresh }, callback)
 				}).collect();
@@ -245,6 +226,31 @@ impl Agent for EndpointAgent {
 
 		if self.timeline_container == Some(id) {
 			self.timeline_container = None
+		}
+	}
+}
+
+impl EndpointAgent {
+	fn endpoint_from_constructor(&self, storage: &EndpointStorage) -> Option<EndpointId> {
+		self.endpoints.iter().find_map(|(id, endpoint)| match endpoint.eq_storage(storage) {
+			true => Some(id.clone()),
+			false => None
+		})
+	}
+
+	fn find_endpoint_or_create(&mut self, storage: &EndpointStorage) -> EndpointId {
+		match self.endpoint_from_constructor(storage) {
+			Some(id) => id,
+			None => {
+				let constructor = self.services[&storage.service].endpoint_types[storage.endpoint_type.clone()].clone();
+				let params = storage.params.clone();
+
+				let id = self.endpoint_counter.clone();
+				self.endpoints.insert(self.endpoint_counter, (constructor.callback)(id, params.clone()));
+				self.endpoint_counter += 1;
+
+				id
+			}
 		}
 	}
 }

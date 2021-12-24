@@ -4,7 +4,7 @@ use yew_agent::{Dispatched, Dispatcher};
 
 use super::{TwitterAgent, Request as TwitterRequest};
 use crate::articles::{ArticleData};
-use crate::services::{Endpoint, RateLimit};
+use crate::services::{Endpoint, EndpointStorage, RateLimit};
 use crate::services::endpoint_agent::{EndpointId, RefreshTime};
 
 pub struct UserTimelineEndpoint {
@@ -81,6 +81,15 @@ impl Endpoint for UserTimelineEndpoint {
 			None => self.refresh(refresh_time)
 		}
 	}
+
+	fn eq_storage(&self, storage: &EndpointStorage) -> bool {
+		storage.service == "Twitter" &&
+		storage.endpoint_type == 1 &&
+		storage.params["username"]
+			.as_str()
+			.map(|u| u == self.username)
+			.unwrap_or_default()
+	}
 }
 
 pub struct HomeTimelineEndpoint {
@@ -143,6 +152,11 @@ impl Endpoint for HomeTimelineEndpoint {
 			}
 			None => self.refresh(refresh_time)
 		}
+	}
+
+	fn eq_storage(&self, storage: &EndpointStorage) -> bool {
+		storage.service == "Twitter" &&
+		storage.endpoint_type == 0
 	}
 }
 
@@ -223,6 +237,19 @@ impl Endpoint for ListEndpoint {
 			None => self.refresh(refresh_time)
 		}
 	}
+
+	fn eq_storage(&self, storage: &EndpointStorage) -> bool {
+		storage.service == "Twitter" &&
+		storage.endpoint_type == 2 &&
+		storage.params["username"]
+			.as_str()
+			.map(|u| u == self.username)
+			.unwrap_or_default() &&
+		storage.params["slug"]
+			.as_str()
+			.map(|s| s == self.slug)
+			.unwrap_or_default()
+	}
 }
 
 pub struct SingleTweetEndpoint {
@@ -284,5 +311,14 @@ impl Endpoint for SingleTweetEndpoint {
 			id,
 			format!("/proxy/twitter/status/{}", &self.tweet_id)
 		))
+	}
+
+	fn eq_storage(&self, storage: &EndpointStorage) -> bool {
+		storage.service == "Twitter" &&
+		storage.endpoint_type == 3 &&
+		storage.params["id"]
+			.as_u64()
+			.map(|id| id == self.tweet_id)
+			.unwrap_or_default()
 	}
 }

@@ -3,6 +3,7 @@ use gloo_storage::Storage;
 use serde::{Serialize, Deserialize};
 
 use super::{TimelineId, Props as TimelineProps, Container};
+use crate::services::EndpointStorage;
 use crate::services::endpoint_agent::{TimelineEndpoints, Request as EndpointRequest, EndpointAgent};
 use crate::{TimelinePropsClosure, TimelinePropsEndpointsClosure};
 
@@ -33,13 +34,6 @@ pub enum Response {
 	SetMainTimeline(TimelineId),
 	RemoveTimeline(TimelineId),
 	CreateTimelines(Vec<TimelinePropsClosure>),
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct EndpointStorage {
-	pub service: String,
-	pub endpoint_type: usize,
-	pub params: serde_json::Value,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -121,12 +115,7 @@ impl Agent for TimelineAgent {
 								Container::Column
 							}
 						};
-						/*match name {
-							"Column" => Ok(Container::Column),
-							"Row" => Ok(Container::Row),
-							"Masonry" => Ok(Container::Masonry),
-							_ => Err(format!("Couldn't parse container \"{}\".", name).into()),
-						}*/
+
 						(
 							t.endpoints,
 							Box::new(move |id, endpoints|
