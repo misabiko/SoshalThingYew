@@ -1,17 +1,16 @@
 use std::collections::HashMap;
 use yew::prelude::*;
-use yew_agent::Bridge;
-use yew_agent::utils::store::{StoreWrapper, ReadOnly, Bridgeable};
+use yew_agent::{Bridge, Bridged};
 
-use crate::services::endpoints::{EndpointStore, RateLimit};
+use crate::services::endpoints::{EndpointAgent, RateLimit, Response as EndpointResponse};
 
 pub struct RateLimitView {
 	pub ratelimits: HashMap<String, RateLimit>,
-	_endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
+	_endpoint_agent: Box<dyn Bridge<EndpointAgent>>,
 }
 
 pub enum Msg {
-	EndpointStoreResponse(ReadOnly<EndpointStore>),
+	EndpointResponse(EndpointResponse),
 }
 
 impl Component for RateLimitView {
@@ -21,23 +20,23 @@ impl Component for RateLimitView {
 	fn create(ctx: &Context<Self>) -> Self {
 		Self {
 			ratelimits: HashMap::new(),
-			_endpoint_store: EndpointStore::bridge(ctx.link().callback(Msg::EndpointStoreResponse)),
+			_endpoint_agent: EndpointAgent::bridge(ctx.link().callback(Msg::EndpointResponse)),
 		}
 	}
 
 	fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
 		match msg {
-			Msg::EndpointStoreResponse(state) => {
-				let state = state.borrow();
-
-				self.ratelimits.clear();
-				for endpoint in state.endpoints.values() {
-					if let Some(ratelimit) = endpoint.ratelimit() {
-						self.ratelimits.insert(endpoint.name(), ratelimit.clone());
+			Msg::EndpointResponse(response) => match response {
+				EndpointResponse::UpdatedState(_services, endpoints) => {
+					self.ratelimits.clear();
+					for endpoint in endpoints {
+						if let Some(ratelimit) = endpoint.ratelimit {
+							self.ratelimits.insert(endpoint.name, ratelimit.clone());
+						}
 					}
-				}
 
-				true
+					true
+				}
 			}
 		}
 	}

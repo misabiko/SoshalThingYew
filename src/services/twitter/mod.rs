@@ -1,7 +1,6 @@
 use std::rc::{Rc, Weak};
 use std::cell::{RefCell, Ref};
-use yew_agent::{Agent, AgentLink, Context, HandlerId, Bridge, Dispatched, Dispatcher};
-use yew_agent::utils::store::{StoreWrapper, ReadOnly, Bridgeable};
+use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher};
 use std::collections::{HashMap, HashSet};
 use gloo_storage::Storage;
 use serde::{Serialize, Deserialize};
@@ -12,7 +11,7 @@ mod article;
 pub use article::TweetArticleData;
 use article::{TwitterUser, StrongArticleRefType};
 use crate::articles::{ArticleData, ArticleRefType};
-use crate::services::endpoints::{EndpointStore, Request as EndpointRequest, EndpointId, EndpointConstructor, EndpointConstructors, RefreshTime, RateLimit};
+use crate::services::endpoints::{EndpointAgent, Request as EndpointRequest, EndpointId, EndpointConstructor, EndpointConstructors, RefreshTime, RateLimit};
 use crate::error::{Error, FetchResult};
 use crate::services::twitter::endpoints::{UserTimelineEndpoint, HomeTimelineEndpoint, ListEndpoint, SingleTweetEndpoint};
 use crate::services::article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest};
@@ -72,7 +71,7 @@ pub enum AuthMode {
 
 pub struct TwitterAgent {
 	link: AgentLink<Self>,
-	endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
+	endpoint_agent: Dispatcher<EndpointAgent>,
 	actions_agent: Dispatcher<ArticleActionsAgent>,
 	articles: HashMap<u64, Rc<RefCell<TweetArticleData>>>,
 	cached_marked_as_read: HashSet<u64>,
@@ -87,7 +86,6 @@ pub enum Request {
 pub enum Msg {
 	FetchResponse(HandlerId, FetchResult<Vec<Rc<RefCell<TweetArticleData>>>>),
 	EndpointFetchResponse(RefreshTime, EndpointId, FetchResult<Vec<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)>>),
-	EndpointStoreResponse(ReadOnly<EndpointStore>),
 	Like(HandlerId, Weak<RefCell<dyn ArticleData>>),
 	Retweet(HandlerId, Weak<RefCell<dyn ArticleData>>),
 	MarkAsRead(HandlerId, Weak<RefCell<dyn ArticleData>>, bool),
@@ -100,8 +98,8 @@ impl Agent for TwitterAgent {
 	type Output = ();
 
 	fn create(link: AgentLink<Self>) -> Self {
-		let mut endpoint_store = EndpointStore::bridge(link.callback(Msg::EndpointStoreResponse));
-		endpoint_store.send(EndpointRequest::InitService(
+		let mut endpoint_agent = EndpointAgent::dispatcher();
+		endpoint_agent.send(EndpointRequest::InitService(
 			"Twitter".to_owned(),
 			 EndpointConstructors {
 				endpoint_types: vec![
@@ -144,7 +142,7 @@ impl Agent for TwitterAgent {
 		};
 
 		Self {
-			endpoint_store,
+			endpoint_agent,
 			link,
 			actions_agent,
 			articles: HashMap::new(),
@@ -188,7 +186,7 @@ impl Agent for TwitterAgent {
 						valid_rc.push(valid_a_rc);
 					}
 				}
-				self.endpoint_store.send(EndpointRequest::EndpointFetchResponse(
+				self.endpoint_agent.send(EndpointRequest::EndpointFetchResponse(
 					refresh_time,
 					id,
 					r.map(move |(_, ratelimit)|
@@ -215,7 +213,6 @@ impl Agent for TwitterAgent {
 					self.actions_agent.send(ArticleActionsRequest::Callback(valid_rc));
 				}
 			}
-			Msg::EndpointStoreResponse(_) => {}
 			Msg::Like(id, article) => {
 				let strong = article.upgrade().unwrap();
 				let borrow = strong.borrow();

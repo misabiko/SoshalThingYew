@@ -1,10 +1,10 @@
 use yew_agent::{Agent, AgentLink, HandlerId, Context as AgentContext};
-use gloo_storage::Storage;
+//use gloo_storage::Storage;
 use serde::{Serialize, Deserialize};
 
 use super::TimelineId;
-use crate::timeline::{Props as TimelineProps};
-use crate::services::endpoints::TimelineEndpoints;
+//use crate::timeline::{Props as TimelineProps};
+use crate::services::endpoints::{TimelineEndpoints/*, Request as EndpointRequest*/};
 use crate::TimelinePropsClosure;
 
 pub struct TimelineAgent {
@@ -12,6 +12,7 @@ pub struct TimelineAgent {
 	modal: Option<HandlerId>,
 	choose_endpoints: Option<HandlerId>,
 	timeline_container: Option<HandlerId>,
+	//endpoint_agent: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
 }
 
 pub enum Request {
@@ -23,6 +24,7 @@ pub enum Request {
 	SetMainTimeline(TimelineId),
 	RemoveTimeline(TimelineId),
 	LoadStorageTimelines,
+	LoadedStorageTimelines(Vec<TimelineEndpoints>),
 }
 
 pub enum Response {
@@ -36,21 +38,22 @@ pub enum Response {
 
 #[derive(Serialize, Deserialize)]
 pub struct EndpointStorage {
-	service: String,
-	endpoint_type: u8,
-	params: serde_json::Value,
+	pub service: String,
+	pub endpoint_type: usize,
+	pub params: serde_json::Value,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct TimelineEndpointsStorage {
-	start: Vec<EndpointStorage>,
-	refresh: Vec<EndpointStorage>,
+	pub start: Vec<EndpointStorage>,
+	pub refresh: Vec<EndpointStorage>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct SoshalTimelineStorage {
 	title: String,
 	container: String,
+	endpoints: TimelineEndpointsStorage,
 }
 
 impl Agent for TimelineAgent {
@@ -65,6 +68,7 @@ impl Agent for TimelineAgent {
 			modal: None,
 			choose_endpoints: None,
 			timeline_container: None,
+			//endpoint_agent: EndpointStore::dispatcher(),
 		}
 	}
 
@@ -102,22 +106,33 @@ impl Agent for TimelineAgent {
 				}
 			}
 			Request::LoadStorageTimelines => {
-				if let Some(timeline_container) = self.timeline_container {
-					let storage: Vec<SoshalTimelineStorage> = gloo_storage::LocalStorage::get("SoshalThingYew Timelines").unwrap_or_default();
+				if let Some(_timeline_container) = self.timeline_container {
+					/*let storage: Vec<SoshalTimelineStorage> = gloo_storage::LocalStorage::get("SoshalThingYew Timelines").unwrap_or_default();
 
-					let props = storage.into_iter().map(|t| {
+					let callbacks = storage.into_iter().map(|t| {
+
 						let name = t.title.clone();
-						Box::new(|id|
-							yew::props! { TimelineProps {
-								name,
-								id,
-								endpoints: TimelineEndpoints::default(),
-							}}
-						) as TimelinePropsClosure
+						(
+							t.endpoints,
+							Box::new(|id, endpoints|
+								yew::props! { TimelineProps {
+									name,
+									id,
+									endpoints,
+								}}
+							) as TimelinePropsClosure,
+						)
 					}).collect();
 
-					self.link.respond(timeline_container, Response::CreateTimelines(props));
+					let callback = self.link.callback(|endpoints| {
+						log::debug!("callback!");
+					});
+					//self.link.respond(timeline_container, Response::CreateTimelines(props));
+					self.endpoint_agent.send(EndpointRequest::BatchNewEndpoints(callbacks, callback));*/
 				}
+			}
+			Request::LoadedStorageTimelines(timelines) => {
+				log::debug!("Received endpoints for {} timelines", timelines.len());
 			}
 		}
 	}

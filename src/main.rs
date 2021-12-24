@@ -1,6 +1,5 @@
 use yew::prelude::*;
 use yew_agent::{Bridge, Bridged, Dispatched, Dispatcher};
-use yew_agent::utils::store::{Bridgeable, ReadOnly, StoreWrapper};
 use std::collections::HashSet;
 
 pub mod error;
@@ -16,7 +15,7 @@ pub mod choose_endpoints;
 use crate::sidebar::Sidebar;
 use crate::timeline::{Props as TimelineProps, Timeline, TimelineId};
 use crate::services::{
-	endpoints::{Endpoint, EndpointId, EndpointStore, Request as EndpointRequest, TimelineEndpoints},
+	endpoints::{Endpoint, EndpointId, EndpointAgent, Request as EndpointRequest, TimelineEndpoints},
 	pixiv::{FollowEndpoint, PixivAgent},
 	twitter::{endpoints::{HomeTimelineEndpoint, SingleTweetEndpoint, UserTimelineEndpoint}, TwitterAgent},
 };
@@ -41,7 +40,7 @@ impl Default for DisplayMode {
 pub type TimelinePropsClosure = Box<dyn FnOnce(TimelineId) -> TimelineProps>;
 
 struct Model {
-	endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
+	endpoint_agent: Dispatcher<EndpointAgent>,
 	_timeline_agent: Box<dyn Bridge<TimelineAgent>>,
 	display_mode: DisplayMode,
 	timelines: Vec<TimelineProps>,
@@ -57,7 +56,6 @@ enum Msg {
 	AddTimeline(String, EndpointId),
 	ToggleFavViewer,
 	AddTimelineProps(TimelinePropsClosure),
-	EndpointStoreResponse(ReadOnly<EndpointStore>),
 	ToggleDisplayMode,
 	TimelineAgentResponse(TimelineAgentResponse),
 }
@@ -112,7 +110,7 @@ impl Component for Model {
 			_timeline_agent,
 			display_mode,
 			timelines: Vec::new(),
-			endpoint_store: EndpointStore::bridge(ctx.link().callback(Msg::EndpointStoreResponse)),
+			endpoint_agent: EndpointAgent::dispatcher(),
 			page_info,
 			_twitter: TwitterAgent::dispatcher(),
 			_pixiv: PixivAgent::dispatcher(),
@@ -124,7 +122,7 @@ impl Component for Model {
 	fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
 		match msg {
 			Msg::AddEndpoint(e) => {
-				self.endpoint_store.send(EndpointRequest::AddEndpoint(e));
+				self.endpoint_agent.send(EndpointRequest::AddEndpoint(e));
 				false
 			}
 			Msg::AddTimeline(name, endpoint_id) => {
@@ -162,7 +160,6 @@ impl Component for Model {
 					false
 				}
 			}
-			Msg::EndpointStoreResponse(_) => false,
 			Msg::ToggleDisplayMode => {
 				self.display_mode = match self.display_mode {
 					DisplayMode::Default => DisplayMode::Single {column_count: 4},
@@ -388,6 +385,10 @@ fn main() {
 //TODO Auto refresh
 //TODO Display timeline errors
 //TODO Youtube articles
+	//TODO Have custom service setting view
+	//TODO Show quato units for Youtube service
+	//TODO Cache playlist id for each subscribed channel
+//TODO Custom social buttons per article type
 //TODO Notifications
 //TODO Save timeline data
 //TODO Social expanded view

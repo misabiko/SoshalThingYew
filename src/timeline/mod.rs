@@ -2,7 +2,6 @@ use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 use yew::prelude::*;
 use yew_agent::{Bridge, Bridged, Dispatched, Dispatcher};
-use yew_agent::utils::store::{Bridgeable, ReadOnly, StoreWrapper};
 use wasm_bindgen::JsCast;
 use web_sys::{Element, HtmlInputElement};
 use rand::{seq::SliceRandom, thread_rng};
@@ -18,7 +17,7 @@ use filters::{Filter, default_filters};
 use sort_methods::{SortMethod, default_sort_methods};
 use agent::{TimelineAgent, Request as TimelineAgentRequest};
 use crate::articles::{ArticleComponent, ArticleData, actual_article};
-use crate::services::endpoints::{EndpointStore, Request as EndpointRequest, TimelineEndpoints};
+use crate::services::endpoints::{EndpointAgent, Request as EndpointRequest, TimelineEndpoints};
 use crate::modals::Modal;
 use crate::choose_endpoints::ChooseEndpoints;
 use crate::dropdown::{Dropdown, DropdownLabel};
@@ -50,7 +49,7 @@ pub struct Timeline {
 	compact: bool,
 	animated_as_gifs: bool,
 	hide_text: bool,
-	endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
+	endpoint_agent: Dispatcher<EndpointAgent>,
 	filters: Vec<Filter>,
 	sort_methods: Vec<SortMethod>,
 	sort_method: Option<usize>,
@@ -74,7 +73,6 @@ pub enum Msg {
 	RefreshFail,
 	NewArticles(Vec<Weak<RefCell<dyn ArticleData>>>),
 	ClearArticles,
-	EndpointStoreResponse(ReadOnly<EndpointStore>),
 	ToggleOptions,
 	ToggleCompact,
 	ToggleAnimatedAsGifs,
@@ -141,8 +139,8 @@ impl Component for Timeline {
 			None => Rc::new(RefCell::new(TimelineEndpoints::default()))
 		};
 
-		let mut endpoint_store = EndpointStore::bridge(ctx.link().callback(Msg::EndpointStoreResponse));
-		endpoint_store.send(EndpointRequest::InitTimeline(ctx.props().id.clone(), endpoints.clone(), ctx.link().callback(Msg::NewArticles)));
+		let mut endpoint_agent = EndpointAgent::dispatcher();
+		endpoint_agent.send(EndpointRequest::InitTimeline(ctx.props().id.clone(), endpoints.clone(), ctx.link().callback(Msg::NewArticles)));
 
 		Self {
 			endpoints,
@@ -151,7 +149,7 @@ impl Component for Timeline {
 			compact: false,
 			animated_as_gifs: false,
 			hide_text: false,
-			endpoint_store,
+			endpoint_agent,
 			filters: default_filters(),
 			sort_methods: default_sort_methods(),
 			sort_method: Some(0),
@@ -176,11 +174,11 @@ impl Component for Timeline {
 	fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
 		match msg {
 			Msg::Refresh => {
-				self.endpoint_store.send(EndpointRequest::Refresh(Rc::downgrade(&self.endpoints)));
+				self.endpoint_agent.send(EndpointRequest::Refresh(Rc::downgrade(&self.endpoints)));
 				false
 			}
 			Msg::LoadBottom => {
-				self.endpoint_store.send(EndpointRequest::LoadBottom(Rc::downgrade(&self.endpoints)));
+				self.endpoint_agent.send(EndpointRequest::LoadBottom(Rc::downgrade(&self.endpoints)));
 				false
 			}
 			Msg::Refreshed(articles) => {
@@ -188,7 +186,6 @@ impl Component for Timeline {
 				true
 			}
 			Msg::RefreshFail => false,
-			Msg::EndpointStoreResponse(_) => false,
 			Msg::NewArticles(articles) => {
 				for a in articles {
 					let exists = self.articles.iter()
@@ -361,7 +358,7 @@ impl Component for Timeline {
 			}
 			Msg::RemoveTimeline => {
 				self.timeline_agent.send(TimelineAgentRequest::RemoveTimeline(ctx.props().id.clone()));
-				self.endpoint_store.send(EndpointRequest::RemoveTimeline(ctx.props().id.clone()));
+				self.endpoint_agent.send(EndpointRequest::RemoveTimeline(ctx.props().id.clone()));
 
 				false
 			}

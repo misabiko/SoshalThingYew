@@ -1,12 +1,11 @@
 use std::rc::{Rc, Weak};
 use std::cell::{RefCell, Ref};
-use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher, Bridge};
-use yew_agent::utils::store::{StoreWrapper, ReadOnly, Bridgeable};
+use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher};
 use js_sys::Date;
 use std::collections::HashMap;
 
 use crate::articles::{ArticleData, ArticleMedia};
-use crate::services::endpoints::{EndpointStore, Endpoint, Request as EndpointRequest, EndpointId, RefreshTime, EndpointConstructors};
+use crate::services::endpoints::{EndpointAgent, Endpoint, Request as EndpointRequest, EndpointId, RefreshTime, EndpointConstructors};
 
 pub struct PixivArticleData {
 	id: u32,
@@ -76,12 +75,8 @@ impl ArticleData for PixivArticleData {
 }
 
 pub struct PixivAgent {
-	endpoint_store: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
+	endpoint_agent: Dispatcher<EndpointAgent>,
 	articles: HashMap<u32, Rc<RefCell<PixivArticleData>>>,
-}
-
-pub enum Msg {
-	EndpointStoreResponse(ReadOnly<EndpointStore>),
 }
 
 pub enum Request {
@@ -90,13 +85,13 @@ pub enum Request {
 
 impl Agent for PixivAgent {
 	type Reach = Context<Self>;
-	type Message = Msg;
+	type Message = ();
 	type Input = Request;
 	type Output = ();
 
-	fn create(link: AgentLink<Self>) -> Self {
-		let mut endpoint_store = EndpointStore::bridge(link.callback(Msg::EndpointStoreResponse));
-		endpoint_store.send(EndpointRequest::InitService(
+	fn create(_link: AgentLink<Self>) -> Self {
+		let mut endpoint_agent = EndpointAgent::dispatcher();
+		endpoint_agent.send(EndpointRequest::InitService(
 			"Pixiv".to_owned(),
 			EndpointConstructors {
 				endpoint_types: vec![],
@@ -104,16 +99,12 @@ impl Agent for PixivAgent {
 			}));
 
 		Self {
-			endpoint_store,
+			endpoint_agent,
 			articles: HashMap::new(),
 		}
 	}
 
-	fn update(&mut self, msg: Self::Message) {
-		match msg {
-			Msg::EndpointStoreResponse(_) => {}
-		}
-	}
+	fn update(&mut self, _msg: Self::Message) {}
 
 	fn handle_input(&mut self, msg: Self::Input, _id: HandlerId) {
 		match msg {
@@ -127,7 +118,7 @@ impl Agent for PixivAgent {
 
 					valid_rc.push(valid_a_rc);
 				}
-				self.endpoint_store.send(EndpointRequest::AddArticles(
+				self.endpoint_agent.send(EndpointRequest::AddArticles(
 					refresh_time,
 					endpoint_id,
 					valid_rc.into_iter()
