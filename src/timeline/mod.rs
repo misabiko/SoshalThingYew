@@ -492,6 +492,8 @@ impl Component for Timeline {
 
 impl Timeline {
 	//TODO Collapse boxes
+	//TODO Change scrollbar color
+	//TODO Move options to separate file/component?
 	fn view_options(&self, ctx: &Context<Self>) -> Html {
 		if self.options_shown {
 			html! {
