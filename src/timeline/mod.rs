@@ -65,6 +65,8 @@ pub struct Timeline {
 	autoscroll: Rc<RefCell<Autoscroll>>,
 	_article_actions: Box<dyn Bridge<ArticleActionsAgent>>,
 	timeline_agent: Dispatcher<TimelineAgent>,
+	use_section: bool,
+	section: (usize, usize),
 }
 
 pub enum Msg {
@@ -95,6 +97,8 @@ pub enum Msg {
 	ActionsCallback(ArticleActionsResponse),
 	SetMainTimeline,
 	RemoveTimeline,
+	ToggleSection,
+	UpdateSection(Option<usize>, Option<usize>),
 }
 
 #[derive(Properties, Clone)]
@@ -175,6 +179,8 @@ impl Component for Timeline {
 			})),
 			_article_actions: ArticleActionsAgent::bridge(ctx.link().callback(Msg::ActionsCallback)),
 			timeline_agent: TimelineAgent::dispatcher(),
+			use_section: false,
+			section: (0, 50),
 		}
 	}
 
@@ -369,6 +375,17 @@ impl Component for Timeline {
 
 				false
 			}
+			Msg::ToggleSection => {
+				self.use_section = !self.use_section;
+				true
+			}
+			Msg::UpdateSection(min, max) => {
+				self.section = (
+					min.unwrap_or_else(|| self.section.0),
+					max.unwrap_or_else(|| self.section.1)
+				);
+				true
+			}
 		}
 	}
 
@@ -395,6 +412,13 @@ impl Component for Timeline {
 					}
 				});
 			}
+		}
+
+		if self.use_section {
+			articles = articles.into_iter()
+				.skip(self.section.0)
+				.take(self.section.1)
+				.collect();
 		}
 
 		let style = if self.width > 1 {
@@ -500,6 +524,7 @@ impl Timeline {
 							</Dropdown>
 						</div>
 					</div>
+					{ self.view_section(ctx) }
 					<div class="block">
 						<div class="control">
 							<Dropdown current_label={DropdownLabel::Text(self.article_component.name().to_string())}>
@@ -562,6 +587,41 @@ impl Timeline {
 			}
 		} else {
 			html! {}
+		}
+	}
+
+	fn view_section(&self, ctx: &Context<Self>) -> Html {
+		let on_min_input = ctx.link().batch_callback(|e: InputEvent|
+			e.target()
+				.and_then(|t| t.dyn_into::<HtmlInputElement>().ok())
+				.and_then(|i| i.value().parse::<usize>().ok())
+				.map(|v| Msg::UpdateSection(Some(v), None))
+		);
+		let on_max_input = ctx.link().batch_callback(|e: InputEvent|
+			e.target()
+				.and_then(|t| t.dyn_into::<HtmlInputElement>().ok())
+				.and_then(|i| i.value().parse::<usize>().ok())
+				.map(|v| Msg::UpdateSection(None, Some(v)))
+		);
+
+		html! {
+			<div class="block">
+				<div class="control">
+					<label class="checkbox">
+						<input type="checkbox" checked={self.use_section} onclick={ctx.link().callback(|_| Msg::ToggleSection)}/>
+						{ "Section" }
+					</label>
+					{match self.use_section {
+						true => html! {
+							<>
+								<input type="number" value={self.section.0.to_string()} min=0 max={self.section.1.to_string()} oninput={on_min_input}/>
+								<input type="number" value={self.section.1.to_string()} min={self.section.0.to_string()} oninput={on_max_input}/>
+							</>
+						},
+						false => html! {},
+					}}
+				</div>
+			</div>
 		}
 	}
 
