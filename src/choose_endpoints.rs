@@ -93,6 +93,7 @@ impl Component for ChooseEndpoints {
 
 					true
 				}
+				_ => false
 			}
 			Msg::TimelineAgentResponse(response) => match response {
 				TimelineAgentResponse::AddBlankTimeline => {

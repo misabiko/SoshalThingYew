@@ -7,9 +7,9 @@ use reqwest::header::HeaderMap;
 
 use crate::error::{Error, FetchResult};
 use crate::articles::ArticleData;
-//use crate::timeline::agent::TimelineEndpointsStorage;
+use crate::timeline::agent::TimelineEndpointsStorage;
 use crate::timeline::sort_methods::sort_by_id;
-use crate::{TimelineId/*, TimelinePropsClosure*/};
+use crate::{TimelineId, TimelinePropsEndpointsClosure};
 
 #[derive(Clone, Debug)]
 pub struct RateLimit {
@@ -129,11 +129,13 @@ pub enum Request {
 	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
 	InitService(String, EndpointConstructors),
 	UpdateRateLimit(EndpointId, RateLimit),
-	//BatchNewEndpoints(Vec<(TimelineEndpointsStorage, TimelinePropsClosure)>, Callback<Vec<(TimelineEndpoints, TimelinePropsClosure)>>),
+	BatchNewEndpoints(Vec<(TimelineEndpointsStorage, TimelinePropsEndpointsClosure)>),
+	RegisterTimelineContainer,
 }
 
 pub enum Response {
-	UpdatedState(HashMap<String, EndpointConstructors>, Vec<EndpointView>)
+	UpdatedState(HashMap<String, EndpointConstructors>, Vec<EndpointView>),
+	BatchRequestResponse(Vec<(TimelineEndpoints, TimelinePropsEndpointsClosure)>)
 }
 
 #[derive(Clone)]
@@ -162,6 +164,7 @@ pub struct EndpointAgent {
 	pub timelines: HashMap<TimelineId, (Weak<RefCell<TimelineEndpoints>>, Callback<Vec<Weak<RefCell<dyn ArticleData>>>>)>,
 	pub services: HashMap<String, EndpointConstructors>,
 	subscribers: HashSet<HandlerId>,
+	timeline_container: Option<HandlerId>,
 }
 
 impl Agent for EndpointAgent {
@@ -178,6 +181,7 @@ impl Agent for EndpointAgent {
 			timelines: HashMap::new(),
 			services: HashMap::new(),
 			subscribers: HashSet::new(),
+			timeline_container: None,
 		}
 	}
 
@@ -227,7 +231,7 @@ impl Agent for EndpointAgent {
 		self.subscribers.insert(id);
 	}
 
-	fn handle_input(&mut self, msg: Self::Input, _id: HandlerId) {
+	fn handle_input(&mut self, msg: Self::Input, id: HandlerId) {
 		match msg {
 			Request::InitTimeline(id, endpoints, callback) => {
 				self.timelines.insert(id, (Rc::downgrade(&endpoints), callback));
@@ -288,9 +292,11 @@ impl Agent for EndpointAgent {
 			Request::UpdateRateLimit(endpoint_id, ratelimit) => {
 				self.endpoints.get_mut(&endpoint_id).unwrap().update_ratelimit(ratelimit)
 			},
-			/*Request::BatchNewEndpoints(timelines, callback) => {
-				let endpoints = timelines.into_iter().map(|(constructor, callback)| {
+			Request::BatchNewEndpoints(timelines) => {
+				let endpoints: Vec<(TimelineEndpoints, TimelinePropsEndpointsClosure)> = timelines.into_iter().map(|(constructor, callback)| {
 					let start = constructor.start.iter().map(|e| {
+						log::debug!("services {:?}", self.services.keys());
+						log::debug!("{} endpoints for service {}", self.services[&e.service].endpoint_types.len(), &e.service);
 						let constructor = self.services[&e.service].endpoint_types[e.endpoint_type.clone()].clone();
 						let params = e.params.clone();
 
@@ -316,12 +322,19 @@ impl Agent for EndpointAgent {
 				}).collect();
 
 
-				//callback.emit(endpoints);
-			},*/
+				if let Some(timeline_container) = self.timeline_container {
+					self.link.respond(timeline_container, Response::BatchRequestResponse(endpoints));
+				}
+			},
+			Request::RegisterTimelineContainer => self.timeline_container = Some(id),
 		}
 	}
 
 	fn disconnected(&mut self, id: HandlerId) {
 		self.subscribers.remove(&id);
+
+		if self.timeline_container == Some(id) {
+			self.timeline_container = None
+		}
 	}
 }

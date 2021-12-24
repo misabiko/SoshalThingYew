@@ -37,6 +37,7 @@ impl Component for RateLimitView {
 
 					true
 				}
+				_ => false
 			}
 		}
 	}

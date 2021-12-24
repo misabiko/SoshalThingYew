@@ -1,18 +1,18 @@
-use yew_agent::{Agent, AgentLink, HandlerId, Context as AgentContext};
-//use gloo_storage::Storage;
+use yew_agent::{Agent, AgentLink, HandlerId, Context as AgentContext, Dispatcher, Dispatched};
+use gloo_storage::Storage;
 use serde::{Serialize, Deserialize};
 
 use super::TimelineId;
-//use crate::timeline::{Props as TimelineProps};
-use crate::services::endpoints::{TimelineEndpoints/*, Request as EndpointRequest*/};
-use crate::TimelinePropsClosure;
+use crate::timeline::{Props as TimelineProps};
+use crate::services::endpoints::{TimelineEndpoints, Request as EndpointRequest, EndpointAgent};
+use crate::{TimelinePropsClosure, TimelinePropsEndpointsClosure};
 
 pub struct TimelineAgent {
 	link: AgentLink<Self>,
 	modal: Option<HandlerId>,
 	choose_endpoints: Option<HandlerId>,
 	timeline_container: Option<HandlerId>,
-	//endpoint_agent: Box<dyn Bridge<StoreWrapper<EndpointStore>>>,
+	endpoint_agent: Dispatcher<EndpointAgent>,
 }
 
 pub enum Request {
@@ -64,11 +64,11 @@ impl Agent for TimelineAgent {
 
 	fn create(link: AgentLink<Self>) -> Self {
 		Self {
-			link,
 			modal: None,
 			choose_endpoints: None,
 			timeline_container: None,
-			//endpoint_agent: EndpointStore::dispatcher(),
+			endpoint_agent: EndpointAgent::dispatcher(),
+			link,
 		}
 	}
 
@@ -107,10 +107,9 @@ impl Agent for TimelineAgent {
 			}
 			Request::LoadStorageTimelines => {
 				if let Some(_timeline_container) = self.timeline_container {
-					/*let storage: Vec<SoshalTimelineStorage> = gloo_storage::LocalStorage::get("SoshalThingYew Timelines").unwrap_or_default();
+					let storage: Vec<SoshalTimelineStorage> = gloo_storage::LocalStorage::get("SoshalThingYew Timelines").unwrap_or_default();
 
 					let callbacks = storage.into_iter().map(|t| {
-
 						let name = t.title.clone();
 						(
 							t.endpoints,
@@ -120,15 +119,11 @@ impl Agent for TimelineAgent {
 									id,
 									endpoints,
 								}}
-							) as TimelinePropsClosure,
+							) as TimelinePropsEndpointsClosure,
 						)
 					}).collect();
 
-					let callback = self.link.callback(|endpoints| {
-						log::debug!("callback!");
-					});
-					//self.link.respond(timeline_container, Response::CreateTimelines(props));
-					self.endpoint_agent.send(EndpointRequest::BatchNewEndpoints(callbacks, callback));*/
+					self.endpoint_agent.send(EndpointRequest::BatchNewEndpoints(callbacks));
 				}
 			}
 			Request::LoadedStorageTimelines(timelines) => {

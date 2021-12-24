@@ -15,7 +15,7 @@ pub mod choose_endpoints;
 use crate::sidebar::Sidebar;
 use crate::timeline::{Props as TimelineProps, Timeline, TimelineId};
 use crate::services::{
-	endpoints::{Endpoint, EndpointId, EndpointAgent, Request as EndpointRequest, TimelineEndpoints},
+	endpoints::{Endpoint, EndpointId, EndpointAgent, Request as EndpointRequest, Response as EndpointResponse, TimelineEndpoints},
 	pixiv::{FollowEndpoint, PixivAgent},
 	twitter::{endpoints::{HomeTimelineEndpoint, SingleTweetEndpoint, UserTimelineEndpoint}, TwitterAgent},
 };
@@ -38,9 +38,10 @@ impl Default for DisplayMode {
 }
 
 pub type TimelinePropsClosure = Box<dyn FnOnce(TimelineId) -> TimelineProps>;
+pub type TimelinePropsEndpointsClosure = Box<dyn FnOnce(TimelineId, TimelineEndpoints) -> TimelineProps>;
 
 struct Model {
-	endpoint_agent: Dispatcher<EndpointAgent>,
+	endpoint_agent: Box<dyn Bridge<EndpointAgent>>,
 	_timeline_agent: Box<dyn Bridge<TimelineAgent>>,
 	display_mode: DisplayMode,
 	timelines: Vec<TimelineProps>,
@@ -58,6 +59,7 @@ enum Msg {
 	AddTimelineProps(TimelinePropsClosure),
 	ToggleDisplayMode,
 	TimelineAgentResponse(TimelineAgentResponse),
+	EndpointResponse(EndpointResponse),
 }
 
 #[derive(Properties, PartialEq, Default)]
@@ -102,18 +104,24 @@ impl Component for Model {
 			false => None
 		};
 
+		let _twitter = TwitterAgent::dispatcher();
+		let _pixiv = PixivAgent::dispatcher();
+
 		let mut _timeline_agent = TimelineAgent::bridge(ctx.link().callback(Msg::TimelineAgentResponse));
 		_timeline_agent.send(TimelineAgentRequest::RegisterTimelineContainer);
 		_timeline_agent.send(TimelineAgentRequest::LoadStorageTimelines);
+
+		let mut endpoint_agent = EndpointAgent::bridge(ctx.link().callback(Msg::EndpointResponse));
+		endpoint_agent.send(EndpointRequest::RegisterTimelineContainer);
 
 		Self {
 			_timeline_agent,
 			display_mode,
 			timelines: Vec::new(),
-			endpoint_agent: EndpointAgent::dispatcher(),
+			endpoint_agent,
 			page_info,
-			_twitter: TwitterAgent::dispatcher(),
-			_pixiv: PixivAgent::dispatcher(),
+			_twitter,
+			_pixiv,
 			timeline_counter: TimelineId::MIN,
 			main_timeline: TimelineId::MIN,
 		}
@@ -198,6 +206,18 @@ impl Component for Model {
 						self.timelines.push((props)(self.timeline_counter.clone()));
 						self.timeline_counter += 1;
 					}
+					true
+				}
+				_ => false
+			}
+			Msg::EndpointResponse(response) => match response {
+				EndpointResponse::BatchRequestResponse(timelines) => {
+					for (endpoints, closure) in timelines {
+						let id = self.timeline_counter.clone();
+						self.timelines.push((closure)(id.clone(), endpoints));
+						self.timeline_counter += 1;
+					}
+
 					true
 				}
 				_ => false
@@ -380,6 +400,7 @@ fn main() {
 	};
 }
 
+//TODO Load timeline container, width, column_count
 //TODO Save fetched articles
 //TODO Parse tweet text
 //TODO Auto refresh
@@ -394,6 +415,7 @@ fn main() {
 //TODO Social expanded view
 //TODO Prompt on not logged in
 //TODO Avoid refreshing endpoint every watch update
+//TODO Add "Open @myusername on soshalthing" context menu?
 
 //TODO Show multiple article types in same timeline
 
