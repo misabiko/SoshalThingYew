@@ -207,8 +207,6 @@ impl Agent for EndpointAgent {
 			Request::BatchNewEndpoints(timelines) => {
 				let endpoints: Vec<(TimelineEndpoints, TimelinePropsEndpointsClosure)> = timelines.into_iter().map(|(constructor, callback)| {
 					let start = constructor.start.iter().map(|e| {
-						log::debug!("services {:?}", self.services.keys());
-						log::debug!("{} endpoints for service {}", self.services[&e.service].endpoint_types.len(), &e.service);
 						let constructor = self.services[&e.service].endpoint_types[e.endpoint_type.clone()].clone();
 						let params = e.params.clone();
 

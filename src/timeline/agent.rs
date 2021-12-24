@@ -54,6 +54,8 @@ pub struct SoshalTimelineStorage {
 	title: String,
 	container: String,
 	endpoints: TimelineEndpointsStorage,
+	column_count: u8,
+	width: u8,
 }
 
 impl Agent for TimelineAgent {
@@ -111,13 +113,17 @@ impl Agent for TimelineAgent {
 
 					let callbacks = storage.into_iter().map(|t| {
 						let name = t.title.clone();
+						let width = t.width.clone();
+						let column_count = t.column_count.clone();
 						(
 							t.endpoints,
-							Box::new(|id, endpoints|
+							Box::new(move |id, endpoints|
 								yew::props! { TimelineProps {
 									name,
 									id,
 									endpoints,
+									width,
+									column_count,
 								}}
 							) as TimelinePropsEndpointsClosure,
 						)

@@ -107,6 +107,8 @@ pub struct Props {
 	#[prop_or_default]
 	pub main_timeline: bool,
 	#[prop_or(1)]
+	pub width: u8,
+	#[prop_or(1)]
 	pub column_count: u8,
 	#[prop_or_default]
 	pub children: Children,
@@ -121,6 +123,7 @@ impl PartialEq for Props {
 			self.hide == other.hide &&
 			self.endpoints == other.endpoints &&
 			self.main_timeline == other.main_timeline &&
+			self.width == other.width &&
 			self.column_count == other.column_count &&
 			self.children == other.children &&
 			self.articles.iter().zip(other.articles.iter())
@@ -157,7 +160,7 @@ impl Component for Timeline {
 			show_container_dropdown: false,
 			show_article_component_dropdown: false,
 			column_count: ctx.props().column_count.clone(),
-			width: 1,
+			width: ctx.props().width.clone(),
 			article_component: ArticleComponent::Social,
 			show_choose_endpoint: false,
 			container_ref: NodeRef::default(),

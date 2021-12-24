@@ -401,7 +401,7 @@ fn main() {
 	};
 }
 
-//TODO Load timeline container, width, column_count
+//TODO Load timeline container
 //TODO Parse tweet text
 //TODO Auto refresh
 //TODO Youtube articles
