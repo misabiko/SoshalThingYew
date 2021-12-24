@@ -324,8 +324,23 @@ async fn index() -> NamedFile {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-	let credentials = std::fs::read_to_string("credentials.json").expect("Couldn't find credentials.json");
-	let credentials: Credentials = serde_json::from_str(&credentials)?;
+	let credentials = match (std::env::var("consumer_key"), std::env::var("consumer_secret")) {
+		(Ok(_), Err(err)) => {
+			println!("Found consumer_key environment variable, but no secret.\n{:?}", err);
+			None
+		}
+		(Err(err), Ok(_)) => {
+			println!("Found consumer_secret environment variable, but no key.\n{:?}", err);
+			None
+		}
+		(Ok(consumer_key), Ok(consumer_secret)) => Some(Credentials { consumer_key, consumer_secret }),
+		(Err(_), Err(_)) => None,
+	};
+
+	let credentials = credentials.unwrap_or_else(|| {
+		let c = std::fs::read_to_string("credentials.json").expect("Couldn't find credentials.json");
+		serde_json::from_str(&c).expect("Couldn't parse credentials.json")
+	});
 
 	let con_token = egg_mode::KeyPair::new(credentials.consumer_key, credentials.consumer_secret);
 	let data = web::Data::new(State {
