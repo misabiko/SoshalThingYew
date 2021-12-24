@@ -4,7 +4,7 @@ use serde::{Serialize, Deserialize};
 
 use super::TimelineId;
 use crate::timeline::{Props as TimelineProps};
-use crate::services::endpoints::{TimelineEndpoints, Request as EndpointRequest, EndpointAgent};
+use crate::services::endpoint_agent::{TimelineEndpoints, Request as EndpointRequest, EndpointAgent};
 use crate::{TimelinePropsClosure, TimelinePropsEndpointsClosure};
 
 pub struct TimelineAgent {

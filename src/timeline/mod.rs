@@ -17,7 +17,7 @@ use filters::{Filter, default_filters};
 use sort_methods::{SortMethod, default_sort_methods};
 use agent::{TimelineAgent, Request as TimelineAgentRequest};
 use crate::articles::{ArticleComponent, ArticleData, actual_article};
-use crate::services::endpoints::{EndpointAgent, Request as EndpointRequest, TimelineEndpoints};
+use crate::services::endpoint_agent::{EndpointAgent, Request as EndpointRequest, TimelineEndpoints};
 use crate::modals::Modal;
 use crate::choose_endpoints::ChooseEndpoints;
 use crate::dropdown::{Dropdown, DropdownLabel};

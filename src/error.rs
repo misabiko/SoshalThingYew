@@ -1,7 +1,7 @@
 use std::num::ParseIntError;
 use reqwest::header::ToStrError;
 
-use crate::services::endpoints::RateLimit;
+use crate::services::RateLimit;
 
 #[derive(Debug)]
 pub struct Error {

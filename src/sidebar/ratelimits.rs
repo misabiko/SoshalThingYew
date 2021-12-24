@@ -2,7 +2,8 @@ use std::collections::HashMap;
 use yew::prelude::*;
 use yew_agent::{Bridge, Bridged};
 
-use crate::services::endpoints::{EndpointAgent, RateLimit, Response as EndpointResponse};
+use crate::services::RateLimit;
+use crate::services::endpoint_agent::{EndpointAgent, Response as EndpointResponse};
 
 pub struct RateLimitView {
 	pub ratelimits: HashMap<String, RateLimit>,

@@ -15,7 +15,8 @@ pub mod choose_endpoints;
 use crate::sidebar::Sidebar;
 use crate::timeline::{Props as TimelineProps, Timeline, TimelineId};
 use crate::services::{
-	endpoints::{Endpoint, EndpointId, EndpointAgent, Request as EndpointRequest, Response as EndpointResponse, TimelineEndpoints},
+	Endpoint,
+	endpoint_agent::{EndpointId, EndpointAgent, Request as EndpointRequest, Response as EndpointResponse, TimelineEndpoints},
 	pixiv::{FollowEndpoint, PixivAgent},
 	twitter::{endpoints::{HomeTimelineEndpoint, SingleTweetEndpoint, UserTimelineEndpoint}, TwitterAgent},
 };
@@ -401,10 +402,8 @@ fn main() {
 }
 
 //TODO Load timeline container, width, column_count
-//TODO Save fetched articles
 //TODO Parse tweet text
 //TODO Auto refresh
-//TODO Display timeline errors
 //TODO Youtube articles
 	//TODO Have custom service setting view
 	//TODO Show quato units for Youtube service
@@ -413,7 +412,9 @@ fn main() {
 //TODO Notifications
 //TODO Save timeline data
 //TODO Social expanded view
+//TODO Display timeline errors
 //TODO Prompt on not logged in
+//TODO Save fetched articles
 //TODO Avoid refreshing endpoint every watch update
 //TODO Add "Open @myusername on soshalthing" context menu?
 

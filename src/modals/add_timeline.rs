@@ -7,7 +7,7 @@ use yew_agent::{Bridge, Bridged};
 use super::Modal;
 use crate::timeline::{Props as TimelineProps};
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse};
-use crate::services::endpoints::TimelineEndpoints;
+use crate::services::endpoint_agent::TimelineEndpoints;
 use crate::choose_endpoints::ChooseEndpoints;
 use crate::TimelinePropsClosure;
 

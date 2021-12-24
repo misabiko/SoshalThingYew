@@ -4,7 +4,8 @@ use yew_agent::{Dispatched, Dispatcher};
 
 use super::{TwitterAgent, Request as TwitterRequest};
 use crate::articles::{ArticleData};
-use crate::services::endpoints::{Endpoint, EndpointId, RateLimit, RefreshTime};
+use crate::services::{Endpoint, RateLimit};
+use crate::services::endpoint_agent::{EndpointId, RefreshTime};
 
 pub struct UserTimelineEndpoint {
 	id: EndpointId,

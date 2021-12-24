@@ -7,7 +7,7 @@ use serde_json::json;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlInputElement;
 
-use crate::services::endpoints::{Request as EndpointRequest, EndpointAgent, TimelineEndpoints, EndpointId, RefreshTime, EndpointConstructors, Response as EndpointResponse, EndpointView};
+use crate::services::endpoint_agent::{Request as EndpointRequest, EndpointAgent, TimelineEndpoints, EndpointId, RefreshTime, EndpointConstructors, Response as EndpointResponse, EndpointView};
 use crate::dropdown::{Dropdown, DropdownLabel};
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse};
 

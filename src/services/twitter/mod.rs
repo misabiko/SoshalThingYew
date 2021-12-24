@@ -11,10 +11,13 @@ mod article;
 pub use article::TweetArticleData;
 use article::{TwitterUser, StrongArticleRefType};
 use crate::articles::{ArticleData, ArticleRefType};
-use crate::services::endpoints::{EndpointAgent, Request as EndpointRequest, EndpointId, EndpointConstructor, EndpointConstructors, RefreshTime, RateLimit};
+use crate::services::{
+	RateLimit,
+	endpoint_agent::{EndpointAgent, Request as EndpointRequest, EndpointId, EndpointConstructor, EndpointConstructors, RefreshTime},
+	article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest},
+	twitter::endpoints::{UserTimelineEndpoint, HomeTimelineEndpoint, ListEndpoint, SingleTweetEndpoint},
+};
 use crate::error::{Error, FetchResult};
-use crate::services::twitter::endpoints::{UserTimelineEndpoint, HomeTimelineEndpoint, ListEndpoint, SingleTweetEndpoint};
-use crate::services::article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest};
 
 pub async fn fetch_tweets(url: &str, marked_as_read: &HashSet<u64>) -> FetchResult<Vec<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)>> {
 	let response = reqwest::Client::builder().build()?

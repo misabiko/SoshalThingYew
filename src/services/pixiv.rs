@@ -5,7 +5,8 @@ use js_sys::Date;
 use std::collections::HashMap;
 
 use crate::articles::{ArticleData, ArticleMedia};
-use crate::services::endpoints::{EndpointAgent, Endpoint, Request as EndpointRequest, EndpointId, RefreshTime, EndpointConstructors};
+use crate::services::Endpoint;
+use crate::services::endpoint_agent::{EndpointAgent, Request as EndpointRequest, EndpointId, RefreshTime, EndpointConstructors};
 
 pub struct PixivArticleData {
 	id: u32,
