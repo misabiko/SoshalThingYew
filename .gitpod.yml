@@ -1,6 +1,6 @@
 tasks:
   - name: server
-    init: cargo build -p server
+    init: cargo install cargo-watch && cargo build -p server
     command: cargo watch -w server/ -x "run -p server"
   - init: npm install && sudo apt-get update && sudo apt-get install nim && nim c change_hashes.nim && rustup target add wasm32-unknown-unknown && cargo install trunk && trunk build
     command: trunk serve
