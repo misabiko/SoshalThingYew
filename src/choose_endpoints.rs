@@ -255,13 +255,7 @@ impl ChooseEndpoints {
 						</Dropdown>
 						{ for services[&form.service].endpoint_types[form.endpoint_type.clone()].param_template.iter().map(move |param| {
 							let param_c = param.to_string();
-							let value = match params[&param_c].as_str() {
-								Some(v) => v.to_owned(),
-								None => {
-									log::warn!("Failed to parse param \"{}\", inside \"{:?}\".", &param_c, &params);
-									String::new()
-								}
-							};
+							let value = params[&param_c].as_str().map(|s| s.to_owned()).unwrap_or_default();
 							let oninput = ctx.link().batch_callback(move |e: InputEvent|
 								e.target()
 									.and_then(|t| t.dyn_into::<HtmlInputElement>().ok())
