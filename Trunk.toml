@@ -9,4 +9,4 @@ backend = "http://localhost:3000/proxy"
 
 [[hooks]]
 stage = "post_build"
-command = "change_hashes.exe"
+command = "./change_hashes"
