@@ -22,10 +22,12 @@ $fa-font-path: "/webfonts"
 
 html
 	overflow-y: hidden
+	//height: -webkit-fill-available
 
 body
 	margin: 0
 	//height: 100vh
+	//min-height: -webkit-fill-available
 	height: -webkit-fill-available
 	display: flex
 	-webkit-font-smoothing: antialiased
@@ -33,6 +35,7 @@ body
 
 #timelineContainer
 	height: 100%
+	max-height: -webkit-fill-available
 	overflow-x: scroll
 	display: flex
 	flex-grow: 1
