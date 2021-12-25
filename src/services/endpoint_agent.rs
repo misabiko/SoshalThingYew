@@ -38,7 +38,7 @@ pub enum Request {
 	LoadBottom(Weak<RefCell<TimelineEndpoints>>),
 	EndpointFetchResponse(RefreshTime, EndpointId, FetchResult<Vec<Rc<RefCell<dyn ArticleData>>>>),
 	AddArticles(RefreshTime, EndpointId, Vec<Rc<RefCell<dyn ArticleData>>>),
-	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
+	AddEndpoint(Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>),
 	InitService(String, EndpointConstructors),
 	UpdateRateLimit(EndpointId, RateLimit),
 	BatchNewEndpoints(Vec<(TimelineEndpointsStorage, TimelinePropsEndpointsClosure)>),

@@ -18,7 +18,7 @@ use crate::services::{
 	Endpoint,
 	endpoint_agent::{EndpointId, EndpointAgent, Request as EndpointRequest, Response as EndpointResponse, TimelineEndpoints},
 	pixiv::{FollowEndpoint, PixivAgent},
-	twitter::{endpoints::{HomeTimelineEndpoint, SingleTweetEndpoint, UserTimelineEndpoint}, TwitterAgent},
+	twitter::{endpoints::*, TwitterAgent},
 };
 use crate::favviewer::{PageInfo, PixivPageInfo};
 use crate::modals::AddTimelineModal;
@@ -54,7 +54,7 @@ struct Model {
 }
 
 enum Msg {
-	AddEndpoint(Box<dyn Fn(EndpointId) -> Box<dyn Endpoint>>),
+	AddEndpoint(Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>),
 	AddTimeline(String, EndpointId),
 	ToggleFavViewer,
 	AddTimelineProps(TimelinePropsClosure),
@@ -356,7 +356,20 @@ fn parse_pathname(ctx: &Context<Model>, pathname: &str, search_opt: &Option<web_
 				Box::new(HomeTimelineEndpoint::new(id))
 			}))
 		);
-	} else if ctx.props().favviewer {
+	} else if let Some(list_params) = pathname.strip_prefix("/twitter/list/").map(|s| s.split("/").collect::<Vec<&str>>()) {
+		if let [username, slug] = list_params[..] {
+			let callback = ctx.link().callback(|id| Msg::AddTimeline("List".to_owned(), id));
+			let username = username.to_owned();
+			let slug = slug.to_owned();
+
+			ctx.link().send_message(
+				Msg::AddEndpoint(Box::new(move |id| {
+					callback.emit(id);
+					Box::new(ListEndpoint::new(id, username, slug))
+				}) /*as Box<dyn FnOnce(EndpointId) -> Box<ListEndpoint>>*/)
+			);
+		}
+	} if ctx.props().favviewer {
 		let callback = ctx.link().callback(|id| Msg::AddTimeline("Pixiv".to_owned(), id));
 		ctx.link().send_message(
 			Msg::AddEndpoint(Box::new(move |id| {
