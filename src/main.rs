@@ -416,6 +416,7 @@ fn main() {
 
 //TODO Parse tweet text
 //TODO Auto refresh
+//TODO Profile lag when redrawing articles
 //TODO Youtube articles
 	//TODO Have custom service setting view
 	//TODO Show quato units for Youtube service
@@ -433,5 +434,3 @@ fn main() {
 //TODO Show multiple article types in same timeline
 
 //TODO Fix articles not redrawing when they redraw...
-//TODO Fix fontawesome sass warnings
-//TODO Fix handler without callback thing
