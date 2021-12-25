@@ -1,9 +1,8 @@
 tasks:
-  - init: sudo apt-get update && sudo apt-get install nim && nim c change_hashes.nim
   - init: cargo build -p server
     command: cargo watch -w server/ -x "run -p server"
   - name: server
-    init: npm install && rustup target add wasm32-unknown-unknown && cargo install trunk && trunk build
+    init: npm install && sudo apt-get update && sudo apt-get install nim && nim c change_hashes.nim && rustup target add wasm32-unknown-unknown && cargo install trunk && trunk build
     command: cargo run -p server && trunk server
 ports:
   - port: 8080
