@@ -1,4 +1,5 @@
 use yew::prelude::*;
+use wasm_bindgen::JsCast;
 
 pub struct Dropdown {
 	expanded: bool,
@@ -42,6 +43,12 @@ impl Component for Dropdown {
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
+		let on_content_click = ctx.link().batch_callback(|e: MouseEvent| {
+			e.target()
+				.map(|t| t.has_type::<web_sys::HtmlDivElement>() || t.has_type::<web_sys::HtmlAnchorElement>())
+				.and_then(|b| if b { Some(Msg::ToggleExpanded) } else { None })
+		});
+
 		html! {
 			<div class={classes!("dropdown", if self.expanded { Some("is-active") } else { None })}>
 				<div class="dropdown-trigger">
@@ -64,7 +71,7 @@ impl Component for Dropdown {
 					</button>
 				</div>
 				<div class="dropdown-menu">
-					<div class="dropdown-content">
+					<div class="dropdown-content" onclick={on_content_click}>
 						{ for ctx.props().children.iter() }
 					</div>
 				</div>
@@ -72,5 +79,3 @@ impl Component for Dropdown {
 		}
 	}
 }
-
-//TODO Have dropdown element collapse it
