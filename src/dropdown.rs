@@ -45,7 +45,8 @@ impl Component for Dropdown {
 	fn view(&self, ctx: &Context<Self>) -> Html {
 		let on_content_click = ctx.link().batch_callback(|e: MouseEvent| {
 			e.target()
-				.map(|t| t.has_type::<web_sys::HtmlDivElement>() || t.has_type::<web_sys::HtmlAnchorElement>())
+				.and_then(|t| t.dyn_into::<web_sys::HtmlElement>().ok())
+				.map(|el| el.class_list().contains("dropdown-item"))
 				.and_then(|b| if b { Some(Msg::ToggleExpanded) } else { None })
 		});
 
