@@ -1,5 +1,6 @@
 use std::num::ParseIntError;
 use reqwest::header::ToStrError;
+use wasm_bindgen::JsValue;
 
 use crate::services::RateLimit;
 
@@ -16,6 +17,7 @@ pub enum ErrorKind {
 	SerdeJson(serde_json::Error),
 	ToStr(ToStrError),
 	ParseInt(ParseIntError),
+	JsValue(JsValue),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -67,6 +69,15 @@ impl From<ParseIntError> for Error {
 	fn from(err: ParseIntError) -> Self {
 		Self {
 			err: ErrorKind::ParseInt(err),
+			ratelimit: None,
+		}
+	}
+}
+
+impl From<JsValue> for Error {
+	fn from(err: JsValue) -> Self {
+		Self {
+			err: ErrorKind::JsValue(err),
 			ratelimit: None,
 		}
 	}
