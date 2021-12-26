@@ -405,10 +405,9 @@ impl Component for Timeline {
 			if let Some(sort_method) = self.sort_method {
 				let method = &self.sort_methods[sort_method.clone()];
 				articles.sort_by(|a, b| {
-					let (actual_a, actual_b) = (actual_article(&a), actual_article(&b));
 					match method.reversed {
-						false => (method.compare)(&actual_a, &actual_b),
-						true => (method.compare)(&actual_a, &actual_b).reverse(),
+						false => (method.compare)(&a, &b),
+						true => (method.compare)(&a, &b).reverse(),
 					}
 				});
 			}

@@ -1,7 +1,7 @@
 use std::rc::Weak;
 use std::cell::RefCell;
 
-use crate::articles::ArticleData;
+use crate::articles::{actual_article, ArticleData};
 
 pub struct SortMethod {
 	pub name: String,
@@ -29,6 +29,7 @@ pub fn default_sort_methods() -> Vec<SortMethod> {
 	},SortMethod {
 		name: "Likes".to_owned(),
 		compare: |a, b| {
+			let (a, b) = (actual_article(&a), actual_article(&b));
 			let a = a.upgrade().map(|s| s.borrow().like_count()).unwrap_or_default();
 			let b = b.upgrade().map(|s| s.borrow().like_count()).unwrap_or_default();
 			b.partial_cmp(&a).unwrap()
@@ -37,6 +38,7 @@ pub fn default_sort_methods() -> Vec<SortMethod> {
 	},SortMethod {
 		name: "Reposts".to_owned(),
 		compare: |a, b| {
+			let (a, b) = (actual_article(&a), actual_article(&b));
 			let a = a.upgrade().map(|s| s.borrow().repost_count()).unwrap_or_default();
 			let b = b.upgrade().map(|s| s.borrow().repost_count()).unwrap_or_default();
 			b.partial_cmp(&a).unwrap()
