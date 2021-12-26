@@ -143,8 +143,8 @@ impl TweetArticleData {
 			}
 		};
 
-		let entities = &json["extended_entities"];
-		let medias_opt = entities
+		let extended_entities = &json["extended_entities"];
+		let medias_opt = extended_entities
 			.get("media")
 			.and_then(|media| media.as_array());
 
@@ -153,7 +153,7 @@ impl TweetArticleData {
 			None => "",
 		}.to_owned();
 
-		text = parse_text(text, &entities);
+		text = parse_text(text, &json["entities"], &extended_entities);
 
 		let data = Rc::new(RefCell::new(TweetArticleData {
 			id,
@@ -247,9 +247,9 @@ fn get_mp4(video_info: &serde_json::Value) -> Option<(&str, f32)> {
 		)
 }
 
-//TODO tweet parse_text unit tests
-fn parse_text(mut text: String, entities: &serde_json::Value) -> String {
-	let medias_opt: Option<Vec<&str>> = entities
+//TEST tweet parse_text unit tests
+fn parse_text(mut text: String, entities: &serde_json::Value, extended_entities: &serde_json::Value) -> String {
+	let medias_opt: Option<Vec<&str>> = extended_entities
 		.get("media")
 		.and_then(|media| media.as_array())
 		.map(|medias| medias.iter().filter_map(|m| {
@@ -264,10 +264,26 @@ fn parse_text(mut text: String, entities: &serde_json::Value) -> String {
 			}).collect()
 		);
 
+	let urls_opt: Option<Vec<(&str, &str)>> = entities
+		.get("urls")
+		.and_then(|url| url.as_array())
+		.map(|urls|
+			urls.iter()
+				.filter_map(|url| url["url"].as_str().zip(url["display_url"].as_str())
+			).collect()
+		);
+
 	if let Some(medias) = medias_opt {
 		for media in medias {
 			text = text.replace(media, "");
 		}
 	}
+
+	if let Some(urls) = urls_opt {
+		for (compressed, display) in urls {
+			text = text.replace(compressed, display);
+		}
+	}
+
 	text
 }
