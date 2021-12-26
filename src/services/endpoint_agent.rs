@@ -4,19 +4,38 @@ use yew::prelude::*;
 use yew_agent::{Agent, Context as AgentContext, AgentLink, HandlerId};
 use std::cell::RefCell;
 
-use super::{Endpoint, EndpointStorage, RateLimit};
+use super::{Endpoint, EndpointSerialized, RateLimit};
 use crate::error::{Error, FetchResult};
 use crate::articles::ArticleData;
-use crate::timeline::agent::TimelineEndpointsStorage;
+use crate::timeline::agent::TimelineEndpointsSerialized;
+use crate::timeline::filters::{Filter, default_filters};
 use crate::{TimelineId, TimelinePropsEndpointsClosure};
 
 pub type EndpointId = i32;
 
+#[derive(Clone)]
+pub struct TimelineEndpointWrapper {
+	pub id: EndpointId,
+	pub filters: Vec<Filter>,
+}
+
+impl From<EndpointId> for TimelineEndpointWrapper {
+	fn from(id: EndpointId) -> Self {
+		Self { id, filters: Vec::new() }
+	}
+}
+
+impl PartialEq for TimelineEndpointWrapper {
+	fn eq(&self, other: &Self) -> bool {
+		self.id == other.id
+	}
+}
+
 //Maybe HashMap<RefreshTime, HashSet<EndpointId>> ?
 #[derive(Clone, PartialEq, Default)]
 pub struct TimelineEndpoints {
-	pub start: HashSet<EndpointId>,
-	pub refresh: HashSet<EndpointId>,
+	pub start: Vec<TimelineEndpointWrapper>,
+	pub refresh: Vec<TimelineEndpointWrapper>,
 }
 
 #[derive(Clone, PartialEq)]
@@ -41,7 +60,7 @@ pub enum Request {
 	AddEndpoint(Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>),
 	InitService(String, EndpointConstructors),
 	UpdateRateLimit(EndpointId, RateLimit),
-	BatchNewEndpoints(Vec<(TimelineEndpointsStorage, TimelinePropsEndpointsClosure)>),
+	BatchNewEndpoints(Vec<(TimelineEndpointsSerialized, TimelinePropsEndpointsClosure)>),
 	RegisterTimelineContainer,
 }
 
@@ -115,8 +134,15 @@ impl Agent for EndpointAgent {
 						RefreshTime::Start => &borrow.start,
 					};
 
-					if endpoints.iter().any(|e| e == &endpoint_id) {
-						timeline.1.emit(response.0.iter().map(|article| Rc::downgrade(&article)).collect());
+					if let Some(endpoint_wrapper) = endpoints.iter().find(|e| e.id == endpoint_id) {
+						timeline.1.emit(response.0.iter()
+							.map(|article| Rc::downgrade(&article))
+							.filter(|article|
+								endpoint_wrapper.filters.iter().all(|filter|
+									filter.enabled && (filter.predicate)(article, &filter.inverted)
+								)
+							)
+							.collect());
 					}
 				}
 
@@ -148,8 +174,8 @@ impl Agent for EndpointAgent {
 			Request::InitTimeline(id, endpoints, callback) => {
 				self.timelines.insert(id, (Rc::downgrade(&endpoints), callback));
 
-				for endpoint_id in &endpoints.borrow().start {
-					let endpoint = self.endpoints.get_mut(&endpoint_id).unwrap();
+				for timeline_endpoint in &endpoints.borrow().start {
+					let endpoint = self.endpoints.get_mut(&timeline_endpoint.id).unwrap();
 					if endpoint.get_mut_ratelimit().map(|r| r.can_refresh()).unwrap_or(true) {
 						endpoint.refresh(RefreshTime::Start);
 					}else {
@@ -162,8 +188,8 @@ impl Agent for EndpointAgent {
 			}
 			Request::Refresh(endpoints_weak) => {
 				let endpoints = endpoints_weak.upgrade().unwrap();
-				for endpoint_id in endpoints.borrow().refresh.clone() {
-					let endpoint = self.endpoints.get_mut(&endpoint_id).unwrap();
+				for timeline_endpoint in endpoints.borrow().refresh.clone() {
+					let endpoint = self.endpoints.get_mut(&timeline_endpoint.id).unwrap();
 					if endpoint.get_mut_ratelimit().map(|r| r.can_refresh()).unwrap_or(true) {
 						endpoint.refresh(RefreshTime::OnRefresh);
 					}else {
@@ -173,8 +199,8 @@ impl Agent for EndpointAgent {
 			}
 			Request::LoadBottom(endpoints_weak) => {
 				let endpoints = endpoints_weak.upgrade().unwrap();
-				for endpoint_id in endpoints.borrow().refresh.clone() {
-					let endpoint = self.endpoints.get_mut(&endpoint_id).unwrap();
+				for timeline_endpoint in endpoints.borrow().refresh.clone() {
+					let endpoint = self.endpoints.get_mut(&timeline_endpoint.id).unwrap();
 					if endpoint.get_mut_ratelimit().map(|r| r.can_refresh()).unwrap_or(true) {
 						endpoint.load_bottom(RefreshTime::OnRefresh);
 					}else {
@@ -188,8 +214,8 @@ impl Agent for EndpointAgent {
 					Err(err) => self.link.send_message(Msg::RefreshFail(err)),
 				};
 			}
-			Request::AddArticles(refresh_time, id, articles) =>
-				self.link.send_message(Msg::Refreshed(refresh_time, id, (articles, None))),
+			Request::AddArticles(refresh_time, endpoint_id, articles) =>
+				self.link.send_message(Msg::Refreshed(refresh_time, endpoint_id, (articles, None))),
 			Request::AddEndpoint(endpoint) => {
 				self.endpoints.insert(self.endpoint_counter, endpoint(self.endpoint_counter));
 				self.endpoint_counter += 1;
@@ -206,8 +232,12 @@ impl Agent for EndpointAgent {
 			},
 			Request::BatchNewEndpoints(timelines) => {
 				let endpoints: Vec<(TimelineEndpoints, TimelinePropsEndpointsClosure)> = timelines.into_iter().map(|(constructor, callback)| {
-					let start = constructor.start.iter().map(|e| self.find_endpoint_or_create(e)).collect::<HashSet<EndpointId>>();
-					let refresh = constructor.refresh.iter().map(|e| self.find_endpoint_or_create(e)).collect::<HashSet<EndpointId>>();
+					let start = constructor.start.iter()
+						.map(|e| self.find_endpoint_or_create(e))
+						.collect();
+					let refresh = constructor.refresh.iter()
+						.map(|e| self.find_endpoint_or_create(e))
+						.collect();
 
 					(TimelineEndpoints { start, refresh }, callback)
 				}).collect();
@@ -231,15 +261,15 @@ impl Agent for EndpointAgent {
 }
 
 impl EndpointAgent {
-	fn endpoint_from_constructor(&self, storage: &EndpointStorage) -> Option<EndpointId> {
+	fn endpoint_from_constructor(&self, storage: &EndpointSerialized) -> Option<EndpointId> {
 		self.endpoints.iter().find_map(|(id, endpoint)| match endpoint.eq_storage(storage) {
 			true => Some(id.clone()),
 			false => None
 		})
 	}
 
-	fn find_endpoint_or_create(&mut self, storage: &EndpointStorage) -> EndpointId {
-		match self.endpoint_from_constructor(storage) {
+	fn find_endpoint_or_create(&mut self, storage: &EndpointSerialized) -> TimelineEndpointWrapper {
+		let id = match self.endpoint_from_constructor(storage) {
 			Some(id) => id,
 			None => {
 				let constructor = self.services[&storage.service].endpoint_types[storage.endpoint_type.clone()].clone();
@@ -251,6 +281,17 @@ impl EndpointAgent {
 
 				id
 			}
-		}
+		};
+
+		//TODO Implement Filter::from<FilterSerialized>
+		let default_filters = default_filters();
+		let filters = storage.filters.iter().map(|f| {
+			let mut filter = default_filters[f.id].clone();
+			filter.enabled = f.enabled;
+			filter.inverted = f.inverted;
+			filter
+		}).collect();
+
+		TimelineEndpointWrapper { id, filters }
 	}
 }

@@ -13,6 +13,7 @@ pub use endpoint_agent::{EndpointId, EndpointAgent, RefreshTime};
 use crate::error::Error;
 use crate::articles::ArticleData;
 use crate::timeline::sort_methods::sort_by_id;
+use crate::timeline::filters::FilterSerialized;
 
 #[derive(Clone, Debug)]
 pub struct RateLimit {
@@ -65,10 +66,12 @@ impl RateLimit {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct EndpointStorage {
+pub struct EndpointSerialized {
 	pub service: String,
 	pub endpoint_type: usize,
 	pub params: serde_json::Value,
+	#[serde(default)]
+	pub filters: Vec<FilterSerialized>,
 }
 
 pub trait Endpoint {
@@ -107,5 +110,5 @@ pub trait Endpoint {
 		self.refresh(refresh_time)
 	}
 
-	fn eq_storage(&self, storage: &EndpointStorage) -> bool;
+	fn eq_storage(&self, storage: &EndpointSerialized) -> bool;
 }

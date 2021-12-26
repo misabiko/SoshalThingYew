@@ -192,16 +192,16 @@ impl Component for ChooseEndpoints {
 			Msg::AddTimelineEndpoint(refresh_time, id) => {
 				let timeline_endpoints = ctx.props().timeline_endpoints.upgrade().unwrap();
 				match refresh_time {
-					RefreshTime::Start => timeline_endpoints.borrow_mut().start.insert(id.clone()),
-					RefreshTime::OnRefresh => timeline_endpoints.borrow_mut().refresh.insert(id.clone()),
+					RefreshTime::Start => timeline_endpoints.borrow_mut().start.push(id.clone().into()),
+					RefreshTime::OnRefresh => timeline_endpoints.borrow_mut().refresh.push(id.clone().into()),
 				};
 				true
 			}
 			Msg::RemoveTimelineEndpoint(refresh_time, id) => {
 				let timeline_endpoints = ctx.props().timeline_endpoints.upgrade().unwrap();
 				match refresh_time {
-					RefreshTime::Start => timeline_endpoints.borrow_mut().start.remove(&id),
-					RefreshTime::OnRefresh => timeline_endpoints.borrow_mut().refresh.remove(&id),
+					RefreshTime::Start => timeline_endpoints.borrow_mut().start.retain(|e| e.id != id),
+					RefreshTime::OnRefresh => timeline_endpoints.borrow_mut().refresh.retain(|e| e.id != id),
 				};
 				true
 			}
@@ -306,7 +306,7 @@ impl ChooseEndpoints {
 		html! {
 			<div class="field">
 				<label class="label">{label}</label>
-				{ for endpoints_iter.map(|id| self.view_endpoint(ctx, &refresh_time, id)) }
+				{ for endpoints_iter.map(|e| self.view_endpoint(ctx, &refresh_time, &e.id)) }
 				<div class="control">
 					{ existing_dropdown }
 				</div>

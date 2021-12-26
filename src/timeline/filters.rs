@@ -3,11 +3,19 @@ use std::cell::RefCell;
 
 use crate::articles::{ArticleData, ArticleMedia, ArticleRefType};
 
-pub type FilterPredicate = fn(&Weak<RefCell<dyn ArticleData>>, inverted: bool) -> bool;
+pub type FilterPredicate = fn(&Weak<RefCell<dyn ArticleData>>, inverted: &bool) -> bool;
 
+#[derive(Clone)]
 pub struct Filter {
 	pub name: String,
 	pub predicate: FilterPredicate,
+	pub enabled: bool,
+	pub inverted: bool,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct FilterSerialized {
+	pub id: usize,
 	pub enabled: bool,
 	pub inverted: bool,
 }
@@ -47,7 +55,7 @@ pub fn default_filters() -> Vec<Filter> {
 				match a.upgrade() {
 					Some(strong) => {
 						let borrow = strong.borrow();
-						(match borrow.referenced_article() {
+						&(match borrow.referenced_article() {
 							ArticleRefType::NoRef => !borrow.media().is_empty(),
 							ArticleRefType::Repost(a) => a.upgrade().map(|r| !r.borrow().media().is_empty()).unwrap_or(false),
 							ArticleRefType::Quote(a) => (a.upgrade().map(|r| !r.borrow().media().is_empty()).unwrap_or(false) || !borrow.media().is_empty()),
@@ -63,7 +71,7 @@ pub fn default_filters() -> Vec<Filter> {
 				match a.upgrade() {
 					Some(strong) => {
 						let borrow = strong.borrow();
-						(match borrow.referenced_article() {
+						&(match borrow.referenced_article() {
 							ArticleRefType::NoRef => borrow.media().iter().any(|m| is_animated(m)),
 							ArticleRefType::Repost(a) => a.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false),
 							ArticleRefType::Quote(a) => (a.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false) || (borrow.media().iter().any(|m| is_animated(m)))),
@@ -79,7 +87,7 @@ pub fn default_filters() -> Vec<Filter> {
 				match a.upgrade() {
 					Some(strong) => {
 						let borrow = strong.borrow();
-						(match borrow.referenced_article() {
+						&(match borrow.referenced_article() {
 							ArticleRefType::NoRef => (!borrow.marked_as_read()),
 							ArticleRefType::Repost(a) | ArticleRefType::Quote(a)
 								=> (a.upgrade().map(|r| !r.borrow().marked_as_read()).unwrap_or(false) && !borrow.marked_as_read()),
@@ -96,7 +104,7 @@ pub fn default_filters() -> Vec<Filter> {
 				match a.upgrade() {
 					Some(strong) => {
 						let borrow = strong.borrow();
-						(match borrow.referenced_article() {
+						&(match borrow.referenced_article() {
 							ArticleRefType::NoRef => !borrow.hidden(),
 							ArticleRefType::Repost(a) | ArticleRefType::Quote(a)
 								=> a.upgrade().map(|r| !r.borrow().hidden()).unwrap_or(false) && !borrow.hidden(),
@@ -113,7 +121,7 @@ pub fn default_filters() -> Vec<Filter> {
 				match a.upgrade() {
 					Some(strong) => {
 						let borrow = strong.borrow();
-						(match borrow.referenced_article() {
+						&(match borrow.referenced_article() {
 							ArticleRefType::NoRef => borrow.liked(),
 							ArticleRefType::Repost(a) | ArticleRefType::Quote(a)
 							=> a.upgrade().map(|r| r.borrow().liked()).unwrap_or(false) || borrow.liked(),
@@ -130,7 +138,7 @@ pub fn default_filters() -> Vec<Filter> {
 				match a.upgrade() {
 					Some(strong) => {
 						let borrow = strong.borrow();
-						(match borrow.referenced_article() {
+						&(match borrow.referenced_article() {
 							ArticleRefType::NoRef => borrow.reposted(),
 							ArticleRefType::Repost(a) | ArticleRefType::Quote(a)
 							=> a.upgrade().map(|r| r.borrow().reposted()).unwrap_or(false) || borrow.reposted(),

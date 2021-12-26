@@ -1,6 +1,5 @@
 use yew::prelude::*;
 use yew_agent::{Bridge, Bridged, Dispatched, Dispatcher};
-use std::collections::HashSet;
 
 pub mod error;
 pub mod timeline;
@@ -142,9 +141,9 @@ impl Component for Model {
 				false
 			}
 			Msg::AddTimeline(name, endpoint_id) => {
-				let mut endpoints = HashSet::new();
+				let mut endpoints = Vec::new();
 				let timeline_id = self.timeline_counter.clone();
-				endpoints.insert(endpoint_id);
+				endpoints.push(endpoint_id.into());
 
 				self.timelines.push(yew::props! { TimelineProps {
 					name,

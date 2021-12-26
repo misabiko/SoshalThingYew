@@ -6,8 +6,8 @@ use crate::services::RateLimit;
 
 #[derive(Debug)]
 pub struct Error {
-	err: ErrorKind,
-	ratelimit: Option<RateLimit>,
+	pub err: ErrorKind,
+	pub ratelimit: Option<RateLimit>,
 }
 
 #[derive(Debug)]

@@ -9,8 +9,8 @@ use wasm_bindgen::closure::Closure;
 
 pub mod sort_methods;
 pub mod agent;
+pub mod filters;
 mod containers;
-mod filters;
 
 pub use containers::Container;
 use containers::{view_container, Props as ContainerProps};
@@ -397,7 +397,7 @@ impl Component for Timeline {
 		let mut articles = self.articles.clone();
 		for filter in &self.filters {
 			if filter.enabled {
-				articles = articles.into_iter().filter(|a| (filter.predicate)(a, filter.inverted.clone())).collect();
+				articles = articles.into_iter().filter(|a| (filter.predicate)(a, &filter.inverted)).collect();
 			}
 		}
 

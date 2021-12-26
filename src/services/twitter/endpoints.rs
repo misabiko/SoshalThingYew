@@ -4,7 +4,7 @@ use yew_agent::{Dispatched, Dispatcher};
 
 use super::{TwitterAgent, Request as TwitterRequest};
 use crate::articles::{ArticleData};
-use crate::services::{Endpoint, EndpointStorage, RateLimit};
+use crate::services::{Endpoint, EndpointSerialized, RateLimit};
 use crate::services::endpoint_agent::{EndpointId, RefreshTime};
 
 pub struct UserTimelineEndpoint {
@@ -82,7 +82,7 @@ impl Endpoint for UserTimelineEndpoint {
 		}
 	}
 
-	fn eq_storage(&self, storage: &EndpointStorage) -> bool {
+	fn eq_storage(&self, storage: &EndpointSerialized) -> bool {
 		storage.service == "Twitter" &&
 		storage.endpoint_type == 1 &&
 		storage.params["username"]
@@ -154,7 +154,7 @@ impl Endpoint for HomeTimelineEndpoint {
 		}
 	}
 
-	fn eq_storage(&self, storage: &EndpointStorage) -> bool {
+	fn eq_storage(&self, storage: &EndpointSerialized) -> bool {
 		storage.service == "Twitter" &&
 		storage.endpoint_type == 0
 	}
@@ -238,7 +238,7 @@ impl Endpoint for ListEndpoint {
 		}
 	}
 
-	fn eq_storage(&self, storage: &EndpointStorage) -> bool {
+	fn eq_storage(&self, storage: &EndpointSerialized) -> bool {
 		storage.service == "Twitter" &&
 		storage.endpoint_type == 2 &&
 		storage.params["username"]
@@ -313,7 +313,7 @@ impl Endpoint for SingleTweetEndpoint {
 		))
 	}
 
-	fn eq_storage(&self, storage: &EndpointStorage) -> bool {
+	fn eq_storage(&self, storage: &EndpointSerialized) -> bool {
 		storage.service == "Twitter" &&
 		storage.endpoint_type == 3 &&
 		storage.params["id"]

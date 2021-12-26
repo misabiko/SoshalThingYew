@@ -5,7 +5,7 @@ use js_sys::Date;
 use std::collections::HashMap;
 
 use crate::articles::{ArticleData, ArticleMedia};
-use crate::services::{Endpoint, EndpointStorage};
+use crate::services::{Endpoint, EndpointSerialized};
 use crate::services::endpoint_agent::{EndpointAgent, Request as EndpointRequest, EndpointId, RefreshTime, EndpointConstructors};
 
 pub struct PixivArticleData {
@@ -239,7 +239,7 @@ impl Endpoint for FollowEndpoint {
 		self.agent.send(Request::AddArticles(refresh_time, id, articles));
 	}
 
-	fn eq_storage(&self, storage: &EndpointStorage) -> bool {
+	fn eq_storage(&self, storage: &EndpointSerialized) -> bool {
 		storage.service == "Pixiv" &&
 		storage.endpoint_type == 0
 	}

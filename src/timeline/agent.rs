@@ -1,9 +1,10 @@
+use gloo_storage::errors::StorageError;
 use yew_agent::{Agent, AgentLink, HandlerId, Context as AgentContext, Dispatcher, Dispatched};
 use gloo_storage::Storage;
 use serde::{Serialize, Deserialize};
 
 use super::{TimelineId, Props as TimelineProps, Container};
-use crate::services::EndpointStorage;
+use crate::services::EndpointSerialized;
 use crate::services::endpoint_agent::{TimelineEndpoints, Request as EndpointRequest, EndpointAgent};
 use crate::{TimelinePropsClosure, TimelinePropsEndpointsClosure};
 
@@ -37,16 +38,16 @@ pub enum Response {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct TimelineEndpointsStorage {
-	pub start: Vec<EndpointStorage>,
-	pub refresh: Vec<EndpointStorage>,
+pub struct TimelineEndpointsSerialized {
+	pub start: Vec<EndpointSerialized>,
+	pub refresh: Vec<EndpointSerialized>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct SoshalTimelineStorage {
 	title: String,
 	container: String,
-	endpoints: TimelineEndpointsStorage,
+	endpoints: TimelineEndpointsSerialized,
 	column_count: u8,
 	width: u8,
 }
@@ -102,7 +103,16 @@ impl Agent for TimelineAgent {
 			}
 			Request::LoadStorageTimelines => {
 				if let Some(_timeline_container) = self.timeline_container {
-					let storage: Vec<SoshalTimelineStorage> = gloo_storage::LocalStorage::get("SoshalThingYew Timelines").unwrap_or_default();
+					let storage: Vec<SoshalTimelineStorage> = match gloo_storage::LocalStorage::get("SoshalThingYew Timelines") {
+						Ok(storage) => storage,
+						Err(err) => {
+							if let StorageError::SerdeError(_) | StorageError::JsError(_) =  err {
+								log::warn!("Failed to parse timeline storage:\n{:?}", err);
+							};
+
+							Vec::new()
+						}
+					};
 
 					let callbacks = storage.into_iter().map(|t| {
 						let name = t.title.clone();
