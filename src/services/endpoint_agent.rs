@@ -8,7 +8,7 @@ use super::{Endpoint, EndpointSerialized, RateLimit};
 use crate::error::{Error, FetchResult};
 use crate::articles::ArticleData;
 use crate::timeline::agent::TimelineEndpointsSerialized;
-use crate::timeline::filters::{Filter, default_filters};
+use crate::timeline::filters::{Filter, deserialize_filters};
 use crate::{TimelineId, TimelinePropsEndpointsClosure};
 
 pub type EndpointId = i32;
@@ -283,14 +283,7 @@ impl EndpointAgent {
 			}
 		};
 
-		//TODO Implement Filter::from<FilterSerialized>
-		let default_filters = default_filters();
-		let filters = storage.filters.iter().map(|f| {
-			let mut filter = default_filters[f.id].clone();
-			filter.enabled = f.enabled;
-			filter.inverted = f.inverted;
-			filter
-		}).collect();
+		let filters = deserialize_filters(&storage.filters);
 
 		TimelineEndpointWrapper { id, filters }
 	}

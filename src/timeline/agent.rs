@@ -7,6 +7,7 @@ use super::{TimelineId, Props as TimelineProps, Container};
 use crate::services::EndpointSerialized;
 use crate::services::endpoint_agent::{TimelineEndpoints, Request as EndpointRequest, EndpointAgent};
 use crate::{TimelinePropsClosure, TimelinePropsEndpointsClosure};
+use crate::timeline::filters::{FilterSerialized, deserialize_filters};
 
 pub struct TimelineAgent {
 	link: AgentLink<Self>,
@@ -46,10 +47,15 @@ pub struct TimelineEndpointsSerialized {
 #[derive(Serialize, Deserialize)]
 pub struct SoshalTimelineStorage {
 	title: String,
-	container: String,
+	#[serde(default)]
+	container: Container,
 	endpoints: TimelineEndpointsSerialized,
+	#[serde(default = "default_1")]
 	column_count: u8,
+	#[serde(default = "default_1")]
 	width: u8,
+	#[serde(default)]
+	filters: Vec<FilterSerialized>,
 }
 
 impl Agent for TimelineAgent {
@@ -118,13 +124,8 @@ impl Agent for TimelineAgent {
 						let name = t.title.clone();
 						let width = t.width.clone();
 						let column_count = t.column_count.clone();
-						let container = match Container::from(&t.container) {
-							Ok(c) => c,
-							Err(err) => {
-								log::error!("{:?}", err);
-								Container::Column
-							}
-						};
+						let container = t.container.clone();
+						let filters = deserialize_filters(&t.filters);
 
 						(
 							t.endpoints,
@@ -136,6 +137,7 @@ impl Agent for TimelineAgent {
 									container,
 									width,
 									column_count,
+									filters,
 								}}
 							) as TimelinePropsEndpointsClosure,
 						)
@@ -159,4 +161,8 @@ impl Agent for TimelineAgent {
 			self.timeline_container = None
 		}
 	}
+}
+
+fn default_1() -> u8 {
+	1
 }

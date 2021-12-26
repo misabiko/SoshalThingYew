@@ -9,11 +9,17 @@ use crate::articles::{view_article, ArticleData, ArticleComponent, ArticleMedia}
 	Would require to dynamically list container names without an enum/vec
 	Would require to dynamically create a container from said name
  */
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum Container {
 	Column,
 	Row,
 	Masonry,
+}
+
+impl Default for Container {
+	fn default() -> Self {
+		Container::Column
+	}
 }
 
 impl Container {

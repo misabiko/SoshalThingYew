@@ -151,3 +151,14 @@ pub fn default_filters() -> Vec<Filter> {
 			}),
 	]
 }
+
+pub fn deserialize_filters(filters: &Vec<FilterSerialized>) -> Vec<Filter> {
+	//TODO Implement Filter::from<FilterSerialized>
+	let default_filters = default_filters();
+	filters.iter().map(|f| {
+		let mut filter = default_filters[f.id].clone();
+		filter.enabled = f.enabled;
+		filter.inverted = f.inverted;
+		filter
+	}).collect()
+}
