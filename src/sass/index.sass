@@ -1,6 +1,8 @@
 @use 'core' as *
 @use 'timeline' as *
+@use 'article' as *
 @use 'socialArticle' as *
+@use 'galleryArticle' as *
 @use 'sidebar' as *
 
 $fa-font-path: "/webfonts"
@@ -24,11 +26,11 @@ html
 	overflow-y: hidden
 	//height: -webkit-fill-available
 
+//TODO Fix 100% height on mobile, maybe using -webkit-fill-available
 body
 	margin: 0
-	//height: 100vh
-	//min-height: -webkit-fill-available
-	height: -webkit-fill-available
+	height: 100vh
+	//height: -webkit-fill-available
 	display: flex
 	-webkit-font-smoothing: antialiased
 	-moz-osx-font-smoothing: grayscale
