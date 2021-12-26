@@ -3,6 +3,6 @@ tasks:
     init: cargo install cargo-watch && cargo build -p utils --bin server
     command: cargo watch -w utils/ -x "run -p utils --bin server"
   - init: npm install && cargo build -p utils --bin post_build && rustup target add wasm32-unknown-unknown && cargo install trunk && trunk build
-    command: rustup target add wasm32-unknown-unknown && trunk serve
+    command: rustup target add wasm32-unknown-unknown && RUST_LOG=INFO trunk serve
 ports:
   - port: 8080

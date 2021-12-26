@@ -17,6 +17,9 @@ fn main() -> std::io::Result<()> {
         }
     }
 
-    println!("generated files {}", &json.to_string());
+    //TODO Have trunk set RUST_LOG env
+    env_logger::init();
+    log::info!("generated files {}", &json.to_string());
+
     fs::write("generated_files.json", json.to_string())
 }

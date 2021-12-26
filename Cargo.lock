@@ -4513,6 +4513,7 @@ dependencies = [
  "actix-web",
  "egg-mode",
  "env_logger",
+ "log",
  "mime",
  "serde",
  "serde_json",
