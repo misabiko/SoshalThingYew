@@ -58,7 +58,16 @@ impl Component for SocialArticle {
 			}
 			Msg::LogData => {
 				let strong = ctx.props().data.upgrade().unwrap();
-				console::dir_1(&JsValue::from_serde(&strong.borrow().json()).unwrap_or_default());
+				let json = &strong.borrow().json();
+				let is_mobile = web_sys::window().expect("couldn't get global window")
+					.navigator().user_agent()
+					.map(|n| n.contains("Mobile"))
+					.unwrap_or(false);
+				if is_mobile {
+					log::info!("{}", serde_json::to_string_pretty(json).unwrap_or("Couldn't parse json data.".to_owned()));
+				}else {
+					console::dir_1(&JsValue::from_serde(&json).unwrap_or_default());
+				}
 				false
 			}
 			Msg::Like => {
