@@ -51,6 +51,7 @@ struct Model {
 	_pixiv: Dispatcher<PixivAgent>,
 	timeline_counter: TimelineId,
 	main_timeline: TimelineId,
+	last_display_single: DisplayMode,
 }
 
 enum Msg {
@@ -117,6 +118,12 @@ impl Component for Model {
 
 		Self {
 			_timeline_agent,
+			last_display_single: match display_mode {
+				DisplayMode::Single{ .. } => display_mode.clone(),
+				_ => DisplayMode::Single {
+					column_count: 4
+				},
+			},
 			display_mode,
 			timelines: Vec::new(),
 			endpoint_agent,
@@ -128,7 +135,7 @@ impl Component for Model {
 		}
 	}
 
-	fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
+	fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
 		match msg {
 			Msg::AddEndpoint(e) => {
 				self.endpoint_agent.send(EndpointRequest::AddEndpoint(e));
@@ -149,15 +156,12 @@ impl Component for Model {
 				}});
 				self.timeline_counter += 1;
 
-				ctx.link().send_message(Msg::TimelineAgentResponse(TimelineAgentResponse::SetMainTimeline(timeline_id)));
 				true
 			}
 			Msg::AddTimelineProps(props) => {
 				let id = self.timeline_counter.clone();
 				self.timelines.push((props)(id.clone()));
 				self.timeline_counter += 1;
-
-				//ctx.link().send_message(Msg::TimelineAgentResponse(TimelineAgentResponse::SetMainTimeline(id)));
 
 				true
 			}
@@ -171,7 +175,7 @@ impl Component for Model {
 			}
 			Msg::ToggleDisplayMode => {
 				self.display_mode = match self.display_mode {
-					DisplayMode::Default => DisplayMode::Single {column_count: 4},
+					DisplayMode::Default => self.last_display_single.clone(),
 					DisplayMode::Single { .. } => DisplayMode::Default,
 				};
 				true
@@ -181,9 +185,7 @@ impl Component for Model {
 					log::debug!("Set main timeline! {}", &id);
 					self.main_timeline = id;
 					if let DisplayMode::Default = self.display_mode {
-						self.display_mode = DisplayMode::Single {
-							column_count: 4
-						};
+						self.display_mode = self.last_display_single.clone();
 					};
 					true
 				}
