@@ -8,11 +8,11 @@
 
 	const css = document.createElement("link");
 	css.rel = "stylesheet";
-	css.href = chrome.runtime.getURL("/dist/" + index[".css"]);
+	css.href = chrome.runtime.getURL("/dist/" + index["css"]);
 
 	document.head.append(bulma, css);
 
-	const src = chrome.runtime.getURL("/dist/" + index[".js"]);
+	const src = chrome.runtime.getURL("/dist/" + index["js"]);
 	const contentMain = await import(src);
 	contentMain.default();
 })();

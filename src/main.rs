@@ -414,6 +414,7 @@ fn main() {
 	};
 }
 
+//TODO Move server to src/bin/server/
 //TODO Parse tweet text
 //TODO Auto refresh
 //TODO Profile lag when redrawing articles
