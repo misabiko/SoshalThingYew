@@ -218,7 +218,7 @@ impl Component for SocialArticle {
 									<strong>{ actual_borrow.author_name() }</strong>
 									<small>{ format!("@{}", actual_borrow.author_username()) }</small>
 								</a>
-								{ self.view_timestamp(ctx, &actual_borrow) }
+								{ self.view_timestamp(&actual_borrow) }
 							</div>
 							{ match ctx.props().hide_text || self.is_filtered_out(&actual_borrow) {
 								false => html! {<p class="articleParagraph">{ actual_borrow.text() }</p>},
@@ -273,23 +273,8 @@ impl SocialArticle {
 		actual_article.marked_as_read() || actual_article.hidden()
 	}
 
-	fn view_timestamp(&self, _ctx: &Context<Self>, actual_article: &Ref<dyn ArticleData>) -> Html {
-		let time_since = Date::now() - actual_article.creation_time().get_time();
-		let label = if time_since < 1000.0 {
-			"just now".to_owned()
-		} else if time_since < 60000.0 {
-			format!("{}s", (time_since / 1000.0).floor())
-		} else if time_since < 3600000.0 {
-			format!("{}m", (time_since / 60000.0).floor())
-		} else if time_since < 86400000.0 {
-			format!("{}h", (time_since / (3600000.0)).floor())
-		} else if time_since < 604800000.0 {
-			format!("{}d", (time_since / (86400000.0)).floor())
-		} else {
-			//format!("{} {}", monthAbbrevs[actualDate.getMonth()], actualDate.getDate())
-			//TODO Parse month timestamp
-			"long ago".to_owned()
-		};
+	fn view_timestamp(&self, actual_article: &Ref<dyn ArticleData>) -> Html {
+		let label = short_timestamp(&actual_article.creation_time());
 
 		html! {
 			<span class="timestamp">
@@ -456,7 +441,7 @@ impl SocialArticle {
 						<strong>{ quoted.author_name() }</strong>
 						<small>{ format!("@{}", quoted.author_username()) }</small>
 					</a>
-					{ self.view_timestamp(ctx, &quoted) }
+					{ self.view_timestamp(&quoted) }
 				</div>
 				{ match self.is_filtered_out(&quoted) {
 					false => html! {
@@ -480,7 +465,27 @@ fn view_repost_label(repost: &Ref<dyn ArticleData>) -> Html {
 		<div class="repostLabel"
 			href={repost.url()}
 			target="_blank">
-			<a>{ format!("{} reposted", &repost.author_name()) }</a>
+			<a>{ format!("{} reposted - {}", &repost.author_name(), short_timestamp(&repost.creation_time())) }</a>
 		</div>
+	}
+}
+
+fn short_timestamp(date: &Date) -> String {
+	let time_since = Date::now() - date.get_time();
+
+	if time_since < 1000.0 {
+		"just now".to_owned()
+	} else if time_since < 60000.0 {
+		format!("{}s", (time_since / 1000.0).floor())
+	} else if time_since < 3600000.0 {
+		format!("{}m", (time_since / 60000.0).floor())
+	} else if time_since < 86400000.0 {
+		format!("{}h", (time_since / (3600000.0)).floor())
+	} else if time_since < 604800000.0 {
+		format!("{}d", (time_since / (86400000.0)).floor())
+	} else {
+		//format!("{} {}", monthAbbrevs[actualDate.getMonth()], actualDate.getDate())
+		//TODO Parse month timestamp
+		"long ago".to_owned()
 	}
 }
