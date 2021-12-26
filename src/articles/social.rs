@@ -314,7 +314,12 @@ impl SocialArticle {
 									<span class="icon">
 										<i class="fas fa-retweet"/>
 									</span>
-									<span>{actual_borrow.repost_count()}</span>
+									{match actual_borrow.repost_count() {
+										0 => html! {},
+										count => html! {
+											<span>{ count }</span>
+										}
+									}}
 								</a>
 								<a
 									class={classes!("level-item", "articleButton", "likeButton", if actual_borrow.liked() { Some("likedPostButton") } else { None })}
@@ -323,7 +328,12 @@ impl SocialArticle {
 									<span class="icon">
 										<i class={classes!("fa-heart", if actual_borrow.liked() { "fas" } else { "far" })}/>
 									</span>
-									<span>{actual_borrow.like_count()}</span>
+									{match actual_borrow.like_count() {
+										0 => html! {},
+										count => html! {
+											<span>{ count }</span>
+										}
+									}}
 								</a>
 								{
 									match &actual_borrow.media()[..] {
