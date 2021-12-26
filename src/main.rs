@@ -416,7 +416,6 @@ fn main() {
 	};
 }
 
-//TODO Parse tweet text
 //TODO Auto refresh
 //TODO Profile lag when redrawing articles
 //TODO Youtube articles

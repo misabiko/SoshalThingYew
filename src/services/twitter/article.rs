@@ -15,7 +15,7 @@ pub struct TwitterUser {
 
 pub struct TweetArticleData {
 	pub id: u64,
-	pub text: Option<String>,
+	pub text: String,
 	pub author: TwitterUser,
 	pub creation_time: Date,
 	pub liked: bool,
@@ -40,7 +40,7 @@ impl ArticleData for TweetArticleData {
 		self.creation_time.clone()
 	}
 	fn text(&self) -> String {
-		self.text.clone().unwrap_or("".to_owned())
+		self.text.clone()
 	}
 	fn author_username(&self) -> String {
 		self.author.username.clone()
@@ -143,17 +143,22 @@ impl TweetArticleData {
 			}
 		};
 
-		let medias_opt = json["extended_entities"]
+		let entities = &json["extended_entities"];
+		let medias_opt = entities
 			.get("media")
 			.and_then(|media| media.as_array());
+
+		let mut text = match json["full_text"].as_str().or(json["text"].as_str()) {
+			Some(text) => text,
+			None => "",
+		}.to_owned();
+
+		text = parse_text(text, &entities);
 
 		let data = Rc::new(RefCell::new(TweetArticleData {
 			id,
 			creation_time: json["created_at"].as_str().map(|datetime_str|Date::new(&JsValue::from_str(datetime_str))).unwrap(),
-			text: match json["full_text"].as_str() {
-				Some(text) => Some(text),
-				None => json["text"].as_str()
-			}.map(String::from),
+			text,
 			author: TwitterUser {
 				username: json["user"]["screen_name"].as_str().unwrap().to_owned(),
 				name: json["user"]["name"].as_str().unwrap().to_owned(),
@@ -240,4 +245,29 @@ fn get_mp4(video_info: &serde_json::Value) -> Option<(&str, f32)> {
 					.zip(r.get(1).and_then(|w| w.as_u64())))
 				.map(|(w, h)| h as f32 / w as f32)
 		)
+}
+
+//TODO tweet parse_text unit tests
+fn parse_text(mut text: String, entities: &serde_json::Value) -> String {
+	let medias_opt: Option<Vec<&str>> = entities
+		.get("media")
+		.and_then(|media| media.as_array())
+		.map(|medias| medias.iter().filter_map(|m| {
+			m.get("type")
+				.and_then(|t| t.as_str())
+				.and_then(|t| if let "photo" | "video" | "animated_gif" = t {
+					m.get("url")
+				}else {
+					None
+				})
+				.and_then(|u| u.as_str())
+			}).collect()
+		);
+
+	if let Some(medias) = medias_opt {
+		for media in medias {
+			text = text.replace(media, "");
+		}
+	}
+	text
 }
