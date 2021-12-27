@@ -1,9 +1,9 @@
 use yew::prelude::*;
 use yew_agent::{Dispatcher, Dispatched};
 
-mod ratelimits;
+mod endpoint_options;
 
-use ratelimits::RateLimitView;
+use endpoint_options::EndpointOptions;
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest};
 
 pub struct Sidebar {
@@ -60,7 +60,7 @@ impl Component for Sidebar {
 							</div>
 						</div>
 						<div class="box">
-							<RateLimitView/>
+							<EndpointOptions/>
 						</div>
 					</div>
 				}} else { html!{} }}

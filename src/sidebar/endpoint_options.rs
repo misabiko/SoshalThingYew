@@ -5,7 +5,7 @@ use yew_agent::{Bridge, Bridged};
 use crate::services::RateLimit;
 use crate::services::endpoint_agent::{EndpointAgent, Request as EndpointRequest, Response as EndpointResponse};
 
-pub struct RateLimitView {
+pub struct EndpointOptions {
 	pub ratelimits: HashMap<String, RateLimit>,
 	_endpoint_agent: Box<dyn Bridge<EndpointAgent>>,
 }
@@ -14,7 +14,7 @@ pub enum Msg {
 	EndpointResponse(EndpointResponse),
 }
 
-impl Component for RateLimitView {
+impl Component for EndpointOptions {
 	type Message = Msg;
 	type Properties = ();
 
@@ -51,13 +51,13 @@ impl Component for RateLimitView {
 			{ for self.ratelimits.iter().map(|(endpoint, ratelimit)| {
 				let time_left = (((ratelimit.reset as f64 * 1000.0) - js_sys::Date::now()) / 60000.0).ceil();
 				html! {
-				<div>
-					{ endpoint.clone() }
-					<progress class="progress" value={ratelimit.remaining.to_string()} max={ratelimit.limit.to_string()}>
-						{ format!("{}%", (ratelimit.remaining as f64 / ratelimit.limit as f64 * 1000.0).round() / 10.0) }
-					</progress>
-					{ format!("{} minutes until reset", &time_left)}
-				</div>
+					<div class="block">
+						{ endpoint.clone() }
+						<progress class="progress" value={ratelimit.remaining.to_string()} max={ratelimit.limit.to_string()}>
+							{ format!("{}%", (ratelimit.remaining as f64 / ratelimit.limit as f64 * 1000.0).round() / 10.0) }
+						</progress>
+						{ format!("{} minutes until reset", &time_left)}
+					</div>
 				}
 			}) }
 		}
