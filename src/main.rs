@@ -415,7 +415,6 @@ fn main() {
 	};
 }
 
-//TODO Auto refresh
 //TODO Profile lag when redrawing articles
 //TODO Youtube articles
 	//TODO Have custom service setting view

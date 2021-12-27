@@ -111,4 +111,8 @@ pub trait Endpoint {
 	}
 
 	fn eq_storage(&self, storage: &EndpointSerialized) -> bool;
+
+	fn default_interval(&self) -> u32 {
+		90_000
+	}
 }

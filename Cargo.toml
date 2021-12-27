@@ -37,3 +37,4 @@ wasm-logger = "0.2.0"
 rand = "0.8.4"
 getrandom = { version = "0.2.3", features = ["js"] }
 gloo-storage = "0.2.0"
+gloo-timers = "0.2.2"

@@ -4,6 +4,7 @@ use yew::prelude::*;
 use yew_agent::{Agent, Context as AgentContext, AgentLink, HandlerId};
 use std::cell::RefCell;
 use serde_json::json;
+use gloo_timers::callback::Interval;
 
 use super::{Endpoint, EndpointSerialized, RateLimit};
 use crate::error::{Error, FetchResult};
@@ -49,6 +50,7 @@ pub enum Msg {
 	Refreshed(RefreshTime, EndpointId, (Vec<Rc<RefCell<dyn ArticleData>>>, Option<RateLimit>)),
 	RefreshFail(Error),
 	UpdatedState,
+	RefreshEndpoint(EndpointId),
 }
 
 pub enum Request {
@@ -64,6 +66,9 @@ pub enum Request {
 	BatchNewEndpoints(Vec<(TimelineEndpointsSerialized, TimelinePropsEndpointsClosure)>),
 	RegisterTimelineContainer,
 	GetState,
+	StartAutoRefresh(EndpointId),
+	StopAutoRefresh(EndpointId),
+	SetAutoRefreshInterval(EndpointId, u32),
 }
 
 pub enum Response {
@@ -94,16 +99,35 @@ pub struct EndpointConstructors {
 	pub user_endpoint: Option<usize>,
 }
 
+#[derive(Clone)]
 pub struct EndpointView {
 	pub id: EndpointId,
 	pub name: String,
 	pub ratelimit: Option<RateLimit>,
+	pub is_autorefreshing: bool,
+	pub autorefresh_interval: u32,
+}
+
+pub struct EndpointInfo {
+	endpoint: Box<dyn Endpoint>,
+	interval_id: Option<Interval>,
+	interval: u32,
+}
+
+impl EndpointInfo {
+	pub fn new(endpoint: Box<dyn Endpoint>) -> Self {
+		Self {
+			interval: endpoint.default_interval(),
+			interval_id: None,
+			endpoint,
+		}
+	}
 }
 
 pub struct EndpointAgent {
 	link: AgentLink<Self>,
 	endpoint_counter: EndpointId,
-	pub endpoints: HashMap<EndpointId, Box<dyn Endpoint>>,
+	pub endpoints: HashMap<EndpointId, EndpointInfo>,
 	pub timelines: HashMap<TimelineId, (Weak<RefCell<TimelineEndpoints>>, Callback<Vec<Weak<RefCell<dyn ArticleData>>>>)>,
 	pub services: HashMap<String, EndpointConstructors>,
 	subscribers: HashSet<HandlerId>,
@@ -131,11 +155,11 @@ impl Agent for EndpointAgent {
 	fn update(&mut self, msg: Self::Message) {
 		match msg {
 			Msg::Refreshed(refresh_time, endpoint_id, response) => {
-				log::debug!("{} articles for {}", &response.0.len(), self.endpoints[&endpoint_id].name());
-				let endpoint = self.endpoints.get_mut(&endpoint_id).unwrap();
-				endpoint.add_articles(response.0.iter().map(|article| Rc::downgrade(&article)).collect());
+				log::debug!("{} articles for {}", &response.0.len(), self.endpoints[&endpoint_id].endpoint.name());
+				let info = self.endpoints.get_mut(&endpoint_id).unwrap();
+				info.endpoint.add_articles(response.0.iter().map(|article| Rc::downgrade(&article)).collect());
 				if let Some(ratelimit) = response.1 {
-					endpoint.update_ratelimit(ratelimit);
+					info.endpoint.update_ratelimit(ratelimit);
 				}
 
 				for (_timeline_id, timeline) in &self.timelines {
@@ -170,6 +194,7 @@ impl Agent for EndpointAgent {
 					}
 				}
 			}
+			Msg::RefreshEndpoint(endpoint_id) => self.endpoints.get_mut(&endpoint_id).unwrap().endpoint.refresh(RefreshTime::OnRefresh),
 		}
 	}
 
@@ -183,11 +208,11 @@ impl Agent for EndpointAgent {
 				self.timelines.insert(id, (Rc::downgrade(&endpoints), callback));
 
 				for timeline_endpoint in &endpoints.borrow().start {
-					let endpoint = self.endpoints.get_mut(&timeline_endpoint.id).unwrap();
-					if endpoint.get_mut_ratelimit().map(|r| r.can_refresh()).unwrap_or(true) {
-						endpoint.refresh(RefreshTime::Start);
+					let info = self.endpoints.get_mut(&timeline_endpoint.id).unwrap();
+					if info.endpoint.get_mut_ratelimit().map(|r| r.can_refresh()).unwrap_or(true) {
+						info.endpoint.refresh(RefreshTime::Start);
 					}else {
-						log::warn!("Can't refresh {}", &endpoint.name());
+						log::warn!("Can't refresh {}", &info.endpoint.name());
 					}
 				}
 			},
@@ -197,22 +222,22 @@ impl Agent for EndpointAgent {
 			Request::Refresh(endpoints_weak) => {
 				let endpoints = endpoints_weak.upgrade().unwrap();
 				for timeline_endpoint in endpoints.borrow().refresh.clone() {
-					let endpoint = self.endpoints.get_mut(&timeline_endpoint.id).unwrap();
-					if endpoint.get_mut_ratelimit().map(|r| r.can_refresh()).unwrap_or(true) {
-						endpoint.refresh(RefreshTime::OnRefresh);
+					let info = self.endpoints.get_mut(&timeline_endpoint.id).unwrap();
+					if info.endpoint.get_mut_ratelimit().map(|r| r.can_refresh()).unwrap_or(true) {
+						info.endpoint.refresh(RefreshTime::OnRefresh);
 					}else {
-						log::warn!("Can't refresh {}", &endpoint.name());
+						log::warn!("Can't refresh {}", &info.endpoint.name());
 					}
 				}
 			}
 			Request::LoadBottom(endpoints_weak) => {
 				let endpoints = endpoints_weak.upgrade().unwrap();
 				for timeline_endpoint in endpoints.borrow().refresh.clone() {
-					let endpoint = self.endpoints.get_mut(&timeline_endpoint.id).unwrap();
-					if endpoint.get_mut_ratelimit().map(|r| r.can_refresh()).unwrap_or(true) {
-						endpoint.load_bottom(RefreshTime::OnRefresh);
+					let info = self.endpoints.get_mut(&timeline_endpoint.id).unwrap();
+					if info.endpoint.get_mut_ratelimit().map(|r| r.can_refresh()).unwrap_or(true) {
+						info.endpoint.load_bottom(RefreshTime::OnRefresh);
 					}else {
-						log::warn!("Can't refresh {}", &endpoint.name());
+						log::warn!("Can't refresh {}", &info.endpoint.name());
 					}
 				}
 			}
@@ -224,8 +249,8 @@ impl Agent for EndpointAgent {
 			}
 			Request::AddArticles(refresh_time, endpoint_id, articles) =>
 				self.link.send_message(Msg::Refreshed(refresh_time, endpoint_id, (articles, None))),
-			Request::AddEndpoint(endpoint) => {
-				self.endpoints.insert(self.endpoint_counter, endpoint(self.endpoint_counter));
+			Request::AddEndpoint(endpoint_closure) => {
+				self.endpoints.insert(self.endpoint_counter, EndpointInfo::new(endpoint_closure(self.endpoint_counter)));
 				self.endpoint_counter += 1;
 
 				self.link.send_message(Msg::UpdatedState);
@@ -236,7 +261,7 @@ impl Agent for EndpointAgent {
 				self.link.send_message(Msg::UpdatedState);
 			},
 			Request::UpdateRateLimit(endpoint_id, ratelimit) => {
-				self.endpoints.get_mut(&endpoint_id).unwrap().update_ratelimit(ratelimit)
+				self.endpoints.get_mut(&endpoint_id).unwrap().endpoint.update_ratelimit(ratelimit)
 			},
 			Request::BatchNewEndpoints(timelines) => {
 				let endpoints: Vec<(TimelineEndpoints, TimelinePropsEndpointsClosure)> = timelines.into_iter().map(|(constructor, callback)| {
@@ -257,6 +282,35 @@ impl Agent for EndpointAgent {
 			},
 			Request::RegisterTimelineContainer => self.timeline_container = Some(id),
 			Request::GetState => self.send_state(&id),
+			Request::StartAutoRefresh(endpoint_id) => {
+				let info = self.endpoints.get_mut(&endpoint_id).unwrap();
+				if let None = info.interval_id {
+					let id_c = endpoint_id.clone();
+					let id_c_2 = endpoint_id.clone();
+					let callback = self.link.callback(move |_| Msg::RefreshEndpoint(id_c));
+					info.interval_id = Some(Interval::new(info.interval, move || {
+						log::debug!("Refreshing {}", &id_c_2);
+						callback.emit(());
+					}));
+					self.link.send_message(Msg::UpdatedState);
+				}else {
+					log::warn!("Auto refresh for {} is already on.", &endpoint_id);
+				}
+			},
+			Request::StopAutoRefresh(endpoint_id) => {
+				let info = self.endpoints.get_mut(&endpoint_id).unwrap();
+				if info.interval_id.is_some() {
+					Interval::cancel(std::mem::replace(&mut info.interval_id, None).unwrap());
+					self.link.send_message(Msg::UpdatedState);
+				}else {
+					log::warn!("Auto refresh for {} is not on.", &endpoint_id);
+				}
+			}
+			Request::SetAutoRefreshInterval(endpoint_id, interval) => {
+				let info = self.endpoints.get_mut(&endpoint_id).unwrap();
+				info.interval = interval;
+				self.link.send_message(Msg::UpdatedState);
+			}
 		}
 	}
 
@@ -271,7 +325,7 @@ impl Agent for EndpointAgent {
 
 impl EndpointAgent {
 	fn endpoint_from_constructor(&self, storage: &EndpointSerialized) -> Option<EndpointId> {
-		self.endpoints.iter().find_map(|(id, endpoint)| match endpoint.eq_storage(storage) {
+		self.endpoints.iter().find_map(|(id, endpoint)| match endpoint.endpoint.eq_storage(storage) {
 			true => Some(id.clone()),
 			false => None
 		})
@@ -285,7 +339,7 @@ impl EndpointAgent {
 				let params = storage.params.clone();
 
 				let id = self.endpoint_counter.clone();
-				self.endpoints.insert(self.endpoint_counter, (constructor.callback)(id, params.clone()));
+				self.endpoints.insert(self.endpoint_counter, EndpointInfo::new((constructor.callback)(id, params.clone())));
 				self.endpoint_counter += 1;
 
 				id
@@ -300,8 +354,10 @@ impl EndpointAgent {
 	fn send_state(&self, id: &HandlerId) {
 		self.link.respond(*id, Response::UpdatedState(self.services.clone(), self.endpoints.iter().map(|(id, e)| EndpointView {
 			id: id.clone(),
-			name: e.name(),
-			ratelimit: e.ratelimit().cloned(),
+			name: e.endpoint.name(),
+			ratelimit: e.endpoint.ratelimit().cloned(),
+			is_autorefreshing: e.interval_id.is_some(),
+			autorefresh_interval: e.interval.clone(),
 		}).collect()));
 	}
 }
