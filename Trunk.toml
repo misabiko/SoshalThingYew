@@ -9,4 +9,5 @@ backend = "http://localhost:3000/proxy"
 
 [[hooks]]
 stage = "post_build"
-command = "./target/debug/post_build"
+command = "cargo"
+command_arguments = ["run", "-p", "utils", "--bin", "post_build"]

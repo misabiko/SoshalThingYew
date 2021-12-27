@@ -3,6 +3,7 @@ use std::cell::{RefCell, Ref};
 use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher};
 use js_sys::Date;
 use std::collections::HashMap;
+use gloo_timers::callback::Timeout;
 
 use crate::articles::{ArticleData, ArticleMedia};
 use crate::services::{Endpoint, EndpointSerialized};
@@ -82,6 +83,7 @@ pub struct PixivAgent {
 
 pub enum Request {
 	AddArticles(RefreshTime, EndpointId, Vec<Rc<RefCell<PixivArticleData>>>),
+	RefreshEndpoint(EndpointId, RefreshTime),
 }
 
 impl Agent for PixivAgent {
@@ -127,6 +129,7 @@ impl Agent for PixivAgent {
 						.collect(),
 				))
 			},
+			Request::RefreshEndpoint(endpoint_id, refresh_time) => self.endpoint_agent.send(EndpointRequest::RefreshEndpoint(endpoint_id, refresh_time)),
 		};
 	}
 }
@@ -197,6 +200,7 @@ pub struct FollowEndpoint {
 	id: EndpointId,
 	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
 	agent: Dispatcher<PixivAgent>,
+	timeout: Option<Timeout>,
 }
 
 impl FollowEndpoint {
@@ -205,6 +209,7 @@ impl FollowEndpoint {
 			id,
 			articles: Vec::new(),
 			agent: PixivAgent::dispatcher(),
+			timeout: None,
 		}
 	}
 }
@@ -226,17 +231,30 @@ impl Endpoint for FollowEndpoint {
 		let mut articles = Vec::new();
 		let posts_selector = gloo_utils::document()
 			.query_selector(".sc-9y4be5-1.jtUPOE");
-		if let Ok(Some(posts)) = posts_selector {
-			let children = posts.children();
-			for i in 0..children.length() {
-				if let Some(article) = children.get_with_index(i).and_then(parse_article) {
-					articles.push(article);
+		match posts_selector {
+			Ok(None) => {
+				if self.timeout.is_none() {
+					let mut agent = PixivAgent::dispatcher();
+					let id = self.id.clone();
+					let timeout = Some(Timeout::new(1_000, move || agent.send(Request::RefreshEndpoint(id, refresh_time))));
+					self.timeout = timeout;
 				}
 			}
-		}
+			Ok(Some(posts)) => {
+				let children = posts.children();
+				log::debug!("Found {} posts.", children.length());
+				for i in 0..children.length() {
+					if let Some(article) = children.get_with_index(i).and_then(parse_article) {
+						articles.push(article);
+					}
+				}
 
-		let id = self.id().clone();
-		self.agent.send(Request::AddArticles(refresh_time, id, articles));
+				let id = self.id().clone();
+				self.agent.send(Request::AddArticles(refresh_time, id, articles));
+				self.timeout = None;
+			}
+			Err(err) => log::error!("Failed to use query_selector.\n{:?}", err),
+		};
 	}
 
 	fn eq_storage(&self, storage: &EndpointSerialized) -> bool {

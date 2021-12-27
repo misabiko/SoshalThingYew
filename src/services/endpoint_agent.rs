@@ -59,6 +59,7 @@ pub enum Request {
 	RemoveTimeline(TimelineId),
 	Refresh(Weak<RefCell<TimelineEndpoints>>),
 	LoadBottom(Weak<RefCell<TimelineEndpoints>>),
+	RefreshEndpoint(EndpointId, RefreshTime),
 	EndpointFetchResponse(RefreshTime, EndpointId, FetchResult<Vec<Rc<RefCell<dyn ArticleData>>>>),
 	AddArticles(RefreshTime, EndpointId, Vec<Rc<RefCell<dyn ArticleData>>>),
 	AddEndpoint(Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>),
@@ -257,6 +258,15 @@ impl Agent for EndpointAgent {
 					}else {
 						log::warn!("Can't refresh {}", &info.endpoint.name());
 					}
+				}
+			}
+			Request::RefreshEndpoint(endpoint_id, refresh_time) => {
+				let info = self.endpoints.get_mut(&endpoint_id).unwrap();
+				if info.endpoint.get_mut_ratelimit().map(|r| r.can_refresh()).unwrap_or(true) {
+					info.endpoint.refresh(refresh_time);
+					self.link.send_message(Msg::ResetAutoRefresh(*info.endpoint.id()));
+				}else {
+					log::warn!("Can't refresh {}", &info.endpoint.name());
 				}
 			}
 			Request::EndpointFetchResponse(refresh_time, endpoint_id, response) => {

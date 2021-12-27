@@ -3,7 +3,7 @@ use serde_json::{json, Value};
 
 fn main() -> std::io::Result<()> {
     let mut json = json!({});
-    let paths = fs::read_dir("dist/")?;
+    let paths = fs::read_dir("dist/.stage/")?;
 
     for path in paths {
         let path = path.ok()
@@ -18,8 +18,9 @@ fn main() -> std::io::Result<()> {
     }
 
     //TODO Have trunk set RUST_LOG env
-    env_logger::init();
-    log::info!("generated files {}", &json.to_string());
+    //env_logger::init();
+    //log::info!("generated files {}", &json.to_string());
+    println!("generated files {}", &json.to_string());
 
     fs::write("generated_files.json", json.to_string())
 }
