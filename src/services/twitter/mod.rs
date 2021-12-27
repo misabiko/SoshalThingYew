@@ -3,7 +3,6 @@ use std::cell::{RefCell, Ref};
 use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher};
 use std::collections::{HashMap, HashSet};
 use gloo_storage::Storage;
-use serde::{Serialize, Deserialize};
 
 pub mod endpoints;
 mod article;
@@ -18,6 +17,7 @@ use crate::services::{
 	twitter::endpoints::{UserTimelineEndpoint, HomeTimelineEndpoint, ListEndpoint, SingleTweetEndpoint},
 };
 use crate::error::{Error, FetchResult, Result};
+use crate::services::storages::{SoshalSessionStorage, SessionStorageService};
 
 pub async fn fetch_tweets(url: &str, marked_as_read: &HashSet<u64>) -> FetchResult<Vec<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)>> {
 	let response = reqwest::Client::builder().build()?
@@ -63,16 +63,6 @@ fn base_url() -> Result<String> {
 	let protocol = location.protocol()?;
 
 	Ok(format!("{}//{}", protocol, host))
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct SessionStorageService {
-	articles_marked_as_read: HashSet<String>,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct SoshalSessionStorage {
-	services: HashMap<String, SessionStorageService>,
 }
 
 //TODO Receive TwitterUser
@@ -273,7 +263,8 @@ impl Agent for TwitterAgent {
 							Some(service) => Some(service),
 							None => {
 								let service = SessionStorageService {
-									articles_marked_as_read: HashSet::new()
+									articles_marked_as_read: HashSet::new(),
+									cached_articles: HashMap::new(),
 								};
 								session_storage.services.insert("Twitter".to_owned(), service);
 								session_storage.services.get_mut("Twitter")
@@ -300,6 +291,7 @@ impl Agent for TwitterAgent {
 										},
 										false => HashSet::new(),
 									},
+									cached_articles: HashMap::new(),
 								})
 							])
 						}

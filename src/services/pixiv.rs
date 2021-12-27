@@ -2,14 +2,17 @@ use std::rc::{Rc, Weak};
 use std::cell::{RefCell, Ref};
 use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher};
 use js_sys::Date;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use gloo_timers::callback::Timeout;
+use gloo_storage::Storage;
+use serde::{Serialize, Deserialize};
 
 use crate::articles::{ArticleData, ArticleMedia};
 use crate::error::FetchResult;
 use crate::services::{Endpoint, EndpointSerialized};
 use crate::services::article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest};
 use crate::services::endpoint_agent::{EndpointAgent, Request as EndpointRequest, EndpointId, RefreshTime, EndpointConstructors};
+use crate::services::storages::{SessionStorageService, SoshalSessionStorage, get_service_session};
 
 pub struct PixivArticleData {
 	id: u32,
@@ -20,6 +23,7 @@ pub struct PixivArticleData {
 	author_avatar_url: String,
 	marked_as_read: bool,
 	hidden: bool,
+	is_fully_fetched: bool,
 }
 
 impl ArticleData for PixivArticleData {
@@ -63,6 +67,7 @@ impl ArticleData for PixivArticleData {
 			_ => "".to_owned(),
 		};
 		self.title = new.text();
+		self.is_fully_fetched = self.is_fully_fetched || *new.is_fully_fetched();
 	}
 	fn marked_as_read(&self) -> bool {
 		self.marked_as_read.clone()
@@ -76,40 +81,75 @@ impl ArticleData for PixivArticleData {
 	fn set_hidden(&mut self, value: bool) {
 		self.hidden = value;
 	}
+
+	fn is_fully_fetched(&self) -> &bool { &self.is_fully_fetched }
 }
 
-impl From<&FullPostAPI> for PixivArticleData {
-	fn from(data: &FullPostAPI) -> Self {
+impl From<(&FullPostAPI, &SessionStorageService)> for PixivArticleData {
+	fn from((data, storage): (&FullPostAPI, &SessionStorageService)) -> Self {
+		let cached: Option<PixivArticleCached> = storage.cached_articles.get(&data.id)
+			.and_then(|json| serde_json::from_value(json.clone()).ok());
+		let author_avatar_url = match cached {
+			Some(PixivArticleCached { author_avatar_url, .. }) => author_avatar_url,
+			None => "".to_owned(),
+		};
+
 		PixivArticleData {
 			id: data.id.parse::<u32>().unwrap(),
 			title: data.title.clone(),
 			src: data.urls.original.clone(),
 			author_name: data.user_name.clone(),
 			author_id: data.user_id.parse::<u32>().unwrap(),
-			author_avatar_url: "".to_owned(),
+			author_avatar_url,
 			marked_as_read: false,
 			hidden: false,
+			is_fully_fetched: true,
 		}
 	}
 }
 
-impl From<FullPostAPI> for PixivArticleData {
-	fn from(data: FullPostAPI) -> Self {
-		PixivArticleData::from(&data)
+impl From<(FullPostAPI, &SessionStorageService)> for PixivArticleData {
+	fn from((data, storage): (FullPostAPI, &SessionStorageService)) -> Self {
+		PixivArticleData::from((&data, storage))
 	}
 }
 
-impl From<&FollowAPIIllust> for PixivArticleData {
-	fn from(data: &FollowAPIIllust) -> Self {
+impl From<(&FollowAPIIllust, &SessionStorageService)> for PixivArticleData {
+	fn from((data, storage): (&FollowAPIIllust, &SessionStorageService)) -> Self {
+		let cached: Option<PixivArticleCached> = storage.cached_articles.get(&data.id)
+			.and_then(|json| serde_json::from_value(json.clone()).ok());
+		let (src, is_fully_fetched) = match cached {
+			Some(PixivArticleCached { src, .. }) => (src, true),
+			None => (data.url.clone(), false)
+		};
+
 		PixivArticleData {
 			id: data.id.parse::<u32>().unwrap(),
 			title: data.title.clone(),
-			src: data.url.clone(),
+			src,
 			author_name: data.user_name.clone(),
 			author_id: data.user_id.parse::<u32>().unwrap(),
 			author_avatar_url: data.profile_image_url.clone(),
 			marked_as_read: false,
 			hidden: false,
+			is_fully_fetched,
+		}
+	}
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct PixivArticleCached {
+	id: u32,
+	src: String,
+	author_avatar_url: String,
+}
+
+impl From<&Ref<'_, PixivArticleData>> for PixivArticleCached {
+	fn from(article: &Ref<'_, PixivArticleData>) -> Self {
+		Self {
+			id: article.id.clone(),
+			src: article.src.clone(),
+			author_avatar_url: article.author_avatar_url.clone(),
 		}
 	}
 }
@@ -177,9 +217,10 @@ pub struct PixivAgent {
 	endpoint_agent: Dispatcher<EndpointAgent>,
 	actions_agent: Dispatcher<ArticleActionsAgent>,
 	articles: HashMap<u32, Rc<RefCell<PixivArticleData>>>,
+	fetching_articles: HashSet<u32>,
 }
 pub enum Msg {
-	FetchResponse(HandlerId, FetchResult<Vec<Rc<RefCell<PixivArticleData>>>>),
+	FetchResponse(FetchResult<Vec<Rc<RefCell<PixivArticleData>>>>),
 	EndpointFetchResponse(RefreshTime, EndpointId, FetchResult<Vec<Rc<RefCell<PixivArticleData>>>>),
 	FetchData(HandlerId, Weak<RefCell<dyn ArticleData>>),
 }
@@ -218,6 +259,7 @@ impl Agent for PixivAgent {
 			endpoint_agent,
 			actions_agent,
 			articles: HashMap::new(),
+			fetching_articles: HashSet::new(),
 		}
 	}
 
@@ -246,30 +288,37 @@ impl Agent for PixivAgent {
 							ratelimit
 						))
 				));
+
+				self.check_unfetched_articles();
 			}
-			Msg::FetchResponse(_id, r) => {
+			Msg::FetchResponse(r) => {
 				if let Ok((articles, _)) = &r {
 					let mut valid_rc = Vec::new();
 					for article in articles {
 						let borrow = article.borrow();
-						let updated = self.articles.entry(borrow.id)
+						let id = borrow.id;
+						let updated = self.articles.entry(id)
 							.and_modify(|a| a.borrow_mut().update(&(borrow as Ref<dyn ArticleData>)))
 							.or_insert_with(|| article.clone());
 
 						valid_rc.push(Rc::downgrade(updated) as Weak<RefCell<dyn ArticleData>>);
+
+						self.fetching_articles.remove(&id);
 					}
 
+					self.check_unfetched_articles();
 					self.actions_agent.send(ArticleActionsRequest::Callback(valid_rc));
 				}
 			}
-			Msg::FetchData(handler_id, article) => {
+			Msg::FetchData(_handler_id, article) => {
 				let strong = article.upgrade().unwrap();
 				let borrow = strong.borrow();
 
 				let path = format!("https://www.pixiv.net/ajax/illust/{}", borrow.id());
 
+				self.fetching_articles.insert(borrow.id().parse::<u32>().unwrap());
 				self.link.send_future(async move {
-					Msg::FetchResponse(handler_id, fetch_post(&path).await.map(|(article, _)| (vec![article], None)))
+					Msg::FetchResponse(fetch_post(&path, &get_service_session("Pixiv")).await.map(|(article, _)| (vec![article], None)))
 				});
 			}
 		}
@@ -293,24 +342,95 @@ impl Agent for PixivAgent {
 					valid_rc.into_iter()
 						.map(|article| article as Rc<RefCell<dyn ArticleData>>)
 						.collect(),
-				))
+				));
+
+				self.check_unfetched_articles();
 			},
 			Request::RefreshEndpoint(endpoint_id, refresh_time) => self.endpoint_agent.send(EndpointRequest::RefreshEndpoint(endpoint_id, refresh_time)),
 			Request::FetchPosts(refresh_time, endpoint_id, path) =>
 				self.link.send_future(async move {
-					Msg::EndpointFetchResponse(refresh_time, endpoint_id, fetch_posts(&path).await)
+					Msg::EndpointFetchResponse(refresh_time, endpoint_id, fetch_posts(&path, &get_service_session("Pixiv")).await)
 				})
 		};
 	}
 }
 
-fn parse_article(element: web_sys::Element) -> Option<Rc<RefCell<PixivArticleData>>> {
+impl PixivAgent {
+	fn check_unfetched_articles(&mut self) {
+		let unfetched: Vec<u32> = self.articles.values().filter_map(|a| if !a.borrow().is_fully_fetched && !self.fetching_articles.contains(&a.borrow().id) {
+			Some(a.borrow().id.clone())
+		} else {
+			None
+		}).collect();
+		let count = unfetched.len();
+		log::debug!("Still {} articles unfetched, currently fetching {}.", &count, self.fetching_articles.len());
+
+		if count > 0 {
+			if self.fetching_articles.len() < 5 {
+				for id in unfetched.into_iter().take(5) {
+					let path = format!("https://www.pixiv.net/ajax/illust/{}", &id);
+
+					self.fetching_articles.insert(id.clone());
+					self.link.send_future(async move {
+						Msg::FetchResponse(fetch_post(&path, &get_service_session("Pixiv")).await.map(|(article, _)| (vec![article], None)))
+					});
+				}
+			}
+		}else if self.fetching_articles.is_empty() {
+			self.cache_articles();
+		}
+	}
+
+	fn cache_articles(&self) {
+		log::debug!("Caching Pixiv articles...");
+
+		let session_storage: SoshalSessionStorage = match gloo_storage::SessionStorage::get("SoshalThingYew") {
+			Ok(storage) => {
+				let mut session_storage: SoshalSessionStorage = storage;
+				(match session_storage.services.get_mut("Pixiv") {
+					Some(service) => Some(service),
+					None => {
+						let service = SessionStorageService {
+							articles_marked_as_read: HashSet::new(),
+							cached_articles: HashMap::new(),
+						};
+						session_storage.services.insert("Pixiv".to_owned(), service);
+						session_storage.services.get_mut("Pixiv")
+					}
+				})
+					.map(|s| &mut s.cached_articles).
+					map(|cached| self.articles.iter()
+						.map(|(id, a)| cached.insert(id.to_string(), serde_json::to_value(PixivArticleCached::from(&a.borrow())).unwrap()))
+					);
+
+				session_storage
+			},
+			Err(_err) => {
+				SoshalSessionStorage {
+					services: HashMap::from([
+						("Pixiv".to_owned(), SessionStorageService {
+							articles_marked_as_read: HashSet::new(),
+							cached_articles: self.articles.iter()
+								.map(|(id, a)| (id.to_string(), serde_json::to_value(PixivArticleCached::from(&a.borrow())).unwrap()))
+								.collect(),
+						})
+					])
+				}
+			}
+		};
+
+		gloo_storage::SessionStorage::set("SoshalThingYew", &session_storage)
+			.expect("couldn't write session storage");
+	}
+}
+
+fn parse_article(element: web_sys::Element, storage: &SessionStorageService) -> Option<Rc<RefCell<PixivArticleData>>> {
 	let anchors = element.get_elements_by_tag_name("a");
-	let id = match anchors.get_with_index(0) {
+	let (id, id_str) = match anchors.get_with_index(0) {
 		Some(a) => match a.get_attribute("data-gtm-value") {
-			Some(id) => match id.parse::<u32>() {
-				Ok(id) => id,
-				Err(_) => return None,
+			Some(id) => match id.parse::<u32>().ok().zip(Some(id)) {
+				Some((id, id_str)) => (id, id_str),
+				None => return None,
 			},
 			None => return None
 		},
@@ -338,13 +458,6 @@ fn parse_article(element: web_sys::Element) -> Option<Rc<RefCell<PixivArticleDat
 	};
 
 	let imgs = element.get_elements_by_tag_name("img");
-	let src = match imgs.get_with_index(0) {
-		Some(img) => match img.get_attribute("src") {
-			Some(src) => src,
-			None => return None,
-		}
-		None => return None,
-	};
 
 	let author_avatar_url = match imgs.get_with_index(1) {
 		Some(img) => match img.get_attribute("src") {
@@ -352,6 +465,22 @@ fn parse_article(element: web_sys::Element) -> Option<Rc<RefCell<PixivArticleDat
 			None => return None,
 		}
 		None => return None,
+	};
+
+	let cached: Option<PixivArticleCached> = storage.cached_articles.get(&id_str)
+		.and_then(|json| serde_json::from_value(json.clone()).ok());
+	let (src, is_fully_fetched) = match cached {
+		Some(PixivArticleCached { src, .. }) => (src, true),
+		None => {
+			let src = match imgs.get_with_index(0) {
+				Some(img) => match img.get_attribute("src") {
+					Some(src) => src,
+					None => return None,
+				}
+				None => return None,
+			};
+			(src, false)
+		}
 	};
 
 	Some(Rc::new(RefCell::new(PixivArticleData {
@@ -363,6 +492,7 @@ fn parse_article(element: web_sys::Element) -> Option<Rc<RefCell<PixivArticleDat
 		author_name,
 		marked_as_read: false,
 		hidden: false,
+		is_fully_fetched,
 	})))
 }
 
@@ -371,7 +501,6 @@ pub struct FollowPageEndpoint {
 	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
 	agent: Dispatcher<PixivAgent>,
 	timeout: Option<Timeout>,
-	page: u16,
 }
 
 impl FollowPageEndpoint {
@@ -381,7 +510,6 @@ impl FollowPageEndpoint {
 			articles: Vec::new(),
 			agent: PixivAgent::dispatcher(),
 			timeout: None,
-			page: 0,
 		}
 	}
 }
@@ -415,8 +543,9 @@ impl Endpoint for FollowPageEndpoint {
 			Ok(Some(posts)) => {
 				let children = posts.children();
 				log::debug!("Found {} posts.", children.length());
+				let storage = get_service_session("Pixiv");
 				for i in 0..children.length() {
-					if let Some(article) = children.get_with_index(i).and_then(parse_article) {
+					if let Some(article) = children.get_with_index(i).and_then(|a| parse_article(a, &storage)) {
 						articles.push(article);
 					}
 				}
@@ -495,7 +624,7 @@ impl Endpoint for FollowAPIEndpoint {
 	}
 }
 
-async fn fetch_posts(url: &str) -> FetchResult<Vec<Rc<RefCell<PixivArticleData>>>> {
+async fn fetch_posts(url: &str, storage: &SessionStorageService) -> FetchResult<Vec<Rc<RefCell<PixivArticleData>>>> {
 	let response = reqwest::Client::builder().build()?
 		.get(url)
 		.send().await?;
@@ -505,13 +634,13 @@ async fn fetch_posts(url: &str) -> FetchResult<Vec<Rc<RefCell<PixivArticleData>>
 	let response: APIPayload<FollowAPIResponse> = serde_json::from_str(&json_str)?;
 	Ok((response.body.thumbnails.illust
 		.iter()
-		.map(PixivArticleData::from)
+		.map(|a| PixivArticleData::from((a, storage)))
 		.map(|p| Rc::new(RefCell::new(p)))
 		.collect(),
 	 None))
 }
 
-async fn fetch_post(url: &str) -> FetchResult<Rc<RefCell<PixivArticleData>>> {
+async fn fetch_post(url: &str, storage: &SessionStorageService) -> FetchResult<Rc<RefCell<PixivArticleData>>> {
 	let response = reqwest::Client::builder().build()?
 		.get(url)
 		.send().await?;
@@ -519,5 +648,5 @@ async fn fetch_post(url: &str) -> FetchResult<Rc<RefCell<PixivArticleData>>> {
 	let json_str = response.text().await?.to_string();
 
 	let response: APIPayload<FullPostAPI> = serde_json::from_str(&json_str)?;
-	Ok((Rc::new(RefCell::new(response.body.into())), None))
+	Ok((Rc::new(RefCell::new(PixivArticleData::from((response.body, storage)))), None))
 }

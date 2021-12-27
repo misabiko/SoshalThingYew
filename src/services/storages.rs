@@ -1,8 +1,28 @@
+use gloo_storage::Storage;
+use std::collections::{HashMap, HashSet};
+use serde::{Serialize, Deserialize};
+use serde_json::Value;
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct SessionStorageService {
+	pub articles_marked_as_read: HashSet<String>,
+	pub cached_articles: HashMap<String, Value>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct SoshalSessionStorage {
+	pub services: HashMap<String, SessionStorageService>,
+}
+
+pub fn get_service_session(service: &str) -> SessionStorageService {
+	let storage: SoshalSessionStorage = gloo_storage::SessionStorage::get("SoshalThingYew").unwrap_or_default();
+	storage.services.get(service).cloned().unwrap_or_default()
+}
+
 /*use yew::prelude::*;
 use yew_agent::{Agent, AgentLink, HandlerId, Context};
 use std::rc::Weak;
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
 use web_sys::Storage;
 
 use crate::articles::ArticleData;

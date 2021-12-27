@@ -3,6 +3,7 @@ use std::cell::{RefCell, Ref};
 use yew::prelude::*;
 use js_sys::Date;
 
+pub mod fetch_agent;
 mod social;
 mod gallery;
 
@@ -46,6 +47,7 @@ pub trait ArticleData {
 	fn set_marked_as_read(&mut self, value: bool);
 	fn hidden(&self) -> bool;
 	fn set_hidden(&mut self, value: bool);
+	fn is_fully_fetched(&self) -> &bool { &true }
 }
 
 impl PartialEq<dyn ArticleData> for dyn ArticleData {
