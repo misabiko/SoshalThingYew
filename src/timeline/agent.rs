@@ -56,6 +56,12 @@ pub struct SoshalTimelineStorage {
 	width: u8,
 	#[serde(default)]
 	filters: Vec<FilterSerialized>,
+	#[serde(default)]
+	compact: bool,
+	#[serde(default)]
+	animated_as_gifs: bool,
+	#[serde(default)]
+	hide_text: bool,
 }
 
 impl Agent for TimelineAgent {
@@ -130,6 +136,9 @@ impl Agent for TimelineAgent {
 						}else {
 							Some(deserialize_filters(&t.filters))
 						};
+						let compact = t.compact.clone();
+						let animated_as_gifs = t.animated_as_gifs.clone();
+						let hide_text = t.hide_text.clone();
 
 						(
 							t.endpoints,
@@ -142,6 +151,9 @@ impl Agent for TimelineAgent {
 									width,
 									column_count,
 									filters,
+									compact,
+									animated_as_gifs,
+									hide_text,
 								}}
 							) as TimelinePropsEndpointsClosure,
 						)

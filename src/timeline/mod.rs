@@ -123,6 +123,12 @@ pub struct Props {
 	pub articles: Vec<Weak<RefCell<dyn ArticleData>>>,
 	#[prop_or_default]
 	pub filters: Option<Vec<Filter>>,
+	#[prop_or_default]
+	compact: bool,
+	#[prop_or_default]
+	animated_as_gifs: bool,
+	#[prop_or_default]
+	hide_text: bool,
 }
 
 impl PartialEq for Props {
@@ -159,9 +165,9 @@ impl Component for Timeline {
 			endpoints,
 			articles: ctx.props().articles.clone(),
 			options_shown: false,
-			compact: false,
-			animated_as_gifs: false,
-			hide_text: false,
+			compact: ctx.props().compact.clone(),
+			animated_as_gifs: ctx.props().animated_as_gifs.clone(),
+			hide_text: ctx.props().hide_text.clone(),
 			endpoint_agent,
 			filters: ctx.props().filters.as_ref().map(|f| f.clone()).unwrap_or_else(|| default_filters()),
 			sort_methods: default_sort_methods(),
