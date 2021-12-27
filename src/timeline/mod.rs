@@ -19,7 +19,7 @@ use sort_methods::{SortMethod, default_sort_methods};
 use agent::{TimelineAgent, Request as TimelineAgentRequest};
 use crate::articles::{ArticleComponent, ArticleData};
 use crate::services::endpoint_agent::{EndpointAgent, Request as EndpointRequest, TimelineEndpoints};
-use crate::modals::Modal;
+use crate::modals::ModalCard;
 use crate::choose_endpoints::ChooseEndpoints;
 use crate::dropdown::{Dropdown, DropdownLabel};
 use crate::services::article_actions::{ArticleActionsAgent, Response as ArticleActionsResponse};
@@ -435,11 +435,11 @@ impl Component for Timeline {
 		};
 		html! {
 			<div class={classes!("timeline", if ctx.props().main_timeline { Some("mainTimeline") } else { None })} {style}>
-				<Modal enabled={self.show_choose_endpoint.clone()} modal_title="Choose Endpoints" close_modal_callback={ctx.link().callback(|_| Msg::SetChooseEndpointModal(false))}>
+				<ModalCard enabled={self.show_choose_endpoint.clone()} modal_title="Choose Endpoints" close_modal_callback={ctx.link().callback(|_| Msg::SetChooseEndpointModal(false))}>
 					<ChooseEndpoints
 						timeline_endpoints={Rc::downgrade(&self.endpoints)}
 					/>
-				</Modal>
+				</ModalCard>
 
 				<div class="timelineHeader">
 					<div class="timelineLeftHeader">

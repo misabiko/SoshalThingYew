@@ -5,18 +5,18 @@ pub mod add_timeline;
 pub use add_timeline::AddTimelineModal;
 
 #[derive(Properties, PartialEq, Clone)]
-pub struct Props {
+pub struct ModalCardProps {
 	pub modal_title: String,
 	pub children: Children,
 	pub close_modal_callback: Callback<MouseEvent>,
 	#[prop_or_default]
 	pub footer: Html,
-	#[prop_or_default]
+	#[prop_or(true)]
 	pub enabled: bool,
 }
 
-#[function_component(Modal)]
-pub fn modal(props: &Props) -> Html {
+#[function_component(ModalCard)]
+pub fn modal_card(props: &ModalCardProps) -> Html {
 	html! {
 		<div class={classes!("modal", if props.enabled { Some("is-active") } else { None })}>
 			<div class="modal-background"/>
@@ -38,6 +38,34 @@ pub fn modal(props: &Props) -> Html {
 					</footer>
 				</div>
 			</div>
+		</div>
+	}
+}
+
+#[derive(Properties, PartialEq, Clone)]
+pub struct Props {
+	pub children: Children,
+	pub close_modal_callback: Callback<MouseEvent>,
+	#[prop_or(true)]
+	pub enabled: bool,
+	#[prop_or_default]
+	pub content_style: Option<String>
+}
+
+#[function_component(Modal)]
+pub fn modal(props: &Props) -> Html {
+	//TODO Fix close button not white
+	html! {
+		<div class={classes!("modal", if props.enabled { Some("is-active") } else { None })}>
+			<div class="modal-background"/>
+			<div class="modal-content" style={props.content_style.clone()}>
+				{ for props.children.iter() }
+			</div>
+			<button class="modal-close is-large" aria-label="close" onclick={props.close_modal_callback.clone()}>
+				<span class="icon">
+					<i class="fas fa-times"/>
+				</span>
+			</button>
 		</div>
 	}
 }

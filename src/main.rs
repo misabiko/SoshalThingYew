@@ -423,7 +423,6 @@ fn main() {
 //TODO Custom social buttons per article type
 //TODO Notifications
 //TODO Save timeline data
-//TODO Social expanded view
 //TODO Display timeline errors
 //TODO Prompt on not logged in
 //TODO Save fetched articles

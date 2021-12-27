@@ -10,12 +10,14 @@ use crate::articles::{ArticleData, ArticleRefType, Props, ArticleMedia};
 use crate::dropdown::{Dropdown, DropdownLabel};
 use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest, Response as ArticleActionsResponse};
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest};
+use crate::modals::Modal;
 
 pub struct SocialArticle {
 	compact: Option<bool>,
 	article_actions: Box<dyn Bridge<ArticleActionsAgent>>,
 	video_ref: NodeRef,
 	add_timeline_agent: Dispatcher<TimelineAgent>,
+	in_modal: bool,
 }
 
 pub enum Msg {
@@ -28,6 +30,7 @@ pub enum Msg {
 	ToggleHide,
 	ActionsCallback(ArticleActionsResponse),
 	AddUserTimeline(String, String),
+	ToggleInModal,
 }
 
 impl Component for SocialArticle {
@@ -40,6 +43,7 @@ impl Component for SocialArticle {
 			article_actions: ArticleActionsAgent::bridge(ctx.link().callback(Msg::ActionsCallback)),
 			video_ref: NodeRef::default(),
 			add_timeline_agent: TimelineAgent::dispatcher(),
+			in_modal: false,
 		}
 	}
 
@@ -166,6 +170,10 @@ impl Component for SocialArticle {
 				self.add_timeline_agent.send(TimelineAgentRequest::AddUserTimeline(service, username));
 				false
 			}
+			Msg::ToggleInModal => {
+				self.in_modal = !self.in_modal;
+				true
+			}
 		}
 	}
 
@@ -202,7 +210,7 @@ impl Component for SocialArticle {
 			Msg::AddUserTimeline(borrow.service().to_owned(), borrow.author_username())
 		});
 
-		html! {
+		let html = html! {
 			<article class="article" articleId={borrow.id()} key={borrow.id()} style={ctx.props().style.clone()}>
 				{ retweet_header }
 				<div class="media">
@@ -234,6 +242,16 @@ impl Component for SocialArticle {
 					true => html! {},
 				} }
 			</article>
+		};
+
+		if self.in_modal {
+			html! {
+				<Modal content_style="width: 75%" close_modal_callback={ctx.link().callback(|_| Msg::ToggleInModal)}>
+					{ html }
+				</Modal>
+			}
+		}else {
+			html
 		}
 	}
 
@@ -347,6 +365,19 @@ impl SocialArticle {
 										_ => html! {},
 									}
 								}
+								{
+									match self.in_modal {
+										false => html! {
+											<a class="level-item articleButton" onclick={ctx.link().callback(|_| Msg::ToggleInModal)}>
+												<span class="icon">
+													<i class="fas fa-expand-alt"/>
+												</span>
+											</a>
+										},
+										true => html! {},
+									}
+								}
+
 							</>
 						},
 						true => html! {},

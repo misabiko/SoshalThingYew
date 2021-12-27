@@ -4,7 +4,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use yew_agent::{Bridge, Bridged};
 
-use super::Modal;
+use super::ModalCard;
 use crate::timeline::{Props as TimelineProps};
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse};
 use crate::services::endpoint_agent::TimelineEndpoints;
@@ -113,7 +113,7 @@ impl Component for AddTimelineModal {
 		};
 
 		html! {
-			<Modal enabled={self.enabled.clone()} modal_title="Add Timeline" close_modal_callback={ctx.link().callback(|_| Msg::SetEnabled(false))} {footer}>
+			<ModalCard enabled={self.enabled.clone()} modal_title="Add Timeline" close_modal_callback={ctx.link().callback(|_| Msg::SetEnabled(false))} {footer}>
 				<div class="field">
 					<label class="label">{"Title"}</label>
 					<div class="control">
@@ -121,7 +121,7 @@ impl Component for AddTimelineModal {
 					</div>
 				</div>
 				<ChooseEndpoints inside_add_timeline=true timeline_endpoints={Rc::downgrade(&self.endpoints)}/>
-			</Modal>
+			</ModalCard>
 		}
 	}
 }
