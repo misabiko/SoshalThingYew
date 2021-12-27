@@ -13,7 +13,7 @@ use crate::error::FetchResult;
 use crate::services::{Endpoint, EndpointSerialized};
 use crate::services::article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest};
 use crate::services::endpoint_agent::{EndpointAgent, Request as EndpointRequest, EndpointId, RefreshTime, EndpointConstructors};
-use crate::services::storages::{SessionStorageService, SoshalSessionStorage, get_service_session};
+use crate::services::storages::{SessionStorageService, SoshalSessionStorage, get_service_session, cache_articles};
 
 pub struct PixivArticleData {
 	id: u32,
@@ -451,43 +451,9 @@ impl PixivAgent {
 	fn cache_articles(&self) {
 		log::debug!("Caching Pixiv articles...");
 
-		let session_storage: SoshalSessionStorage = match gloo_storage::SessionStorage::get("SoshalThingYew") {
-			Ok(storage) => {
-				let mut session_storage: SoshalSessionStorage = storage;
-				let mut service = match session_storage.services.get_mut("Pixiv") {
-					Some(service) => service,
-					None => {
-						let service = SessionStorageService {
-							articles_marked_as_read: HashSet::new(),
-							cached_articles: HashMap::new(),
-						};
-						session_storage.services.insert("Pixiv".to_owned(), service);
-						session_storage.services.get_mut("Pixiv").unwrap()
-					}
-				};
-
-				for (id, article) in &self.articles {
-					service.cached_articles.insert(id.to_string(), serde_json::to_value(PixivArticleCached::from(&article.borrow())).unwrap());
-				}
-
-				session_storage
-			}
-			Err(_err) => {
-				SoshalSessionStorage {
-					services: HashMap::from([
-						("Pixiv".to_owned(), SessionStorageService {
-							articles_marked_as_read: HashSet::new(),
-							cached_articles: self.articles.iter()
-								.map(|(id, a)| (id.to_string(), serde_json::to_value(PixivArticleCached::from(&a.borrow())).unwrap()))
-								.collect(),
-						})
-					])
-				}
-			}
-		};
-
-		gloo_storage::SessionStorage::set("SoshalThingYew", &session_storage)
-			.expect("couldn't write session storage");
+		cache_articles("Pixiv", self.articles.iter()
+			.map(|(id, a)| (id.to_string(), serde_json::to_value(PixivArticleCached::from(&a.borrow())).unwrap()))
+			.collect());
 	}
 }
 
