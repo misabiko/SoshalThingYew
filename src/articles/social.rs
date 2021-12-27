@@ -24,6 +24,7 @@ pub enum Msg {
 	ToggleCompact,
 	OnImageClick,
 	LogData,
+	FetchData,
 	Like,
 	Repost,
 	ToggleMarkAsRead,
@@ -72,6 +73,16 @@ impl Component for SocialArticle {
 				}else {
 					console::dir_1(&JsValue::from_serde(&json).unwrap_or_default());
 				}
+				false
+			}
+			Msg::FetchData => {
+				let strong = ctx.props().data.upgrade().unwrap();
+				let borrow = strong.borrow();
+
+				self.article_actions.send(ArticleActionsRequest::FetchData(match borrow.referenced_article() {
+					ArticleRefType::NoRef | ArticleRefType::Quote(_) => ctx.props().data.clone(),
+					ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => a,
+				}));
 				false
 			}
 			Msg::Like => {
@@ -395,6 +406,7 @@ impl SocialArticle {
 						</a>
 						{ dropdown_buttons }
 						<div class="dropdown-item" onclick={ctx.link().callback(|_| Msg::LogData)}>{"Log Data"}</div>
+						<div class="dropdown-item" onclick={ctx.link().callback(|_| Msg::FetchData)}>{"Fetch Data"}</div>
 					</Dropdown>
 				</div>
 			</nav>

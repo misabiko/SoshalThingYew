@@ -16,11 +16,12 @@ use crate::timeline::{Props as TimelineProps, Timeline, TimelineId, Container};
 use crate::services::{
 	Endpoint,
 	endpoint_agent::{EndpointId, EndpointAgent, Request as EndpointRequest, Response as EndpointResponse, TimelineEndpoints},
-	pixiv::{FollowEndpoint, PixivAgent},
+	pixiv::{FollowPageEndpoint, PixivAgent},
 	twitter::{endpoints::*, TwitterAgent},
 };
 use crate::favviewer::{PageInfo, PixivPageInfo};
 use crate::modals::AddTimelineModal;
+use crate::services::pixiv::FollowAPIEndpoint;
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse};
 
 #[derive(PartialEq, Clone)]
@@ -372,10 +373,15 @@ fn parse_pathname(ctx: &Context<Model>, pathname: &str, search_opt: &Option<web_
 		}
 	} if ctx.props().favviewer {
 		let callback = ctx.link().callback(|id| Msg::AddTimeline("Pixiv".to_owned(), id));
+		let r18 = pathname.contains("r18");
+		let current_page = search_opt.as_ref()
+			.and_then(|s| s.get("p"))
+			.and_then(|s| s.parse().ok())
+			.unwrap_or(1);
 		ctx.link().send_message(
 			Msg::AddEndpoint(Box::new(move |id| {
 				callback.emit(id);
-				Box::new(FollowEndpoint::new(id))
+				Box::new(FollowAPIEndpoint::new(id, r18, current_page - 1))
 			}))
 		);
 	}

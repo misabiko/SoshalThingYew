@@ -7,9 +7,10 @@ use std::collections::{HashMap, HashSet};
 use crate::articles::ArticleData;
 
 pub struct ServiceActions {
-	pub like: Callback<(HandlerId, Weak<RefCell<dyn ArticleData>>)>,
-	pub repost: Callback<(HandlerId, Weak<RefCell<dyn ArticleData>>)>,
-	pub mark_as_read: Callback<(HandlerId, Weak<RefCell<dyn ArticleData>>, bool)>,
+	pub like: Option<Callback<(HandlerId, Weak<RefCell<dyn ArticleData>>)>>,
+	pub repost: Option<Callback<(HandlerId, Weak<RefCell<dyn ArticleData>>)>>,
+	pub mark_as_read: Option<Callback<(HandlerId, Weak<RefCell<dyn ArticleData>>, bool)>>,
+	pub fetch_data: Option<Callback<(HandlerId, Weak<RefCell<dyn ArticleData>>)>>,
 }
 
 pub struct ArticleActionsAgent {
@@ -24,6 +25,7 @@ pub enum Request {
 	Like(Weak<RefCell<dyn ArticleData>>),
 	Repost(Weak<RefCell<dyn ArticleData>>),
 	MarkAsRead(Weak<RefCell<dyn ArticleData>>, bool),
+	FetchData(Weak<RefCell<dyn ArticleData>>),
 }
 
 pub enum Response {
@@ -66,19 +68,33 @@ impl Agent for ArticleActionsAgent {
 				let strong = article.upgrade().unwrap();
 				let borrow = strong.borrow();
 
-				self.services.get(&borrow.service()).map(|s| s.like.emit((id, article.clone())));
+				self.services.get(&borrow.service())
+					.and_then(|s| s.like.as_ref())
+					.map(|l| l.emit((id, article.clone())));
 			}
 			Request::Repost(article) => {
 				let strong = article.upgrade().unwrap();
 				let borrow = strong.borrow();
 
-				self.services.get(&borrow.service()).map(|s| s.repost.emit((id, article.clone())));
+				self.services.get(&borrow.service())
+					.and_then(|s| s.repost.as_ref())
+					.map(|r| r.emit((id, article.clone())));
 			}
 			Request::MarkAsRead(article, value) => {
 				let strong = article.upgrade().unwrap();
 				let borrow = strong.borrow();
 
-				self.services.get(&borrow.service()).map(|s| s.mark_as_read.emit((id, article.clone(), value)));
+				self.services.get(&borrow.service())
+					.and_then(|s| s.mark_as_read.as_ref())
+					.map(|m| m.emit((id, article.clone(), value)));
+			}
+			Request::FetchData(article) => {
+				let strong = article.upgrade().unwrap();
+				let borrow = strong.borrow();
+
+				self.services.get(&borrow.service())
+					.and_then(|s| s.fetch_data.as_ref())
+					.map(|f| f.emit((id, article.clone())));
 			}
 		};
 	}

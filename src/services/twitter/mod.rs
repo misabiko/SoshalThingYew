@@ -152,9 +152,10 @@ impl Agent for TwitterAgent {
 
 		let mut actions_agent = ArticleActionsAgent::dispatcher();
 		actions_agent.send(ArticleActionsRequest::Init("Twitter", ServiceActions {
-			like: link.callback(|(id, article)| Msg::Like(id, article)),
-			repost: link.callback(|(id, article)| Msg::Retweet(id, article)),
-			mark_as_read: link.callback(|(id, article, value)| Msg::MarkAsRead(id, article, value)),
+			like: Some(link.callback(|(id, article)| Msg::Like(id, article))),
+			repost: Some(link.callback(|(id, article)| Msg::Retweet(id, article))),
+			mark_as_read: Some(link.callback(|(id, article, value)| Msg::MarkAsRead(id, article, value))),
+			fetch_data: None,
 		}));
 
 		let session_storage: Option<SoshalSessionStorage> = gloo_storage::SessionStorage::get("SoshalThingYew").ok();

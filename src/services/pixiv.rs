@@ -6,7 +6,9 @@ use std::collections::HashMap;
 use gloo_timers::callback::Timeout;
 
 use crate::articles::{ArticleData, ArticleMedia};
+use crate::error::FetchResult;
 use crate::services::{Endpoint, EndpointSerialized};
+use crate::services::article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest};
 use crate::services::endpoint_agent::{EndpointAgent, Request as EndpointRequest, EndpointId, RefreshTime, EndpointConstructors};
 
 pub struct PixivArticleData {
@@ -76,23 +78,125 @@ impl ArticleData for PixivArticleData {
 	}
 }
 
+impl From<&FullPostAPI> for PixivArticleData {
+	fn from(data: &FullPostAPI) -> Self {
+		PixivArticleData {
+			id: data.id.parse::<u32>().unwrap(),
+			title: data.title.clone(),
+			src: data.urls.original.clone(),
+			author_name: data.user_name.clone(),
+			author_id: data.user_id.parse::<u32>().unwrap(),
+			author_avatar_url: "".to_owned(),
+			marked_as_read: false,
+			hidden: false,
+		}
+	}
+}
+
+impl From<FullPostAPI> for PixivArticleData {
+	fn from(data: FullPostAPI) -> Self {
+		PixivArticleData::from(&data)
+	}
+}
+
+impl From<&FollowAPIIllust> for PixivArticleData {
+	fn from(data: &FollowAPIIllust) -> Self {
+		PixivArticleData {
+			id: data.id.parse::<u32>().unwrap(),
+			title: data.title.clone(),
+			src: data.url.clone(),
+			author_name: data.user_name.clone(),
+			author_id: data.user_id.parse::<u32>().unwrap(),
+			author_avatar_url: data.profile_image_url.clone(),
+			marked_as_read: false,
+			hidden: false,
+		}
+	}
+}
+
+#[derive(serde::Deserialize)]
+struct APIPayload<T> {
+	//error: bool,
+	//message: String,
+	body: T,
+}
+
+#[derive(serde::Deserialize)]
+struct FullPostAPI {
+	id: String,
+	title: String,
+	urls: FullPostAPIURLs,
+	//#[serde(rename = "userAccount")]
+	//user_account: String,
+	#[serde(rename = "userName")]
+	user_name: String,
+	#[serde(rename = "userId")]
+	user_id: String,
+}
+
+#[derive(serde::Deserialize)]
+struct FullPostAPIURLs {
+	//mini: String,
+	//thumb: String,
+	//small: String,
+	//regular: String,
+	original: String,
+}
+
+#[derive(serde::Deserialize)]
+struct FollowAPIResponse {
+	page: FollowAPIPage,
+	thumbnails: FollowAPIThumbnails,
+}
+
+#[derive(serde::Deserialize)]
+struct FollowAPIPage {
+	ids: Vec<u32>,
+}
+
+#[derive(serde::Deserialize)]
+struct FollowAPIThumbnails {
+	illust: Vec<FollowAPIIllust>,
+}
+
+#[derive(serde::Deserialize)]
+struct FollowAPIIllust {
+	id: String,
+	title: String,
+	url: String,
+	#[serde(rename = "userId")]
+	user_id: String,
+	#[serde(rename = "userName")]
+	user_name: String,
+	#[serde(rename = "profileImageUrl")]
+	profile_image_url: String,
+}
+
 pub struct PixivAgent {
+	link: AgentLink<Self>,
 	endpoint_agent: Dispatcher<EndpointAgent>,
+	actions_agent: Dispatcher<ArticleActionsAgent>,
 	articles: HashMap<u32, Rc<RefCell<PixivArticleData>>>,
+}
+pub enum Msg {
+	FetchResponse(HandlerId, FetchResult<Vec<Rc<RefCell<PixivArticleData>>>>),
+	EndpointFetchResponse(RefreshTime, EndpointId, FetchResult<Vec<Rc<RefCell<PixivArticleData>>>>),
+	FetchData(HandlerId, Weak<RefCell<dyn ArticleData>>),
 }
 
 pub enum Request {
 	AddArticles(RefreshTime, EndpointId, Vec<Rc<RefCell<PixivArticleData>>>),
 	RefreshEndpoint(EndpointId, RefreshTime),
+	FetchPosts(RefreshTime, EndpointId, String),
 }
 
 impl Agent for PixivAgent {
 	type Reach = Context<Self>;
-	type Message = ();
+	type Message = Msg;
 	type Input = Request;
 	type Output = ();
 
-	fn create(_link: AgentLink<Self>) -> Self {
+	fn create(link: AgentLink<Self>) -> Self {
 		let mut endpoint_agent = EndpointAgent::dispatcher();
 		endpoint_agent.send(EndpointRequest::InitService(
 			"Pixiv".to_owned(),
@@ -101,13 +205,75 @@ impl Agent for PixivAgent {
 				user_endpoint: None,
 			}));
 
+		let mut actions_agent = ArticleActionsAgent::dispatcher();
+		actions_agent.send(ArticleActionsRequest::Init("Pixiv", ServiceActions {
+			like: None,
+			repost: None,
+			mark_as_read: None,
+			fetch_data: Some(link.callback(|(id, article)| Msg::FetchData(id, article))),
+		}));
+
 		Self {
+			link,
 			endpoint_agent,
+			actions_agent,
 			articles: HashMap::new(),
 		}
 	}
 
-	fn update(&mut self, _msg: Self::Message) {}
+	fn update(&mut self, msg: Self::Message) {
+		match msg {
+			Msg::EndpointFetchResponse(refresh_time, id, r) => {
+				let mut valid_rc = Vec::new();
+				if let Ok((articles, _)) = &r {
+					for article in articles {
+						let borrow = article.borrow();
+						let valid_a_rc = self.articles.entry(borrow.id)
+							.and_modify(|a| a.borrow_mut().update(&(borrow as Ref<dyn ArticleData>)))
+							.or_insert_with(|| article.clone()).clone();
+
+						valid_rc.push(valid_a_rc);
+					}
+				}
+				self.endpoint_agent.send(EndpointRequest::EndpointFetchResponse(
+					refresh_time,
+					id,
+					r.map(move |(_, ratelimit)|
+						(
+							valid_rc.into_iter()
+								.map(|article| article as Rc<RefCell<dyn ArticleData>>)
+								.collect(),
+							ratelimit
+						))
+				));
+			}
+			Msg::FetchResponse(_id, r) => {
+				if let Ok((articles, _)) = &r {
+					let mut valid_rc = Vec::new();
+					for article in articles {
+						let borrow = article.borrow();
+						let updated = self.articles.entry(borrow.id)
+							.and_modify(|a| a.borrow_mut().update(&(borrow as Ref<dyn ArticleData>)))
+							.or_insert_with(|| article.clone());
+
+						valid_rc.push(Rc::downgrade(updated) as Weak<RefCell<dyn ArticleData>>);
+					}
+
+					self.actions_agent.send(ArticleActionsRequest::Callback(valid_rc));
+				}
+			}
+			Msg::FetchData(handler_id, article) => {
+				let strong = article.upgrade().unwrap();
+				let borrow = strong.borrow();
+
+				let path = format!("https://www.pixiv.net/ajax/illust/{}", borrow.id());
+
+				self.link.send_future(async move {
+					Msg::FetchResponse(handler_id, fetch_post(&path).await.map(|(article, _)| (vec![article], None)))
+				});
+			}
+		}
+	}
 
 	fn handle_input(&mut self, msg: Self::Input, _id: HandlerId) {
 		match msg {
@@ -130,6 +296,10 @@ impl Agent for PixivAgent {
 				))
 			},
 			Request::RefreshEndpoint(endpoint_id, refresh_time) => self.endpoint_agent.send(EndpointRequest::RefreshEndpoint(endpoint_id, refresh_time)),
+			Request::FetchPosts(refresh_time, endpoint_id, path) =>
+				self.link.send_future(async move {
+					Msg::EndpointFetchResponse(refresh_time, endpoint_id, fetch_posts(&path).await)
+				})
 		};
 	}
 }
@@ -196,27 +366,29 @@ fn parse_article(element: web_sys::Element) -> Option<Rc<RefCell<PixivArticleDat
 	})))
 }
 
-pub struct FollowEndpoint {
+pub struct FollowPageEndpoint {
 	id: EndpointId,
 	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
 	agent: Dispatcher<PixivAgent>,
 	timeout: Option<Timeout>,
+	page: u16,
 }
 
-impl FollowEndpoint {
+impl FollowPageEndpoint {
 	pub fn new(id: EndpointId) -> Self {
 		Self {
 			id,
 			articles: Vec::new(),
 			agent: PixivAgent::dispatcher(),
 			timeout: None,
+			page: 0,
 		}
 	}
 }
 
-impl Endpoint for FollowEndpoint {
+impl Endpoint for FollowPageEndpoint {
 	fn name(&self) -> String {
-		"Follow Endpoint".to_owned()
+		"Follow Page Endpoint".to_owned()
 	}
 
 	fn id(&self) -> &EndpointId {
@@ -261,4 +433,91 @@ impl Endpoint for FollowEndpoint {
 		storage.service == "Pixiv" &&
 		storage.endpoint_type == 0
 	}
+}
+
+pub struct FollowAPIEndpoint {
+	id: EndpointId,
+	r18: bool,
+	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
+	agent: Dispatcher<PixivAgent>,
+	page: u16,
+}
+
+impl FollowAPIEndpoint {
+	pub fn new(id: EndpointId, r18: bool, current_page: u16) -> Self {
+		Self {
+			id,
+			r18,
+			articles: Vec::new(),
+			agent: PixivAgent::dispatcher(),
+			page: current_page,
+		}
+	}
+}
+
+impl Endpoint for FollowAPIEndpoint {
+	fn name(&self) -> String {
+		"Follow API Endpoint".to_owned()
+	}
+
+	fn id(&self) -> &EndpointId {
+		&self.id
+	}
+
+	fn articles(&mut self) -> &mut Vec<Weak<RefCell<dyn ArticleData>>> {
+		&mut self.articles
+	}
+
+	fn refresh(&mut self, refresh_time: RefreshTime) {
+		let id = self.id().clone();
+		let query = web_sys::UrlSearchParams::new().unwrap();
+		if self.page > 0 {
+			query.append("p", &(self.page + 1).to_string());
+		}
+		if self.r18 {
+			query.append("mode", "r18");
+		}
+		self.agent.send(Request::FetchPosts(
+			refresh_time,
+			id,
+			format!("https://www.pixiv.net/ajax/follow_latest/illust?{}", query.to_string()),
+		))
+	}
+
+	fn load_bottom(&mut self, refresh_time: RefreshTime) {
+		self.page += 1;
+		self.refresh(refresh_time)
+	}
+
+	fn eq_storage(&self, storage: &EndpointSerialized) -> bool {
+		storage.service == "Pixiv" &&
+			storage.endpoint_type == 1
+	}
+}
+
+async fn fetch_posts(url: &str) -> FetchResult<Vec<Rc<RefCell<PixivArticleData>>>> {
+	let response = reqwest::Client::builder().build()?
+		.get(url)
+		.send().await?;
+
+	let json_str = response.text().await?.to_string();
+
+	let response: APIPayload<FollowAPIResponse> = serde_json::from_str(&json_str)?;
+	Ok((response.body.thumbnails.illust
+		.iter()
+		.map(PixivArticleData::from)
+		.map(|p| Rc::new(RefCell::new(p)))
+		.collect(),
+	 None))
+}
+
+async fn fetch_post(url: &str) -> FetchResult<Rc<RefCell<PixivArticleData>>> {
+	let response = reqwest::Client::builder().build()?
+		.get(url)
+		.send().await?;
+
+	let json_str = response.text().await?.to_string();
+
+	let response: APIPayload<FullPostAPI> = serde_json::from_str(&json_str)?;
+	Ok((Rc::new(RefCell::new(response.body.into())), None))
 }

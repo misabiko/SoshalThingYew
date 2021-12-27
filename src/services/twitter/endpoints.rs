@@ -59,6 +59,7 @@ impl Endpoint for UserTimelineEndpoint {
 	fn update_ratelimit(&mut self, ratelimit: RateLimit) {
 		self.ratelimit = ratelimit
 	}
+
 	fn refresh(&mut self, refresh_time: RefreshTime) {
 		let id = self.id().clone();
 		self.agent.send(TwitterRequest::FetchTweets(
