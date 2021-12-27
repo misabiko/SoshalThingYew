@@ -6,6 +6,7 @@ use std::cell::RefCell;
 use serde_json::json;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlInputElement;
+use serde_json::Value;
 
 use crate::services::endpoint_agent::{Request as EndpointRequest, EndpointAgent, TimelineEndpoints, EndpointId, RefreshTime, EndpointConstructors, Response as EndpointResponse, EndpointView};
 use crate::dropdown::{Dropdown, DropdownLabel};
@@ -15,7 +16,7 @@ struct EndpointForm {
 	refresh_time: RefreshTime,
 	service: String,
 	endpoint_type: usize,
-	params: serde_json::Value,
+	params: Value,
 }
 
 pub struct ChooseEndpoints {
@@ -36,7 +37,7 @@ pub enum Msg {
 	NewEndpoint(RefreshTime),
 	SetFormService(String),
 	SetFormType(usize),
-	SetFormParamValue(String, String),
+	SetFormParamValue((&'static str, Value), String),
 	CreateEndpoint,
 	AddTimelineEndpoint(RefreshTime, EndpointId),
 	RemoveTimelineEndpoint(RefreshTime, EndpointId),
@@ -108,6 +109,8 @@ impl Component for ChooseEndpoints {
 							endpoint_type,
 							params: json!({
 								"username": username,
+								"include_retweets": true,
+								"include_replies": true,
 							})
 						});
 						true
@@ -128,16 +131,16 @@ impl Component for ChooseEndpoints {
 					refresh_time,
 					service: "Twitter".to_owned(),
 					endpoint_type: 0,
-					params: serde_json::Value::default()
+					params: self.services["Twitter"].endpoint_types[0].default_params(),
 				});
 				true
 			}
 			Msg::SetFormService(name) => {
 				if let Some(form) = &mut self.endpoint_form {
 					if form.service != name {
+						form.params = self.services[&name].endpoint_types[0].default_params();
 						form.service = name;
 						form.endpoint_type = 0;
-						form.params = serde_json::Value::default();
 						true
 					}else {
 						false
@@ -150,7 +153,7 @@ impl Component for ChooseEndpoints {
 				if let Some(form) = &mut self.endpoint_form {
 					if form.endpoint_type != endpoint_type {
 						form.endpoint_type = endpoint_type;
-						form.params = serde_json::Value::default();
+						form.params = self.services[&form.service].endpoint_types[endpoint_type].default_params();
 						true
 					}else {
 						false
@@ -159,10 +162,18 @@ impl Component for ChooseEndpoints {
 					false
 				}
 			}
-			Msg::SetFormParamValue(param, value) => {
+			Msg::SetFormParamValue((param, param_type), value) => {
 				if let Some(form) = &mut self.endpoint_form {
 					if form.params[&param] != value {
-						form.params[&param] = json!(value);
+						if let Value::Bool(_) = param_type {
+							if let Value::Bool(prev) = form.params[&param] {
+								form.params[&param] = Value::Bool(!prev);
+							}else {
+								form.params[&param] = Value::Bool(value != "on" && value != "true");
+							}
+						}else {
+							form.params[&param] = Value::String(value);
+						}
 						true
 					}else {
 						false
@@ -253,22 +264,57 @@ impl ChooseEndpoints {
 									</a>
 							}}) }
 						</Dropdown>
-						{ for services[&form.service].endpoint_types[form.endpoint_type.clone()].param_template.iter().map(move |param| {
-							let param_c = param.to_string();
-							let value = params[&param_c].as_str().map(|s| s.to_owned()).unwrap_or_default();
+						{ for services[&form.service].endpoint_types[form.endpoint_type.clone()].param_template.iter().map(move |(param, param_type)| {
+							let param_c = param.clone();
+							let param_type_c = param_type.clone();
 							let oninput = ctx.link().batch_callback(move |e: InputEvent|
 								e.target()
 									.and_then(|t| t.dyn_into::<HtmlInputElement>().ok())
-									.map(|i| Msg::SetFormParamValue(param_c.clone(), i.value()))
+									.map(|i| Msg::SetFormParamValue((param_c.clone(), param_type_c.clone()), i.value()))
 							);
 
-							html! {
-								<div class="field">
-									<label class="label">{param.clone()}</label>
-									<div class="control">
-										<input type="text" class="input" {oninput} {value}/>
-									</div>
-								</div>
+							match param_type {
+								Value::String(default) => {
+									let value = params[&param.to_string()].as_str().map(|s| s.to_owned()).unwrap_or(default.clone());
+									html! {
+										<div class="field is-horizontal">
+											<div class="field-label is-normal">
+												<label class="label">{param.clone()}</label>
+											</div>
+											<div class="field-body">
+												<div class="block control">
+													<input type="text" class="input" {oninput} {value}/>
+												</div>
+											</div>
+										</div>
+									}
+								}
+								Value::Bool(default) => {
+									let checked = params[&param.to_string()].as_bool().unwrap_or(default.clone());
+									html! {
+										<div class="field">
+											<label class="checkbox">
+												<input type="checkbox" {checked} {oninput}/>
+												{ format!(" {}", &param) }
+											</label>
+										</div>
+									}
+								}
+								other_type => {
+									log::warn!("Non implemented endpoint param type: {:?}", other_type);
+									html! {
+										<div class="field is-horizontal">
+											<div class="field-label is-normal">
+												<label class="label">{param.clone()}</label>
+											</div>
+											<div class="field-body">
+												<div class="block control">
+													<input type="text" class="input" {oninput}/>
+												</div>
+											</div>
+										</div>
+									}
+								}
 							}
 						})}
 						<button class="button" onclick={ctx.link().callback(|_| Msg::CreateEndpoint)}>{"Create"}</button>

@@ -61,7 +61,7 @@ fn base_url() -> Result<String> {
 	let location = window.location();
 	let host = location.host()?;
 	let protocol = location.protocol()?;
-	
+
 	Ok(format!("{}//{}", protocol, host))
 }
 
@@ -123,17 +123,26 @@ impl Agent for TwitterAgent {
 					},
 					EndpointConstructor {
 						name: "User Timeline",
-						param_template: vec!["username"],
+						param_template: vec![
+							("username", serde_json::Value::String("".to_owned())),
+							("include_retweets", serde_json::Value::Bool(true)),
+							("include_replies", serde_json::Value::Bool(true)),
+						],
 						callback: Rc::new(|id, params| Box::new(UserTimelineEndpoint::from_json(id, params))),
 					},
 					EndpointConstructor {
 						name: "List",
-						param_template: vec!["username", "slug"],
+						param_template: vec![
+							("username", serde_json::Value::String("".to_owned())),
+							("slug", serde_json::Value::String("".to_owned())),
+						],
 						callback: Rc::new(|id, params| Box::new(ListEndpoint::from_json(id, params))),
 					},
 					EndpointConstructor {
 						name: "Single Tweet",
-						param_template: vec!["id"],
+						param_template: vec![
+							("id", serde_json::Value::String("".to_owned())),
+						],
 						callback: Rc::new(|id, params| Box::new(SingleTweetEndpoint::from_json(id, params))),
 					},
 				],

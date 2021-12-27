@@ -31,7 +31,7 @@ impl UserTimelineEndpoint {
 	}
 
 	pub fn from_json(id: EndpointId, value: serde_json::Value) -> Self {
-		Self::new(id, value["username"].as_str().unwrap().to_owned(), false, false)
+		Self::new(id, value["username"].as_str().unwrap().to_owned(), value["include_retweets"].as_bool().unwrap().to_owned(), value["include_replies"].as_bool().unwrap().to_owned())
 	}
 }
 

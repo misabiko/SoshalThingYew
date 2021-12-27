@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use yew::prelude::*;
 use yew_agent::{Agent, Context as AgentContext, AgentLink, HandlerId};
 use std::cell::RefCell;
+use serde_json::json;
 
 use super::{Endpoint, EndpointSerialized, RateLimit};
 use crate::error::{Error, FetchResult};
@@ -72,8 +73,18 @@ pub enum Response {
 #[derive(Clone)]
 pub struct EndpointConstructor {
 	pub name: &'static str,
-	pub param_template: Vec<&'static str>,
+	pub param_template: Vec<(&'static str, serde_json::Value)>,
 	pub callback: Rc<dyn Fn(EndpointId, serde_json::Value) -> Box<dyn Endpoint>>
+}
+
+impl EndpointConstructor {
+	pub fn default_params(&self) -> serde_json::Value {
+		let mut params = json!({});
+		for (name, value) in &self.param_template {
+			params[name] = value.clone();
+		}
+		params
+	}
 }
 
 #[derive(Clone)]
