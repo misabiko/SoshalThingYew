@@ -4,16 +4,15 @@ use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher};
 use js_sys::Date;
 use std::collections::{HashMap, HashSet};
 use gloo_timers::callback::Timeout;
-use gloo_storage::Storage;
 use serde::{Serialize, Deserialize};
 use wasm_bindgen::JsValue;
 
-use crate::articles::{ArticleData, ArticleMedia, ArticleRefType};
+use crate::articles::{ArticleData, ArticleMedia};
 use crate::error::FetchResult;
 use crate::services::{Endpoint, EndpointSerialized};
 use crate::services::article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest};
 use crate::services::endpoint_agent::{EndpointAgent, Request as EndpointRequest, EndpointId, RefreshTime, EndpointConstructors};
-use crate::services::storages::{SessionStorageService, SoshalSessionStorage, get_service_session, cache_articles};
+use crate::services::storages::{SessionStorageService, get_service_session, cache_articles};
 
 pub struct PixivArticleData {
 	id: u32,

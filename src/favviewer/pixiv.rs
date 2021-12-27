@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use gloo_timers::callback::Timeout;
 
 use crate::favviewer::PageInfo;
-use crate::{Model, Props as ModelProps, Msg as ModelMsg, DisplayMode};
+use crate::{Model, Props as ModelProps, Msg as ModelMsg, DisplayMode, FollowPageEndpoint, FollowAPIEndpoint};
 
 #[derive(PartialEq, Eq, Hash)]
 pub enum Style {
@@ -63,6 +63,22 @@ impl PageInfo for FollowPageInfo {
 			Style::Pixiv => Style::Hidden,
 		}
 	}
+
+	fn add_timeline(&self, ctx: &Context<Model>, pathname: &str, search_opt: &Option<web_sys::UrlSearchParams>) {
+		let callback = ctx.link().callback(|endpoints| ModelMsg::AddTimeline("Pixiv".to_owned(), endpoints));
+		let r18 = pathname.contains("r18");
+		let current_page = search_opt.as_ref()
+			.and_then(|s| s.get("p"))
+			.and_then(|s| s.parse().ok())
+			.unwrap_or(1);
+		ctx.link().send_message(
+			ModelMsg::BatchAddEndpoints(vec![Box::new(move |id| {
+				Box::new(FollowPageEndpoint::new(id))
+			})], vec![Box::new(move |id| {
+				Box::new(FollowAPIEndpoint::new(id, r18, current_page - 1))
+			})], callback)
+		);
+	}
 }
 
 pub struct UserPageInfo {
@@ -121,9 +137,25 @@ impl PageInfo for UserPageInfo {
 			Style::Pixiv => Style::Hidden,
 		}
 	}
+
+	fn add_timeline(&self, ctx: &Context<Model>, pathname: &str, search_opt: &Option<web_sys::UrlSearchParams>) {
+		let callback = ctx.link().callback(|endpoints| ModelMsg::AddTimeline("Pixiv".to_owned(), endpoints));
+		let r18 = pathname.contains("r18");
+		let current_page = search_opt.as_ref()
+			.and_then(|s| s.get("p"))
+			.and_then(|s| s.parse().ok())
+			.unwrap_or(1);
+		ctx.link().send_message(
+			ModelMsg::BatchAddEndpoints(vec![Box::new(move |id| {
+				Box::new(FollowPageEndpoint::new(id))
+			})], vec![Box::new(move |id| {
+				Box::new(FollowAPIEndpoint::new(id, r18, current_page - 1))
+			})], callback)
+		);
+	}
 }
 
-pub fn setup_pixiv(href: &str) -> bool {
+pub fn setup(href: &str) -> bool {
 	if href.contains("pixiv.net/bookmark_new_illust") {
 		let mount_point = gloo_utils::document().create_element("div").expect("to create empty div");
 		mount_point.set_id("favviewer");

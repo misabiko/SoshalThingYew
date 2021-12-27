@@ -18,10 +18,11 @@ pub enum ArticleRefType<Pointer = Weak<RefCell<dyn ArticleData>>> {
 	QuoteRepost(Pointer, Pointer),
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug, serde::Serialize, serde::Deserialize)]
 pub enum ArticleMedia {
 	Image(String, f32),
 	Video(String, f32),
+	VideoGif(String, f32),
 	Gif(String, f32),
 }
 

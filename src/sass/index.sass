@@ -22,7 +22,7 @@ $fa-font-path: "/webfonts"
 .dropdown-trigger .icon
 	color: $text-strong
 
-html
+html:not(.favviewer)
 	overflow-y: hidden
 	//height: -webkit-fill-available
 
@@ -31,9 +31,10 @@ body
 	margin: 0
 	height: 100vh
 	//height: -webkit-fill-available
-	display: flex
 	-webkit-font-smoothing: antialiased
 	-moz-osx-font-smoothing: grayscale
+	&:not(.favviewer)
+		display: flex
 
 #timelineContainer
 	height: 100%

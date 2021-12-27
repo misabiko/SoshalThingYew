@@ -2,7 +2,6 @@ use yew::prelude::*;
 
 mod pixiv;
 
-pub use pixiv::FollowPageInfo;
 use crate::Model;
 
 pub trait PageInfo {
@@ -20,10 +19,12 @@ pub trait PageInfo {
 			</>
 		}
 	}
+
+	fn add_timeline(&self, ctx: &Context<Model>, pathname: &str, search_opt: &Option<web_sys::UrlSearchParams>);
 }
 
 pub fn try_inject(href: &str, ) -> bool {
-	pixiv::setup_pixiv(href)
+	pixiv::setup(href)
 }
 
 pub fn page_info(ctx: &Context<Model>) -> Option<Box<dyn PageInfo>> {

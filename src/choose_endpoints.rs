@@ -312,6 +312,21 @@ impl ChooseEndpoints {
 										</div>
 									}
 								}
+								Value::Number(default) => {
+									let value = params[&param.to_string()].as_str().map(|s| s.to_owned()).unwrap_or(default.to_string());
+									html! {
+										<div class="field is-horizontal">
+											<div class="field-label is-normal">
+												<label class="label">{param.clone()}</label>
+											</div>
+											<div class="field-body">
+												<div class="block control">
+													<input type="number" class="input" {oninput} {value}/>
+												</div>
+											</div>
+										</div>
+									}
+								}
 								other_type => {
 									log::warn!("Non implemented endpoint param type: {:?}", other_type);
 									html! {

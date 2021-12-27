@@ -119,7 +119,7 @@ fn relative_height(article: &Rc<RefCell<dyn ArticleData>>) -> f32 {
 	(1.0 as f32) + article.borrow()
 		.media().iter()
 		.map(|m| match m {
-			ArticleMedia::Image(_, ratio) | ArticleMedia::Video(_, ratio) | ArticleMedia::Gif(_, ratio) => ratio
+			ArticleMedia::Image(_, ratio) | ArticleMedia::Video(_, ratio) | ArticleMedia::VideoGif(_, ratio) | ArticleMedia::Gif(_, ratio) => ratio
 		})
 		.sum::<f32>()
 }

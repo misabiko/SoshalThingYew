@@ -19,7 +19,7 @@ use crate::services::{
 	pixiv::{FollowPageEndpoint, PixivAgent},
 	twitter::{endpoints::*, TwitterAgent},
 };
-use crate::favviewer::{page_info, PageInfo, FollowPageInfo, try_inject};
+use crate::favviewer::{page_info, PageInfo, try_inject};
 use crate::modals::AddTimelineModal;
 use crate::services::pixiv::FollowAPIEndpoint;
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse};
@@ -79,8 +79,13 @@ impl Component for Model {
 	fn create(ctx: &Context<Self>) -> Self {
 		let (pathname_opt, search_opt) = parse_url();
 
+		let page_info = match ctx.props().favviewer {
+			true => page_info(ctx),
+			false => None
+		};
+
 		if let Some(pathname) = pathname_opt {
-			parse_pathname(ctx, &pathname, &search_opt);
+			parse_pathname(&page_info, ctx, &pathname, &search_opt);
 		}
 
 		let single_timeline_bool = search_opt.as_ref()
@@ -99,11 +104,6 @@ impl Component for Model {
 			}
 		}else {
 			DisplayMode::Default
-		};
-
-		let page_info = match ctx.props().favviewer {
-			true => page_info(ctx),
-			false => None
 		};
 
 		let _twitter = TwitterAgent::dispatcher();
@@ -158,8 +158,8 @@ impl Component for Model {
 				true
 			}
 			Msg::AddTimelineProps(props) => {
-				let id = self.timeline_counter.clone();
-				self.timelines.push((props)(id.clone()));
+				let timeline_id = self.timeline_counter.clone();
+				self.timelines.push((props)(timeline_id.clone()));
 				self.timeline_counter += 1;
 
 				true
@@ -319,7 +319,7 @@ fn parse_url() -> (Option<String>, Option<web_sys::UrlSearchParams>) {
 	}
 }
 
-fn parse_pathname(ctx: &Context<Model>, pathname: &str, search_opt: &Option<web_sys::UrlSearchParams>) {
+fn parse_pathname(page_info: &Option<Box<dyn PageInfo>>, ctx: &Context<Model>, pathname: &str, search_opt: &Option<web_sys::UrlSearchParams>) {
 	if let Some(tweet_id) = pathname.strip_prefix("/twitter/status/").and_then(|s| s.parse::<u64>().ok()) {
 		let callback = ctx.link().callback(|id|Msg::AddTimeline("Tweet".to_owned(), TimelineEndpoints::new_with_endpoint_both(id)));
 
@@ -370,20 +370,8 @@ fn parse_pathname(ctx: &Context<Model>, pathname: &str, search_opt: &Option<web_
 				}) /*as Box<dyn FnOnce(EndpointId) -> Box<ListEndpoint>>*/)
 			);
 		}
-	} if ctx.props().favviewer {
-		let callback = ctx.link().callback(|endpoints| Msg::AddTimeline("Pixiv".to_owned(), endpoints));
-		let r18 = pathname.contains("r18");
-		let current_page = search_opt.as_ref()
-			.and_then(|s| s.get("p"))
-			.and_then(|s| s.parse().ok())
-			.unwrap_or(1);
-		ctx.link().send_message(
-			Msg::BatchAddEndpoints(vec![Box::new(move |id| {
-				Box::new(FollowPageEndpoint::new(id))
-			})], vec![Box::new(move |id| {
-				Box::new(FollowAPIEndpoint::new(id, r18, current_page - 1))
-			})], callback)
-		);
+	}else if let Some(page_info) = page_info {
+		page_info.add_timeline(ctx, pathname, search_opt);
 	}
 }
 

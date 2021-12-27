@@ -113,6 +113,8 @@ pub struct Props {
 	pub main_timeline: bool,
 	#[prop_or(Container::Column)]
 	pub container: Container,
+	#[prop_or(ArticleComponent::Social)]
+	pub article_component: ArticleComponent,
 	#[prop_or(1)]
 	pub width: u8,
 	#[prop_or(1)]
@@ -124,11 +126,11 @@ pub struct Props {
 	#[prop_or_default]
 	pub filters: Option<Vec<Filter>>,
 	#[prop_or_default]
-	compact: bool,
+	pub compact: bool,
 	#[prop_or_default]
-	animated_as_gifs: bool,
+	pub animated_as_gifs: bool,
 	#[prop_or_default]
-	hide_text: bool,
+	pub hide_text: bool,
 }
 
 impl PartialEq for Props {
@@ -177,7 +179,7 @@ impl Component for Timeline {
 			show_article_component_dropdown: false,
 			column_count: ctx.props().column_count.clone(),
 			width: ctx.props().width.clone(),
-			article_component: ArticleComponent::Social,
+			article_component: ctx.props().article_component.clone(),
 			show_choose_endpoint: false,
 			container_ref: NodeRef::default(),
 			autoscroll: Rc::new(RefCell::new(Autoscroll {

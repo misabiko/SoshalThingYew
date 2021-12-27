@@ -459,7 +459,7 @@ impl SocialArticle {
 					</video>
 				</div>
 			},
-			(_, [ArticleMedia::Gif(gif_src, _)]) | (true, [ArticleMedia::Video(gif_src, _)]) => html! {
+			(_, [ArticleMedia::VideoGif(gif_src, _)]) | (true, [ArticleMedia::Video(gif_src, _)]) => html! {
 				<div class="postMedia postVideo">
 					<video ref={self.video_ref.clone()} controls=true autoplay=true loop=true muted=true onclick={ctx.link().callback(|_| Msg::OnImageClick)}>
 						<source src={gif_src.clone()} type="video/mp4"/>

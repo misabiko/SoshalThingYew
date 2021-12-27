@@ -42,7 +42,7 @@ impl Filter {
 
 fn is_animated(media: &ArticleMedia) -> bool {
 	match media {
-		ArticleMedia::Video(_, _) | ArticleMedia::Gif(_, _) => true,
+		ArticleMedia::Video(_, _) | ArticleMedia::VideoGif(_, _) | ArticleMedia::Gif(_, _) => true,
 		ArticleMedia::Image(_, _) => false,
 	}
 }

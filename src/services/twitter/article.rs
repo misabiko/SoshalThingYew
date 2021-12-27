@@ -190,7 +190,7 @@ impl TweetArticleData {
 											.map(|(url, ratio)| ArticleMedia::Image(url.to_owned(), ratio)),
 									"animated_gif" => m.get("video_info")
 										.and_then(|v| get_mp4(v))
-										.map(|(url, ratio)| ArticleMedia::Gif(url.to_owned(), ratio)),
+										.map(|(url, ratio)| ArticleMedia::VideoGif(url.to_owned(), ratio)),
 									"video" => m.get("video_info")
 										.and_then(|v| get_mp4(v))
 										.map(|(url, ratio)| ArticleMedia::Video(url.to_owned(), ratio)),
