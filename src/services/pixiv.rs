@@ -379,7 +379,7 @@ impl PixivAgent {
 			None
 		}).collect();
 		let count = unfetched.len();
-		log::debug!("Still {} articles unfetched, currently fetching {}.", &count, self.fetching_articles.len());
+		log::debug!("{} articles unfetched out of {}, currently fetching {}.", &count, self.articles.len(), self.fetching_articles.len());
 
 		if count > 0 {
 			if self.fetching_articles.len() < 5 {
@@ -403,21 +403,21 @@ impl PixivAgent {
 		let session_storage: SoshalSessionStorage = match gloo_storage::SessionStorage::get("SoshalThingYew") {
 			Ok(storage) => {
 				let mut session_storage: SoshalSessionStorage = storage;
-				(match session_storage.services.get_mut("Pixiv") {
-					Some(service) => Some(service),
+				let mut service = match session_storage.services.get_mut("Pixiv") {
+					Some(service) => service,
 					None => {
 						let service = SessionStorageService {
 							articles_marked_as_read: HashSet::new(),
 							cached_articles: HashMap::new(),
 						};
 						session_storage.services.insert("Pixiv".to_owned(), service);
-						session_storage.services.get_mut("Pixiv")
+						session_storage.services.get_mut("Pixiv").unwrap()
 					}
-				})
-					.map(|s| &mut s.cached_articles).
-					map(|cached| self.articles.iter()
-						.map(|(id, a)| cached.insert(id.to_string(), serde_json::to_value(PixivArticleCached::from(&a.borrow())).unwrap()))
-					);
+				};
+
+				for (id, article) in &self.articles {
+					service.cached_articles.insert(id.to_string(), serde_json::to_value(PixivArticleCached::from(&article.borrow())).unwrap());
+				}
 
 				session_storage
 			}
@@ -483,10 +483,20 @@ fn parse_article(element: web_sys::Element, storage: &SessionStorageService) -> 
 		None => return None,
 	};
 
-	let cached: Option<PixivArticleCached> = storage.cached_articles.get(&id_str)
-		.and_then(|json| serde_json::from_value(json.clone()).ok());
+	let cached: Option<serde_json::Result<PixivArticleCached>> = storage.cached_articles.get(&id_str)
+		.map(|json| serde_json::from_value(json.clone()));
 	let (src, is_fully_fetched) = match cached {
-		Some(PixivArticleCached { src, .. }) => (src, true),
+		Some(Ok(PixivArticleCached { src, .. })) => (src, true),
+		Some(Err(_err)) => {
+			let src = match imgs.get_with_index(0) {
+				Some(img) => match img.get_attribute("src") {
+					Some(src) => src,
+					None => return None,
+				}
+				None => return None,
+			};
+			(src, false)
+		}
 		None => {
 			let src = match imgs.get_with_index(0) {
 				Some(img) => match img.get_attribute("src") {
