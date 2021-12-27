@@ -63,6 +63,7 @@ pub enum Request {
 	UpdateRateLimit(EndpointId, RateLimit),
 	BatchNewEndpoints(Vec<(TimelineEndpointsSerialized, TimelinePropsEndpointsClosure)>),
 	RegisterTimelineContainer,
+	GetState,
 }
 
 pub enum Response {
@@ -165,11 +166,7 @@ impl Agent for EndpointAgent {
 			Msg::UpdatedState => {
 				for sub in &self.subscribers {
 					if sub.is_respondable() {
-						self.link.respond(*sub, Response::UpdatedState(self.services.clone(), self.endpoints.iter().map(|(id, e)| EndpointView {
-							id: id.clone(),
-							name: e.name(),
-							ratelimit: e.ratelimit().cloned(),
-						}).collect()));
+						self.send_state(sub);
 					}
 				}
 			}
@@ -259,6 +256,7 @@ impl Agent for EndpointAgent {
 				}
 			},
 			Request::RegisterTimelineContainer => self.timeline_container = Some(id),
+			Request::GetState => self.send_state(&id),
 		}
 	}
 
@@ -297,5 +295,13 @@ impl EndpointAgent {
 		let filters = deserialize_filters(&storage.filters);
 
 		TimelineEndpointWrapper { id, filters }
+	}
+
+	fn send_state(&self, id: &HandlerId) {
+		self.link.respond(*id, Response::UpdatedState(self.services.clone(), self.endpoints.iter().map(|(id, e)| EndpointView {
+			id: id.clone(),
+			name: e.name(),
+			ratelimit: e.ratelimit().cloned(),
+		}).collect()));
 	}
 }

@@ -3,7 +3,7 @@ use yew::prelude::*;
 use yew_agent::{Bridge, Bridged};
 
 use crate::services::RateLimit;
-use crate::services::endpoint_agent::{EndpointAgent, Response as EndpointResponse};
+use crate::services::endpoint_agent::{EndpointAgent, Request as EndpointRequest, Response as EndpointResponse};
 
 pub struct RateLimitView {
 	pub ratelimits: HashMap<String, RateLimit>,
@@ -19,9 +19,12 @@ impl Component for RateLimitView {
 	type Properties = ();
 
 	fn create(ctx: &Context<Self>) -> Self {
+		let mut _endpoint_agent = EndpointAgent::bridge(ctx.link().callback(Msg::EndpointResponse));
+		_endpoint_agent.send(EndpointRequest::GetState);
+
 		Self {
 			ratelimits: HashMap::new(),
-			_endpoint_agent: EndpointAgent::bridge(ctx.link().callback(Msg::EndpointResponse)),
+			_endpoint_agent,
 		}
 	}
 
