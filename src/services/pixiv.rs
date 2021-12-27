@@ -6,8 +6,9 @@ use std::collections::{HashMap, HashSet};
 use gloo_timers::callback::Timeout;
 use gloo_storage::Storage;
 use serde::{Serialize, Deserialize};
+use wasm_bindgen::JsValue;
 
-use crate::articles::{ArticleData, ArticleMedia};
+use crate::articles::{ArticleData, ArticleMedia, ArticleRefType};
 use crate::error::FetchResult;
 use crate::services::{Endpoint, EndpointSerialized};
 use crate::services::article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest};
@@ -16,6 +17,7 @@ use crate::services::storages::{SessionStorageService, SoshalSessionStorage, get
 
 pub struct PixivArticleData {
 	id: u32,
+	creation_time: Date,
 	src: String,
 	title: String,
 	author_name: String,
@@ -25,6 +27,10 @@ pub struct PixivArticleData {
 	hidden: bool,
 	is_fully_fetched: bool,
 	raw_json: serde_json::Value,
+	like_count: u32,
+	liked: bool,
+	bookmark_count: u32,
+	bookmarked: bool,
 }
 
 impl ArticleData for PixivArticleData {
@@ -35,7 +41,7 @@ impl ArticleData for PixivArticleData {
 		self.id.clone().to_string()
 	}
 	fn creation_time(&self) -> Date {
-		js_sys::Date::new_0()
+		self.creation_time.clone()
 	}
 	fn text(&self) -> String {
 		self.title.clone()
@@ -77,6 +83,11 @@ impl ArticleData for PixivArticleData {
 			serde_json::Value::Null => {}
 			new_json => self.raw_json = new_json,
 		};
+
+		self.like_count = new.like_count();
+		self.liked = new.liked();
+		self.bookmark_count = new.repost_count();
+		self.bookmarked = new.reposted();
 	}
 
 	fn marked_as_read(&self) -> bool {
@@ -96,6 +107,22 @@ impl ArticleData for PixivArticleData {
 	}
 
 	fn is_fully_fetched(&self) -> &bool { &self.is_fully_fetched }
+
+	fn like_count(&self) -> u32 {
+		self.like_count.clone()
+	}
+
+	fn liked(&self) -> bool {
+		self.liked.clone()
+	}
+
+	fn repost_count(&self) -> u32 {
+		self.bookmark_count.clone()
+	}
+
+	fn reposted(&self) -> bool {
+		self.bookmarked.clone()
+	}
 }
 
 impl From<(serde_json::Value, &FullPostAPI, &SessionStorageService)> for PixivArticleData {
@@ -109,6 +136,7 @@ impl From<(serde_json::Value, &FullPostAPI, &SessionStorageService)> for PixivAr
 
 		PixivArticleData {
 			id: data.id.parse::<u32>().unwrap(),
+			creation_time: Date::new(&JsValue::from_str(&data.create_date)),
 			title: data.title.clone(),
 			src: data.urls.original.clone(),
 			author_name: data.user_name.clone(),
@@ -118,6 +146,10 @@ impl From<(serde_json::Value, &FullPostAPI, &SessionStorageService)> for PixivAr
 			hidden: false,
 			is_fully_fetched: true,
 			raw_json,
+			like_count: data.like_count.clone(),
+			liked: data.like_data.clone(),
+			bookmark_count: data.bookmark_count.clone(),
+			bookmarked: data.bookmark_data.clone(),
 		}
 	}
 }
@@ -139,6 +171,7 @@ impl From<(serde_json::Value, &FollowAPIIllust, &SessionStorageService)> for Pix
 
 		PixivArticleData {
 			id: data.id.parse::<u32>().unwrap(),
+			creation_time: Date::new(&JsValue::from_str(&data.create_date)),
 			title: data.title.clone(),
 			src,
 			author_name: data.user_name.clone(),
@@ -148,6 +181,10 @@ impl From<(serde_json::Value, &FollowAPIIllust, &SessionStorageService)> for Pix
 			hidden: false,
 			is_fully_fetched,
 			raw_json,
+			like_count: 0,
+			liked: false,
+			bookmark_count: 0,
+			bookmarked: data.bookmark_data.clone(),
 		}
 	}
 }
@@ -187,6 +224,16 @@ struct FullPostAPI {
 	user_name: String,
 	#[serde(rename = "userId")]
 	user_id: String,
+	#[serde(rename = "likeCount")]
+	like_count: u32,
+	#[serde(rename = "likeData")]
+	like_data: bool,
+	#[serde(rename = "bookmarkCount")]
+	bookmark_count: u32,
+	#[serde(rename = "bookmarkData")]
+	bookmark_data: bool,
+	#[serde(rename = "createDate")]
+	create_date: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -225,6 +272,10 @@ struct FollowAPIIllust {
 	user_name: String,
 	#[serde(rename = "profileImageUrl")]
 	profile_image_url: String,
+	#[serde(rename = "bookmarkData")]
+	bookmark_data: bool,
+	#[serde(rename = "createDate")]
+	create_date: String,
 }
 
 pub struct PixivAgent {
@@ -511,6 +562,7 @@ fn parse_article(element: web_sys::Element, storage: &SessionStorageService) -> 
 
 	Some(Rc::new(RefCell::new(PixivArticleData {
 		id,
+		creation_time: js_sys::Date::new_0(),
 		src,
 		author_avatar_url,
 		title,
@@ -520,6 +572,10 @@ fn parse_article(element: web_sys::Element, storage: &SessionStorageService) -> 
 		hidden: false,
 		is_fully_fetched,
 		raw_json: serde_json::Value::Null,
+		like_count: 0,
+		liked: false,
+		bookmark_count: 0,
+		bookmarked: false,
 	})))
 }
 

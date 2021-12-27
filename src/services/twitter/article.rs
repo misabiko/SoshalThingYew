@@ -20,8 +20,8 @@ pub struct TweetArticleData {
 	pub creation_time: Date,
 	pub liked: bool,
 	pub retweeted: bool,
-	pub like_count: i64,	//TODO Try casting i64 to i32
-	pub retweet_count: i64,
+	pub like_count: u32,
+	pub retweet_count: u32,
 	pub media: Vec<ArticleMedia>,
 	pub raw_json: serde_json::Value,
 	pub referenced_article: ArticleRefType,
@@ -54,10 +54,10 @@ impl ArticleData for TweetArticleData {
 	fn author_url(&self) -> String {
 		format!("https://twitter.com/{}", &self.author.username)
 	}
-	fn like_count(&self) -> i64 {
+	fn like_count(&self) -> u32 {
 		self.like_count.clone()
 	}
-	fn repost_count(&self) -> i64 {
+	fn repost_count(&self) -> u32 {
 		self.retweet_count.clone()
 	}
 	fn liked(&self) -> bool {
@@ -166,8 +166,8 @@ impl TweetArticleData {
 			},
 			liked: json["favorited"].as_bool().unwrap_or_default(),
 			retweeted: json["retweeted"].as_bool().unwrap_or_default(),
-			like_count: json["favorite_count"].as_i64().unwrap(),
-			retweet_count: json["retweet_count"].as_i64().unwrap(),
+			like_count: json["favorite_count"].as_u64().unwrap() as u32,
+			retweet_count: json["retweet_count"].as_u64().unwrap() as u32,
 			media: match medias_opt {
 				Some(medias) => {
 					medias.iter()

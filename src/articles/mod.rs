@@ -34,8 +34,8 @@ pub trait ArticleData {
 	fn author_name(&self) -> String;
 	fn author_avatar_url(&self) -> String;
 	fn author_url(&self) -> String;
-	fn like_count(&self) -> i64 { 0 }
-	fn repost_count(&self) -> i64 { 0 }
+	fn like_count(&self) -> u32 { 0 }
+	fn repost_count(&self) -> u32 { 0 }
 	fn liked(&self) -> bool { false }
 	fn reposted(&self) -> bool { false }
 	fn media(&self) -> Vec<ArticleMedia>;
