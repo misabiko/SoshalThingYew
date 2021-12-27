@@ -125,7 +125,11 @@ impl Agent for TimelineAgent {
 						let width = t.width.clone();
 						let column_count = t.column_count.clone();
 						let container = t.container.clone();
-						let filters = deserialize_filters(&t.filters);
+						let filters = if t.filters.is_empty() {
+							None
+						}else {
+							Some(deserialize_filters(&t.filters))
+						};
 
 						(
 							t.endpoints,

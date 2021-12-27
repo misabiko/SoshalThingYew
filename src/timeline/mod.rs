@@ -121,8 +121,8 @@ pub struct Props {
 	pub children: Children,
 	#[prop_or_default]
 	pub articles: Vec<Weak<RefCell<dyn ArticleData>>>,
-	#[prop_or_else(|| default_filters())]
-	pub filters: Vec<Filter>,
+	#[prop_or_default]
+	pub filters: Option<Vec<Filter>>,
 }
 
 impl PartialEq for Props {
@@ -163,7 +163,7 @@ impl Component for Timeline {
 			animated_as_gifs: false,
 			hide_text: false,
 			endpoint_agent,
-			filters: ctx.props().filters.clone(),
+			filters: ctx.props().filters.as_ref().map(|f| f.clone()).unwrap_or_else(|| default_filters()),
 			sort_methods: default_sort_methods(),
 			sort_method: Some(0),
 			container: ctx.props().container.clone(),
