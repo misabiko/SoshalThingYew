@@ -50,7 +50,8 @@ pub enum Msg {
 	Refreshed(RefreshTime, EndpointId, (Vec<Rc<RefCell<dyn ArticleData>>>, Option<RateLimit>)),
 	RefreshFail(Error),
 	UpdatedState,
-	RefreshEndpoint(EndpointId),
+	AutoRefreshEndpoint(EndpointId),
+	ResetAutoRefresh(EndpointId),
 }
 
 pub enum Request {
@@ -115,7 +116,7 @@ pub struct EndpointInfo {
 }
 
 impl EndpointInfo {
-	pub fn new(endpoint: Box<dyn Endpoint>) -> Self {
+	fn new(endpoint: Box<dyn Endpoint>) -> Self {
 		Self {
 			interval: endpoint.default_interval(),
 			interval_id: None,
@@ -194,7 +195,22 @@ impl Agent for EndpointAgent {
 					}
 				}
 			}
-			Msg::RefreshEndpoint(endpoint_id) => self.endpoints.get_mut(&endpoint_id).unwrap().endpoint.refresh(RefreshTime::OnRefresh),
+			Msg::AutoRefreshEndpoint(endpoint_id) => self.endpoints.get_mut(&endpoint_id).unwrap().endpoint.refresh(RefreshTime::OnRefresh),
+			Msg::ResetAutoRefresh(endpoint_id) => {
+				let info = self.endpoints.get_mut(&endpoint_id).unwrap();
+				if info.interval_id.is_some() {
+					let id_c = endpoint_id.clone();
+					let callback = self.link.callback(move |_| Msg::AutoRefreshEndpoint(id_c));
+					let new_interval = Interval::new(info.interval, move || {
+						log::debug!("Refreshing {}", &id_c);
+						callback.emit(());
+					});
+
+					Interval::cancel(std::mem::replace(&mut info.interval_id, Some(new_interval)).unwrap());
+					self.link.send_message(Msg::UpdatedState);
+
+				}
+			}
 		}
 	}
 
@@ -204,8 +220,8 @@ impl Agent for EndpointAgent {
 
 	fn handle_input(&mut self, msg: Self::Input, id: HandlerId) {
 		match msg {
-			Request::InitTimeline(id, endpoints, callback) => {
-				self.timelines.insert(id, (Rc::downgrade(&endpoints), callback));
+			Request::InitTimeline(timeline_id, endpoints, callback) => {
+				self.timelines.insert(timeline_id, (Rc::downgrade(&endpoints), callback));
 
 				for timeline_endpoint in &endpoints.borrow().start {
 					let info = self.endpoints.get_mut(&timeline_endpoint.id).unwrap();
@@ -225,6 +241,7 @@ impl Agent for EndpointAgent {
 					let info = self.endpoints.get_mut(&timeline_endpoint.id).unwrap();
 					if info.endpoint.get_mut_ratelimit().map(|r| r.can_refresh()).unwrap_or(true) {
 						info.endpoint.refresh(RefreshTime::OnRefresh);
+						self.link.send_message(Msg::ResetAutoRefresh(*info.endpoint.id()));
 					}else {
 						log::warn!("Can't refresh {}", &info.endpoint.name());
 					}
@@ -236,6 +253,7 @@ impl Agent for EndpointAgent {
 					let info = self.endpoints.get_mut(&timeline_endpoint.id).unwrap();
 					if info.endpoint.get_mut_ratelimit().map(|r| r.can_refresh()).unwrap_or(true) {
 						info.endpoint.load_bottom(RefreshTime::OnRefresh);
+						self.link.send_message(Msg::ResetAutoRefresh(*info.endpoint.id()));
 					}else {
 						log::warn!("Can't refresh {}", &info.endpoint.name());
 					}
@@ -287,7 +305,7 @@ impl Agent for EndpointAgent {
 				if let None = info.interval_id {
 					let id_c = endpoint_id.clone();
 					let id_c_2 = endpoint_id.clone();
-					let callback = self.link.callback(move |_| Msg::RefreshEndpoint(id_c));
+					let callback = self.link.callback(move |_| Msg::AutoRefreshEndpoint(id_c));
 					info.interval_id = Some(Interval::new(info.interval, move || {
 						log::debug!("Refreshing {}", &id_c_2);
 						callback.emit(());
