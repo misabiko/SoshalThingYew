@@ -24,13 +24,14 @@ pub struct PixivArticleData {
 	marked_as_read: bool,
 	hidden: bool,
 	is_fully_fetched: bool,
+	raw_json: serde_json::Value,
 }
 
 impl ArticleData for PixivArticleData {
 	fn service(&self) -> &'static str {
 		"Pixiv"
 	}
- 	fn id(&self) -> String {
+	fn id(&self) -> String {
 		self.id.clone().to_string()
 	}
 	fn creation_time(&self) -> Date {
@@ -57,6 +58,10 @@ impl ArticleData for PixivArticleData {
 		vec![ArticleMedia::Image(self.src.clone(), 1.0)]
 	}
 
+	fn json(&self) -> serde_json::Value {
+		self.raw_json.clone()
+	}
+
 	fn url(&self) -> String {
 		format!("https://www.pixiv.net/en/artworks/{}", &self.id)
 	}
@@ -68,16 +73,24 @@ impl ArticleData for PixivArticleData {
 		};
 		self.title = new.text();
 		self.is_fully_fetched = self.is_fully_fetched || *new.is_fully_fetched();
+		match new.json() {
+			serde_json::Value::Null => {}
+			new_json => self.raw_json = new_json,
+		};
 	}
+
 	fn marked_as_read(&self) -> bool {
 		self.marked_as_read.clone()
 	}
+
 	fn set_marked_as_read(&mut self, value: bool) {
 		self.marked_as_read = value;
 	}
+
 	fn hidden(&self) -> bool {
 		self.hidden.clone()
 	}
+
 	fn set_hidden(&mut self, value: bool) {
 		self.hidden = value;
 	}
@@ -85,8 +98,8 @@ impl ArticleData for PixivArticleData {
 	fn is_fully_fetched(&self) -> &bool { &self.is_fully_fetched }
 }
 
-impl From<(&FullPostAPI, &SessionStorageService)> for PixivArticleData {
-	fn from((data, storage): (&FullPostAPI, &SessionStorageService)) -> Self {
+impl From<(serde_json::Value, &FullPostAPI, &SessionStorageService)> for PixivArticleData {
+	fn from((raw_json, data, storage): (serde_json::Value, &FullPostAPI, &SessionStorageService)) -> Self {
 		let cached: Option<PixivArticleCached> = storage.cached_articles.get(&data.id)
 			.and_then(|json| serde_json::from_value(json.clone()).ok());
 		let author_avatar_url = match cached {
@@ -104,18 +117,19 @@ impl From<(&FullPostAPI, &SessionStorageService)> for PixivArticleData {
 			marked_as_read: false,
 			hidden: false,
 			is_fully_fetched: true,
+			raw_json,
 		}
 	}
 }
 
-impl From<(FullPostAPI, &SessionStorageService)> for PixivArticleData {
-	fn from((data, storage): (FullPostAPI, &SessionStorageService)) -> Self {
-		PixivArticleData::from((&data, storage))
+impl From<(serde_json::Value, FullPostAPI, &SessionStorageService)> for PixivArticleData {
+	fn from((raw_json, data, storage): (serde_json::Value, FullPostAPI, &SessionStorageService)) -> Self {
+		PixivArticleData::from((raw_json, &data, storage))
 	}
 }
 
-impl From<(&FollowAPIIllust, &SessionStorageService)> for PixivArticleData {
-	fn from((data, storage): (&FollowAPIIllust, &SessionStorageService)) -> Self {
+impl From<(serde_json::Value, &FollowAPIIllust, &SessionStorageService)> for PixivArticleData {
+	fn from((raw_json, data, storage): (serde_json::Value, &FollowAPIIllust, &SessionStorageService)) -> Self {
 		let cached: Option<PixivArticleCached> = storage.cached_articles.get(&data.id)
 			.and_then(|json| serde_json::from_value(json.clone()).ok());
 		let (src, is_fully_fetched) = match cached {
@@ -133,6 +147,7 @@ impl From<(&FollowAPIIllust, &SessionStorageService)> for PixivArticleData {
 			marked_as_read: false,
 			hidden: false,
 			is_fully_fetched,
+			raw_json,
 		}
 	}
 }
@@ -154,52 +169,52 @@ impl From<&Ref<'_, PixivArticleData>> for PixivArticleCached {
 	}
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Deserialize)]
 struct APIPayload<T> {
-	//error: bool,
-	//message: String,
+	error: bool,
+	message: String,
 	body: T,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Serialize, Deserialize)]
 struct FullPostAPI {
 	id: String,
 	title: String,
 	urls: FullPostAPIURLs,
-	//#[serde(rename = "userAccount")]
-	//user_account: String,
+	#[serde(rename = "userAccount")]
+	user_account: String,
 	#[serde(rename = "userName")]
 	user_name: String,
 	#[serde(rename = "userId")]
 	user_id: String,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Serialize, Deserialize)]
 struct FullPostAPIURLs {
-	//mini: String,
-	//thumb: String,
-	//small: String,
-	//regular: String,
+	mini: String,
+	thumb: String,
+	small: String,
+	regular: String,
 	original: String,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Deserialize)]
 struct FollowAPIResponse {
 	page: FollowAPIPage,
 	thumbnails: FollowAPIThumbnails,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Deserialize)]
 struct FollowAPIPage {
 	ids: Vec<u32>,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Deserialize)]
 struct FollowAPIThumbnails {
 	illust: Vec<FollowAPIIllust>,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Serialize, Deserialize)]
 struct FollowAPIIllust {
 	id: String,
 	title: String,
@@ -219,6 +234,7 @@ pub struct PixivAgent {
 	articles: HashMap<u32, Rc<RefCell<PixivArticleData>>>,
 	fetching_articles: HashSet<u32>,
 }
+
 pub enum Msg {
 	FetchResponse(FetchResult<Vec<Rc<RefCell<PixivArticleData>>>>),
 	EndpointFetchResponse(RefreshTime, EndpointId, FetchResult<Vec<Rc<RefCell<PixivArticleData>>>>),
@@ -286,7 +302,7 @@ impl Agent for PixivAgent {
 								.map(|article| article as Rc<RefCell<dyn ArticleData>>)
 								.collect(),
 							ratelimit
-						))
+						)),
 				));
 
 				self.check_unfetched_articles();
@@ -345,7 +361,7 @@ impl Agent for PixivAgent {
 				));
 
 				self.check_unfetched_articles();
-			},
+			}
 			Request::RefreshEndpoint(endpoint_id, refresh_time) => self.endpoint_agent.send(EndpointRequest::RefreshEndpoint(endpoint_id, refresh_time)),
 			Request::FetchPosts(refresh_time, endpoint_id, path) =>
 				self.link.send_future(async move {
@@ -376,7 +392,7 @@ impl PixivAgent {
 					});
 				}
 			}
-		}else if self.fetching_articles.is_empty() {
+		} else if self.fetching_articles.is_empty() {
 			self.cache_articles();
 		}
 	}
@@ -404,7 +420,7 @@ impl PixivAgent {
 					);
 
 				session_storage
-			},
+			}
 			Err(_err) => {
 				SoshalSessionStorage {
 					services: HashMap::from([
@@ -444,7 +460,7 @@ fn parse_article(element: web_sys::Element, storage: &SessionStorageService) -> 
 		None => return None,
 	};
 	let (author_id, author_name) = match anchors.get_with_index(3) {
-		Some(a) => ( match a.get_attribute("data-gtm-value") {
+		Some(a) => (match a.get_attribute("data-gtm-value") {
 			Some(id) => match id.parse::<u32>() {
 				Ok(id) => id,
 				Err(_) => return None,
@@ -493,6 +509,7 @@ fn parse_article(element: web_sys::Element, storage: &SessionStorageService) -> 
 		marked_as_read: false,
 		hidden: false,
 		is_fully_fetched,
+		raw_json: serde_json::Value::Null,
 	})))
 }
 
@@ -560,7 +577,7 @@ impl Endpoint for FollowPageEndpoint {
 
 	fn eq_storage(&self, storage: &EndpointSerialized) -> bool {
 		storage.service == "Pixiv" &&
-		storage.endpoint_type == 0
+			storage.endpoint_type == 0
 	}
 }
 
@@ -631,13 +648,14 @@ async fn fetch_posts(url: &str, storage: &SessionStorageService) -> FetchResult<
 
 	let json_str = response.text().await?.to_string();
 
-	let response: APIPayload<FollowAPIResponse> = serde_json::from_str(&json_str)?;
-	Ok((response.body.thumbnails.illust
-		.iter()
-		.map(|a| PixivArticleData::from((a, storage)))
-		.map(|p| Rc::new(RefCell::new(p)))
-		.collect(),
-	 None))
+	let response: serde_json::Value = serde_json::from_str(&json_str)?;
+	let parsed: APIPayload<FollowAPIResponse> = serde_json::from_value(response.clone())?;
+	Ok((parsed.body.thumbnails.illust
+			.iter().zip(response["body"]["thumbnails"]["illust"].as_array().unwrap())
+			.map(|(a, raw_json)| PixivArticleData::from((raw_json.clone(), a, storage)))
+			.map(|p| Rc::new(RefCell::new(p)))
+			.collect(),
+		None))
 }
 
 async fn fetch_post(url: &str, storage: &SessionStorageService) -> FetchResult<Rc<RefCell<PixivArticleData>>> {
@@ -647,6 +665,7 @@ async fn fetch_post(url: &str, storage: &SessionStorageService) -> FetchResult<R
 
 	let json_str = response.text().await?.to_string();
 
-	let response: APIPayload<FullPostAPI> = serde_json::from_str(&json_str)?;
-	Ok((Rc::new(RefCell::new(PixivArticleData::from((response.body, storage)))), None))
+	let response: serde_json::Value = serde_json::from_str(&json_str)?;
+	let parsed: APIPayload<FullPostAPI> = serde_json::from_value(response.clone())?;
+	Ok((Rc::new(RefCell::new(PixivArticleData::from((response["body"].clone(), parsed.body, storage)))), None))
 }
