@@ -40,6 +40,16 @@ pub struct TimelineEndpoints {
 	pub refresh: Vec<TimelineEndpointWrapper>,
 }
 
+impl TimelineEndpoints {
+	pub fn new_with_endpoint_both(endpoint_id: EndpointId) -> Self {
+		let endpoints = vec![endpoint_id.into()];
+		Self {
+			start: endpoints.clone(),
+			refresh: endpoints,
+		}
+	}
+}
+
 #[derive(Clone, PartialEq)]
 pub enum RefreshTime {
 	Start,
@@ -63,6 +73,7 @@ pub enum Request {
 	EndpointFetchResponse(RefreshTime, EndpointId, FetchResult<Vec<Rc<RefCell<dyn ArticleData>>>>),
 	AddArticles(RefreshTime, EndpointId, Vec<Rc<RefCell<dyn ArticleData>>>),
 	AddEndpoint(Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>),
+	BatchAddEndpoints(Vec<Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>>, Vec<Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>>, Callback<TimelineEndpoints>),
 	InitService(String, EndpointConstructors),
 	UpdateRateLimit(EndpointId, RateLimit),
 	BatchNewEndpoints(Vec<(TimelineEndpointsSerialized, TimelinePropsEndpointsClosure)>),
@@ -281,6 +292,23 @@ impl Agent for EndpointAgent {
 				self.endpoints.insert(self.endpoint_counter, EndpointInfo::new(endpoint_closure(self.endpoint_counter)));
 				self.endpoint_counter += 1;
 
+				self.link.send_message(Msg::UpdatedState);
+			},
+			Request::BatchAddEndpoints(start_closures, refresh_closures, callback) => {
+				let start = start_closures.into_iter().map(|closure| {
+					let id = self.endpoint_counter.clone();
+					self.endpoints.insert(id.clone(), EndpointInfo::new((closure)(self.endpoint_counter)));
+					self.endpoint_counter += 1;
+					id.into()
+				}).collect();
+				let refresh = refresh_closures.into_iter().map(|closure| {
+					let id = self.endpoint_counter.clone();
+					self.endpoints.insert(id.clone(), EndpointInfo::new((closure)(self.endpoint_counter)));
+					self.endpoint_counter += 1;
+					id.into()
+				}).collect();
+
+				callback.emit(TimelineEndpoints { start, refresh });
 				self.link.send_message(Msg::UpdatedState);
 			},
 			Request::InitService(name, endpoints) => {

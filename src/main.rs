@@ -56,7 +56,8 @@ struct Model {
 
 enum Msg {
 	AddEndpoint(Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>),
-	AddTimeline(String, EndpointId),
+	BatchAddEndpoints(Vec<Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>>, Vec<Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>>, Callback<TimelineEndpoints>),
+	AddTimeline(String, TimelineEndpoints),
 	ToggleFavViewer,
 	AddTimelineProps(TimelinePropsClosure),
 	ToggleDisplayMode,
@@ -141,18 +142,17 @@ impl Component for Model {
 				self.endpoint_agent.send(EndpointRequest::AddEndpoint(e));
 				false
 			}
-			Msg::AddTimeline(name, endpoint_id) => {
-				let mut endpoints = Vec::new();
+			Msg::BatchAddEndpoints(start, refresh, callback) => {
+				self.endpoint_agent.send(EndpointRequest::BatchAddEndpoints(start, refresh, callback));
+				false
+			}
+			Msg::AddTimeline(name, endpoints) => {
 				let timeline_id = self.timeline_counter.clone();
-				endpoints.push(endpoint_id.into());
 
 				self.timelines.push(yew::props! { TimelineProps {
 					name,
 					id: timeline_id.clone(),
-					endpoints: TimelineEndpoints {
-						start: endpoints.clone(),
-						refresh: endpoints,
-					},
+					endpoints,
 				}});
 				self.timeline_counter += 1;
 
@@ -322,7 +322,7 @@ fn parse_url() -> (Option<String>, Option<web_sys::UrlSearchParams>) {
 
 fn parse_pathname(ctx: &Context<Model>, pathname: &str, search_opt: &Option<web_sys::UrlSearchParams>) {
 	if let Some(tweet_id) = pathname.strip_prefix("/twitter/status/").and_then(|s| s.parse::<u64>().ok()) {
-		let callback = ctx.link().callback(|id|Msg::AddTimeline("Tweet".to_owned(), id));
+		let callback = ctx.link().callback(|id|Msg::AddTimeline("Tweet".to_owned(), TimelineEndpoints::new_with_endpoint_both(id)));
 
 		ctx.link().send_message(
 			Msg::AddEndpoint(Box::new(move |id| {
@@ -342,7 +342,7 @@ fn parse_pathname(ctx: &Context<Model>, pathname: &str, search_opt: &Option<web_
 			),
 			None => (false, false)
 		};
-		let callback = ctx.link().callback(|id| Msg::AddTimeline("User".to_owned(), id));
+		let callback = ctx.link().callback(|id| Msg::AddTimeline("User".to_owned(), TimelineEndpoints::new_with_endpoint_both(id)));
 
 		ctx.link().send_message(
 			Msg::AddEndpoint(Box::new(move |id| {
@@ -351,7 +351,7 @@ fn parse_pathname(ctx: &Context<Model>, pathname: &str, search_opt: &Option<web_
 			}))
 		);
 	} else if pathname.starts_with("/twitter/home") {
-		let callback = ctx.link().callback( |id| Msg::AddTimeline("Home".to_owned(), id));
+		let callback = ctx.link().callback( |id| Msg::AddTimeline("Home".to_owned(), TimelineEndpoints::new_with_endpoint_both(id)));
 		ctx.link().send_message(
 			Msg::AddEndpoint(Box::new(move |id| {
 				callback.emit(id);
@@ -360,7 +360,7 @@ fn parse_pathname(ctx: &Context<Model>, pathname: &str, search_opt: &Option<web_
 		);
 	} else if let Some(list_params) = pathname.strip_prefix("/twitter/list/").map(|s| s.split("/").collect::<Vec<&str>>()) {
 		if let [username, slug] = list_params[..] {
-			let callback = ctx.link().callback(|id| Msg::AddTimeline("List".to_owned(), id));
+			let callback = ctx.link().callback(|id| Msg::AddTimeline("List".to_owned(), TimelineEndpoints::new_with_endpoint_both(id)));
 			let username = username.to_owned();
 			let slug = slug.to_owned();
 
@@ -372,17 +372,18 @@ fn parse_pathname(ctx: &Context<Model>, pathname: &str, search_opt: &Option<web_
 			);
 		}
 	} if ctx.props().favviewer {
-		let callback = ctx.link().callback(|id| Msg::AddTimeline("Pixiv".to_owned(), id));
+		let callback = ctx.link().callback(|endpoints| Msg::AddTimeline("Pixiv".to_owned(), endpoints));
 		let r18 = pathname.contains("r18");
 		let current_page = search_opt.as_ref()
 			.and_then(|s| s.get("p"))
 			.and_then(|s| s.parse().ok())
 			.unwrap_or(1);
 		ctx.link().send_message(
-			Msg::AddEndpoint(Box::new(move |id| {
-				callback.emit(id);
+			Msg::BatchAddEndpoints(vec![Box::new(move |id| {
+				Box::new(FollowPageEndpoint::new(id))
+			})], vec![Box::new(move |id| {
 				Box::new(FollowAPIEndpoint::new(id, r18, current_page - 1))
-			}))
+			})], callback)
 		);
 	}
 }
