@@ -38,8 +38,9 @@ pub enum Msg {
 	SetFormService(String),
 	SetFormType(usize),
 	SetFormParamValue((&'static str, Value), String),
-	CreateEndpoint,
+	CreateEndpoint(bool),
 	AddTimelineEndpoint(RefreshTime, EndpointId),
+	AddTimelineEndpointBoth(EndpointId),
 	RemoveTimelineEndpoint(RefreshTime, EndpointId),
 }
 
@@ -182,12 +183,16 @@ impl Component for ChooseEndpoints {
 					false
 				}
 			}
-			Msg::CreateEndpoint => {
+			Msg::CreateEndpoint(both) => {
 				let mut created = false;
 				if let Some(form) = &mut self.endpoint_form {
 					let constructor = self.services[&form.service].endpoint_types[form.endpoint_type.clone()].clone();
 					let refresh_time_c = form.refresh_time.clone();
-					let callback = ctx.link().callback(move |id| Msg::AddTimelineEndpoint(refresh_time_c.clone(), id));
+					let callback = if both {
+						ctx.link().callback(move |id| Msg::AddTimelineEndpointBoth(id))
+					}else {
+						ctx.link().callback(move |id| Msg::AddTimelineEndpoint(refresh_time_c.clone(), id))
+					};
 					let params = form.params.clone();
 					self.endpoint_agent.send(EndpointRequest::AddEndpoint(Box::new(move |id| {
 						callback.emit(id);
@@ -206,6 +211,13 @@ impl Component for ChooseEndpoints {
 					RefreshTime::Start => timeline_endpoints.borrow_mut().start.push(id.clone().into()),
 					RefreshTime::OnRefresh => timeline_endpoints.borrow_mut().refresh.push(id.clone().into()),
 				};
+				true
+			}
+			Msg::AddTimelineEndpointBoth(id) => {
+				let timeline_endpoints = ctx.props().timeline_endpoints.upgrade().unwrap();
+				let mut borrow = timeline_endpoints.borrow_mut();
+				borrow.start.push(id.clone().into());
+				borrow.refresh.push(id.into());
 				true
 			}
 			Msg::RemoveTimelineEndpoint(refresh_time, id) => {
@@ -317,7 +329,14 @@ impl ChooseEndpoints {
 								}
 							}
 						})}
-						<button class="button" onclick={ctx.link().callback(|_| Msg::CreateEndpoint)}>{"Create"}</button>
+						<div class="field has-addons">
+							<div class="control">
+								<button class="button" onclick={ctx.link().callback(|_| Msg::CreateEndpoint(false))}>{"Create"}</button>
+							</div>
+							<div class="control">
+								<button class="button" onclick={ctx.link().callback(|_| Msg::CreateEndpoint(true))}>{"Create for both"}</button>
+							</div>
+						</div>
 					</div>
 				}
 			}else { html! {} },
