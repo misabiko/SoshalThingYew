@@ -2,7 +2,8 @@ use yew::prelude::*;
 
 mod pixiv;
 
-pub use pixiv::PixivPageInfo;
+pub use pixiv::FollowPageInfo;
+use crate::Model;
 
 pub trait PageInfo {
 	fn style_html(&self) -> Html;
@@ -19,4 +20,12 @@ pub trait PageInfo {
 			</>
 		}
 	}
+}
+
+pub fn try_inject(href: &str, ) -> bool {
+	pixiv::setup_pixiv(href)
+}
+
+pub fn page_info(ctx: &Context<Model>) -> Option<Box<dyn PageInfo>> {
+	pixiv::page_info(ctx)
 }

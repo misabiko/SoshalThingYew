@@ -19,13 +19,13 @@ use crate::services::{
 	pixiv::{FollowPageEndpoint, PixivAgent},
 	twitter::{endpoints::*, TwitterAgent},
 };
-use crate::favviewer::{PageInfo, PixivPageInfo};
+use crate::favviewer::{page_info, PageInfo, FollowPageInfo, try_inject};
 use crate::modals::AddTimelineModal;
 use crate::services::pixiv::FollowAPIEndpoint;
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse};
 
 #[derive(PartialEq, Clone)]
-enum DisplayMode {
+pub enum DisplayMode {
 	Single {
 		column_count: u8
 	},
@@ -41,7 +41,7 @@ impl Default for DisplayMode {
 pub type TimelinePropsClosure = Box<dyn FnOnce(TimelineId) -> TimelineProps>;
 pub type TimelinePropsEndpointsClosure = Box<dyn FnOnce(TimelineId, TimelineEndpoints) -> TimelineProps>;
 
-struct Model {
+pub struct Model {
 	endpoint_agent: Box<dyn Bridge<EndpointAgent>>,
 	_timeline_agent: Box<dyn Bridge<TimelineAgent>>,
 	display_mode: DisplayMode,
@@ -54,7 +54,7 @@ struct Model {
 	last_display_single: DisplayMode,
 }
 
-enum Msg {
+pub enum Msg {
 	AddEndpoint(Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>),
 	BatchAddEndpoints(Vec<Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>>, Vec<Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>>, Callback<TimelineEndpoints>),
 	AddTimeline(String, TimelineEndpoints),
@@ -66,7 +66,7 @@ enum Msg {
 }
 
 #[derive(Properties, PartialEq, Default)]
-struct Props {
+pub struct Props {
 	favviewer: bool,
 	#[prop_or_default]
 	display_mode: Option<DisplayMode>,
@@ -101,9 +101,8 @@ impl Component for Model {
 			DisplayMode::Default
 		};
 
-		//TODO Detect current page
 		let page_info = match ctx.props().favviewer {
-			true => Some(Box::new(PixivPageInfo::new(ctx.link().callback(|_| Msg::ToggleFavViewer))) as Box<dyn PageInfo>),
+			true => page_info(ctx),
 			false => None
 		};
 
@@ -396,24 +395,7 @@ fn main() {
 		.map(|l| l.href()) {
 		Some(Ok(href)) => {
 			let href = href.as_str();
-			if href.contains("pixiv.net/bookmark_new_illust") {
-				let mount_point = gloo_utils::document().create_element("div").expect("to create empty div");
-				mount_point.set_id("favviewer");
-
-				gloo_utils::document()
-					.query_selector("#root > div:last-child > div:nth-child(2)")
-					.expect("can't get mount node for rendering")
-					.expect("can't unwrap mount node")
-					.append_with_node_1(&mount_point)
-					.expect("can't append mount node");
-
-				yew::start_app_with_props_in_element::<Model>(mount_point, yew::props! { Props {
-					favviewer: true,
-					display_mode: DisplayMode::Single {
-						column_count: 5,
-					}
-				}});
-			}else {
+			if !try_inject(href) {
 				yew::start_app::<Model>();
 			}
 		},
@@ -432,7 +414,6 @@ fn main() {
 //TODO Save timeline data
 //TODO Display timeline errors
 //TODO Prompt on not logged in
-//TODO Save fetched articles
 //TODO Avoid refreshing endpoint every watch update
 //TODO Add "Open @myusername on soshalthing" context menu?
 

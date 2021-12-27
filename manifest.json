@@ -5,7 +5,10 @@
 	"manifest_version": 3,
 	"content_scripts": [
 		{
-			"matches": ["https://*.pixiv.net/bookmark_new_illust*"],
+			"matches": [
+				"https://*.pixiv.net/bookmark_new_illust*",
+				"https://*.pixiv.net/*/users/*"
+			],
 			"js": ["content-script.js"]
 		}
 	],
