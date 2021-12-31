@@ -69,6 +69,7 @@ pub enum Request {
 	RemoveTimeline(TimelineId),
 	Refresh(Weak<RefCell<TimelineEndpoints>>),
 	LoadBottom(Weak<RefCell<TimelineEndpoints>>),
+	LoadTop(Weak<RefCell<TimelineEndpoints>>),
 	RefreshEndpoint(EndpointId, RefreshTime),
 	EndpointFetchResponse(RefreshTime, EndpointId, FetchResult<Vec<Rc<RefCell<dyn ArticleData>>>>),
 	AddArticles(RefreshTime, EndpointId, Vec<Rc<RefCell<dyn ArticleData>>>),
@@ -265,6 +266,18 @@ impl Agent for EndpointAgent {
 					let info = self.endpoints.get_mut(&timeline_endpoint.id).unwrap();
 					if info.endpoint.get_mut_ratelimit().map(|r| r.can_refresh()).unwrap_or(true) {
 						info.endpoint.load_bottom(RefreshTime::OnRefresh);
+						self.link.send_message(Msg::ResetAutoRefresh(*info.endpoint.id()));
+					}else {
+						log::warn!("Can't refresh {}", &info.endpoint.name());
+					}
+				}
+			}
+			Request::LoadTop(endpoints_weak) => {
+				let endpoints = endpoints_weak.upgrade().unwrap();
+				for timeline_endpoint in endpoints.borrow().refresh.clone() {
+					let info = self.endpoints.get_mut(&timeline_endpoint.id).unwrap();
+					if info.endpoint.get_mut_ratelimit().map(|r| r.can_refresh()).unwrap_or(true) {
+						info.endpoint.load_top(RefreshTime::OnRefresh);
 						self.link.send_message(Msg::ResetAutoRefresh(*info.endpoint.id()));
 					}else {
 						log::warn!("Can't refresh {}", &info.endpoint.name());

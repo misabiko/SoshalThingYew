@@ -1,6 +1,5 @@
 use yew::prelude::*;
 use yew_agent::{Bridge, Bridged};
-use std::rc::Weak;
 use wasm_bindgen::closure::Closure;
 
 use crate::articles::{ArticleRefType, Props, ArticleMedia};
@@ -45,8 +44,16 @@ impl Component for GalleryArticle {
 			},
 			Msg::ActionsCallback(response) => {
 				match response {
-					ArticleActionsResponse::Callback(articles)
-					=> articles.iter().any(|a| Weak::ptr_eq(a, &ctx.props().data))
+					ArticleActionsResponse::Callback(articles) => {
+						//For some reason Weak::ptr_eq() always returns false
+						let strong = ctx.props().data.upgrade().unwrap();
+						let borrow = strong.borrow();
+						articles.iter().any(|a| {
+							let strong_a = a.upgrade().unwrap();
+							let eq = borrow.id() == strong_a.borrow().id();
+							eq
+						})
+					}
 				}
 			}
 		}

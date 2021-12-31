@@ -9,7 +9,7 @@ use crate::articles::{view_article, ArticleData, ArticleComponent, ArticleMedia}
 	Would require to dynamically list container names without an enum/vec
 	Would require to dynamically create a container from said name
  */
-#[derive(Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize, Debug)]
 pub enum Container {
 	Column,
 	Row,
@@ -62,6 +62,7 @@ pub struct Props {
 	pub hide_text: bool,
 	#[prop_or(1)]
 	pub column_count: u8,
+	pub rtl: bool,
 	pub article_component: ArticleComponent,
 	pub articles: Vec<Weak<RefCell<dyn ArticleData>>>
 }
@@ -95,11 +96,14 @@ pub fn column_container(props: &Props) -> Html {
 	}
 }
 
-//TODO Support rtl
 #[function_component(RowContainer)]
 pub fn row_container(props: &Props) -> Html {
+	let style = match props.rtl {
+		true => Some("direction: rtl"),
+		false => None,
+	};
 	html! {
-		<div class="articlesContainer rowContainer" ref={props.container_ref.clone()}>
+		<div class="articlesContainer rowContainer" ref={props.container_ref.clone()} {style}>
 			{ for props.articles.iter().map(|article| view_article(
 				&props.article_component,
 				props.compact.clone(),
@@ -134,7 +138,7 @@ fn height(column: &Column) -> f32 {
 	}
 }
 
-fn to_columns<'a>(articles: impl Iterator<Item = &'a Rc<RefCell<dyn ArticleData>>>, column_count: &'a u8) -> impl Iterator<Item = impl Iterator<Item = &'a Rc<RefCell<dyn ArticleData>>>> {
+fn to_columns<'a>(articles: impl Iterator<Item = &'a Rc<RefCell<dyn ArticleData>>>, column_count: &'a u8, rtl: &bool) -> impl Iterator<Item = impl Iterator<Item = &'a Rc<RefCell<dyn ArticleData>>>> {
 	let ratioed_articles = articles.map(|a| (a, relative_height(&a)));
 
 	let mut columns = ratioed_articles.fold(
@@ -148,8 +152,7 @@ fn to_columns<'a>(articles: impl Iterator<Item = &'a Rc<RefCell<dyn ArticleData>
 		}
 	);
 
-	let rtl = false;
-	columns.sort_by(if rtl {
+	columns.sort_by(if *rtl {
 		|a: &Column, b: &Column| b.0.partial_cmp(&a.0).unwrap()
 	}else {
 		|a: &Column, b: &Column| a.0.partial_cmp(&b.0).unwrap()
@@ -161,7 +164,7 @@ fn to_columns<'a>(articles: impl Iterator<Item = &'a Rc<RefCell<dyn ArticleData>
 #[function_component(MasonryContainer)]
 pub fn masonry_container(props: &Props) -> Html {
 	let strongs: Vec<Rc<RefCell<dyn ArticleData>>> = props.articles.iter().filter_map(|a| a.upgrade()).collect();
-	let columns = to_columns(strongs.iter(), &props.column_count);
+	let columns = to_columns(strongs.iter(), &props.column_count, &props.rtl);
 
 	html! {
 		<div class="articlesContainer masonryContainer" ref={props.container_ref.clone()}>

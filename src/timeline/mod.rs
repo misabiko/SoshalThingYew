@@ -26,6 +26,7 @@ use crate::services::article_actions::{ArticleActionsAgent, Response as ArticleA
 
 pub type TimelineId = i8;
 
+#[derive(Clone)]
 enum ScrollDirection {
 	Up,
 	Down,
@@ -53,7 +54,7 @@ pub struct Timeline {
 	endpoint_agent: Dispatcher<EndpointAgent>,
 	filters: Vec<Filter>,
 	sort_methods: Vec<SortMethod>,
-	sort_method: Option<usize>,
+	sort_method: Option<(usize, bool)>,
 	container: Container,
 	show_container_dropdown: bool,
 	show_article_component_dropdown: bool,
@@ -67,11 +68,13 @@ pub struct Timeline {
 	timeline_agent: Dispatcher<TimelineAgent>,
 	use_section: bool,
 	section: (usize, usize),
+	rtl: bool,
 }
 
 pub enum Msg {
 	Refresh,
 	LoadBottom,
+	LoadTop,
 	Refreshed(Vec<Weak<RefCell<dyn ArticleData>>>),
 	RefreshFail,
 	NewArticles(Vec<Weak<RefCell<dyn ArticleData>>>),
@@ -125,12 +128,16 @@ pub struct Props {
 	pub articles: Vec<Weak<RefCell<dyn ArticleData>>>,
 	#[prop_or_default]
 	pub filters: Option<Vec<Filter>>,
+	#[prop_or(Some((0, false)))]
+	pub sort_method: Option<(usize, bool)>,
 	#[prop_or_default]
 	pub compact: bool,
 	#[prop_or_default]
 	pub animated_as_gifs: bool,
 	#[prop_or_default]
 	pub hide_text: bool,
+	#[prop_or_default]
+	pub rtl: bool,
 }
 
 impl PartialEq for Props {
@@ -173,7 +180,7 @@ impl Component for Timeline {
 			endpoint_agent,
 			filters: ctx.props().filters.as_ref().map(|f| f.clone()).unwrap_or_else(|| default_filters()),
 			sort_methods: default_sort_methods(),
-			sort_method: Some(0),
+			sort_method: ctx.props().sort_method.clone(),
 			container: ctx.props().container.clone(),
 			show_container_dropdown: false,
 			show_article_component_dropdown: false,
@@ -183,7 +190,7 @@ impl Component for Timeline {
 			show_choose_endpoint: false,
 			container_ref: NodeRef::default(),
 			autoscroll: Rc::new(RefCell::new(Autoscroll {
-				direction: ScrollDirection::Down,
+				direction: ScrollDirection::Up,
 				speed: 3.0,
 				anim: None,
 			})),
@@ -191,6 +198,7 @@ impl Component for Timeline {
 			timeline_agent: TimelineAgent::dispatcher(),
 			use_section: false,
 			section: (0, 50),
+			rtl: ctx.props().rtl.clone(),
 		}
 	}
 
@@ -202,6 +210,10 @@ impl Component for Timeline {
 			}
 			Msg::LoadBottom => {
 				self.endpoint_agent.send(EndpointRequest::LoadBottom(Rc::downgrade(&self.endpoints)));
+				false
+			}
+			Msg::LoadTop => {
+				self.endpoint_agent.send(EndpointRequest::LoadTop(Rc::downgrade(&self.endpoints)));
 				false
 			}
 			Msg::Refreshed(articles) => {
@@ -279,6 +291,12 @@ impl Component for Timeline {
 				true
 			}
 			Msg::Autoscroll => {
+				let old_direction = self.autoscroll.borrow().direction.clone();
+				self.autoscroll.borrow_mut().direction = match old_direction {
+					ScrollDirection::Up => ScrollDirection::Down,
+					ScrollDirection::Down => ScrollDirection::Up,
+				};
+
 				let anim_autoscroll = self.autoscroll.clone();
 				let event_autoscroll = self.autoscroll.clone();
 				let container_ref_c = self.container_ref.clone();
@@ -351,13 +369,15 @@ impl Component for Timeline {
 				true
 			}
 			Msg::SetSortMethod(sort_index) => {
-				self.sort_method = sort_index;
+				self.sort_method = match self.sort_method {
+					Some(method) => sort_index.map(|i| (i, method.1)),
+					None => sort_index.map(|i| (i, false)),
+				};
 				true
 			}
 			Msg::ToggleSortReversed => {
-				if let Some(sort_method) = self.sort_method {
-					let mut sort_method = self.sort_methods.get_mut(sort_method.clone()).unwrap();
-					sort_method.reversed = !sort_method.reversed;
+				if let Some(mut sort_method) = self.sort_method {
+					sort_method.1 = !sort_method.1;
 				}
 				true
 			}
@@ -413,9 +433,9 @@ impl Component for Timeline {
 
 		if !self.sort_methods.is_empty() {
 			if let Some(sort_method) = self.sort_method {
-				let method = &self.sort_methods[sort_method.clone()];
+				let method = &self.sort_methods[sort_method.0.clone()];
 				articles.sort_by(|a, b| {
-					match method.reversed {
+					match sort_method.1 {
 						false => (method.compare)(&a, &b),
 						true => (method.compare)(&a, &b).reverse(),
 					}
@@ -477,6 +497,11 @@ impl Component for Timeline {
 								<i class="fas fa-arrow-down fa-lg"/>
 							</span>
 						</button>
+						<button onclick={ctx.link().callback(|_| Msg::LoadTop)} title="Load Top">
+							<span class="icon">
+								<i class="fas fa-arrow-up fa-lg"/>
+							</span>
+						</button>
 						<button onclick={ctx.link().callback(|_| Msg::ToggleOptions)} title="Expand options">
 							<span class="icon">
 								<i class="fas fa-ellipsis-v fa-lg"/>
@@ -491,6 +516,7 @@ impl Component for Timeline {
 					animated_as_gifs: self.animated_as_gifs,
 					hide_text: self.hide_text,
 					column_count: self.column_count,
+					rtl: self.rtl,
 					article_component: self.article_component.clone(),
 					articles
 				}}) }
@@ -693,8 +719,8 @@ impl Timeline {
 	fn view_sort_options(&self, ctx: &Context<Self>) -> Html {
 		let current_method = if !self.sort_methods.is_empty() {
 			if let Some(sort_method) = self.sort_method {
-				let method = &self.sort_methods[sort_method.clone()];
-				Some((method.name.clone(), method.reversed.clone()))
+				let method = &self.sort_methods[sort_method.0.clone()];
+				Some((method.name.clone(), sort_method.1.clone()))
 			} else {
 				None
 			}

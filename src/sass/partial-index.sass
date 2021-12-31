@@ -1,0 +1,42 @@
+@use 'core' as *
+@use 'timeline' as *
+@use 'article' as *
+@use 'socialArticle' as *
+@use 'galleryArticle' as *
+@use 'sidebar' as *
+
+$fa-font-path: "/webfonts"
+@import "../../node_modules/@fortawesome/fontawesome-free/scss/fontawesome.scss"
+@import "../../node_modules/@fortawesome/fontawesome-free/scss/solid.scss"
+@import "../../node_modules/@fortawesome/fontawesome-free/scss/regular.scss"
+
+.input.is-static
+	color: $text
+
+.icon
+	color: $white-ter
+
+.icon.darkIcon
+	color: $black-ter
+
+.dropdown-trigger .icon
+	color: $button-color
+
+#timelineContainer
+	@include pretty-scrollbar
+	height: 100%
+	overflow-x: auto
+	display: flex
+	flex-grow: 1
+
+#favviewer
+	@import "../../node_modules/bulma/bulma.sass"
+
+	height: 100%
+
+//#favviewer
+//	width: 100vw
+//	height: 90vh
+//	display: flex
+//	-webkit-font-smoothing: antialiased
+//	-moz-osx-font-smoothing: grayscale

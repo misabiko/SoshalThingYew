@@ -27,6 +27,7 @@ use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest, Res
 #[derive(PartialEq, Clone)]
 pub enum DisplayMode {
 	Single {
+		container: Container,
 		column_count: u8
 	},
 	Default
@@ -97,10 +98,14 @@ impl Component for Model {
 			(*display_mode).clone()
 		} else if single_timeline_bool {
 			DisplayMode::Single {
+				container: search_opt.as_ref()
+					.and_then(|s| s.get("container"))
+					.as_ref().and_then(|s| Container::from(s).ok())
+					.unwrap_or(Container::Masonry),
 				column_count: search_opt.as_ref()
 					.and_then(|s| s.get("column_count"))
 					.and_then(|s| s.parse().ok())
-					.unwrap_or(1),
+					.unwrap_or(4),
 			}
 		}else {
 			DisplayMode::Default
@@ -121,7 +126,8 @@ impl Component for Model {
 			last_display_single: match display_mode {
 				DisplayMode::Single{ .. } => display_mode.clone(),
 				_ => DisplayMode::Single {
-					column_count: 4
+					container: Container::Masonry,
+					column_count: 4,
 				},
 			},
 			display_mode,
@@ -262,16 +268,16 @@ impl Component for Model {
 				}
 				<div id="timelineContainer">
 					{
-						match self.display_mode {
+						match &self.display_mode {
 							DisplayMode::Default => html! {
 								{for self.timelines.iter().map(|props| html! {
 									<Timeline key={props.id.clone()} ..props.clone()/>
 								})}
 							},
-							DisplayMode::Single {column_count} => html! {
+							DisplayMode::Single {container, column_count} => html! {
 								{for self.timelines.iter().map(|props| if props.id == self.main_timeline {
 									 html! {
-										<Timeline key={props.id.clone()} main_timeline=true container={Container::Masonry} {column_count} ..props.clone()>
+										<Timeline key={props.id.clone()} main_timeline=true container={container.clone()} column_count={column_count.clone()} ..props.clone()>
 											{
 												match ctx.props().favviewer {
 													true => html! {

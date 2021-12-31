@@ -102,13 +102,17 @@ impl ArticleComponent {
 }
 
 pub fn view_article(component: &ArticleComponent, compact: bool, animated_as_gifs: bool, hide_text: bool, style: Option<String>, article: Weak<RefCell<dyn ArticleData>>) -> Html {
-	match component {
-		ArticleComponent::Social => html! {
-			<SocialArticle {compact} {animated_as_gifs} {hide_text} {style} data={article.clone()}/>
+	if let Some(strong) = article.upgrade() {
+		match component {
+			ArticleComponent::Social => html! {
+			<SocialArticle key={strong.borrow().id()} {compact} {animated_as_gifs} {hide_text} {style} data={article.clone()}/>
 		},
-		ArticleComponent::Gallery => html! {
-			<GalleryArticle {compact} {animated_as_gifs} {hide_text} {style} data={article.clone()}/>
+			ArticleComponent::Gallery => html! {
+			<GalleryArticle key={strong.borrow().id()} {compact} {animated_as_gifs} {hide_text} {style} data={article.clone()}/>
 		},
+		}
+	}else {
+		html! {}
 	}
 }
 

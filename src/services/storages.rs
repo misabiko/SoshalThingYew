@@ -36,7 +36,7 @@ pub fn cache_articles(service_name: &str, articles: HashMap<String, serde_json::
 			};
 
 			for (id, article) in &articles {
-				service.cached_articles.insert(id.to_string(), article.clone()).unwrap();
+				let _ = service.cached_articles.insert(id.to_string(), article.clone());
 			}
 
 			session_storage

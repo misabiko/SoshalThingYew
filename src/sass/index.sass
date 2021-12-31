@@ -1,30 +1,11 @@
 @use 'core' as *
-@use 'timeline' as *
-@use 'article' as *
-@use 'socialArticle' as *
-@use 'galleryArticle' as *
-@use 'sidebar' as *
-
-$fa-font-path: "/webfonts"
-@import "../../node_modules/@fortawesome/fontawesome-free/scss/fontawesome.scss"
-@import "../../node_modules/@fortawesome/fontawesome-free/scss/solid.scss"
-@import "../../node_modules/@fortawesome/fontawesome-free/scss/regular.scss"
 @import "../../node_modules/bulma/bulma.sass"
 
 @include pretty-scrollbar
 
-.input.is-static
-	color: $text
-
-.icon
-	color: $white-ter
-
-.dropdown-trigger .icon
-	color: $text-strong
-
-html:not(.favviewer)
+html
 	overflow-y: hidden
-	//height: -webkit-fill-available
+	//height: -webkit-fill-available*/
 
 //TODO Fix 100% height on mobile, maybe using -webkit-fill-available
 body
@@ -35,12 +16,3 @@ body
 	-moz-osx-font-smoothing: grayscale
 	&:not(.favviewer)
 		display: flex
-
-#timelineContainer
-	height: 100%
-	overflow-x: auto
-	display: flex
-	flex-grow: 1
-
-#favviewer
-	height: 100%

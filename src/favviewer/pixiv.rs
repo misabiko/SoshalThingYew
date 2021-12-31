@@ -4,6 +4,7 @@ use gloo_timers::callback::Timeout;
 
 use crate::favviewer::PageInfo;
 use crate::{Model, Props as ModelProps, Msg as ModelMsg, DisplayMode, FollowPageEndpoint, FollowAPIEndpoint};
+use crate::timeline::Container;
 
 #[derive(PartialEq, Eq, Hash)]
 pub enum Style {
@@ -170,6 +171,7 @@ pub fn setup(href: &str) -> bool {
 		yew::start_app_with_props_in_element::<Model>(mount_point, yew::props! { ModelProps {
 			favviewer: true,
 			display_mode: DisplayMode::Single {
+				container: Container::Masonry,
 				column_count: 5,
 			}
 		}});
@@ -189,6 +191,7 @@ pub fn setup(href: &str) -> bool {
 			yew::start_app_with_props_in_element::<Model>(mount_point, yew::props! { ModelProps {
 				favviewer: true,
 				display_mode: DisplayMode::Single {
+					container: Container::Masonry,
 					column_count: 5,
 				}
 			}});
