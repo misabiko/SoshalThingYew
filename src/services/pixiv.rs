@@ -71,24 +71,6 @@ impl ArticleData for PixivArticleData {
 		format!("https://www.pixiv.net/en/artworks/{}", &self.id)
 	}
 
-	fn update(&mut self, new: &Ref<dyn ArticleData>) {
-		self.src = match new.media().first() {
-			Some(ArticleMedia::Image(src, _ratio)) => src.clone(),
-			_ => "".to_owned(),
-		};
-		self.title = new.text();
-		self.is_fully_fetched = self.is_fully_fetched || *new.is_fully_fetched();
-		match new.json() {
-			serde_json::Value::Null => {}
-			new_json => self.raw_json = new_json,
-		};
-
-		self.like_count = new.like_count();
-		self.liked = new.liked();
-		self.bookmark_count = new.repost_count();
-		self.bookmarked = new.reposted();
-	}
-
 	fn marked_as_read(&self) -> bool {
 		self.marked_as_read.clone()
 	}
@@ -121,6 +103,23 @@ impl ArticleData for PixivArticleData {
 
 	fn reposted(&self) -> bool {
 		self.bookmarked.clone()
+	}
+}
+
+impl PixivArticleData {
+	pub fn update(&mut self, new: &Ref<PixivArticleData>) {
+		self.src = new.src.clone();
+		self.title = new.title.clone();
+		self.is_fully_fetched = self.is_fully_fetched || *new.is_fully_fetched();
+		match &new.raw_json {
+			serde_json::Value::Null => {}
+			new_json => self.raw_json = new_json.clone(),
+		};
+
+		self.like_count = new.like_count.clone();
+		self.liked = new.liked.clone();
+		self.bookmark_count = new.bookmark_count.clone();
+		self.bookmarked = new.bookmarked.clone();
 	}
 }
 
@@ -337,7 +336,7 @@ impl Agent for PixivAgent {
 					for article in articles {
 						let borrow = article.borrow();
 						let valid_a_rc = self.articles.entry(borrow.id)
-							.and_modify(|a| a.borrow_mut().update(&(borrow as Ref<dyn ArticleData>)))
+							.and_modify(|a| a.borrow_mut().update(&borrow))
 							.or_insert_with(|| article.clone()).clone();
 
 						valid_rc.push(valid_a_rc);
@@ -364,7 +363,7 @@ impl Agent for PixivAgent {
 						let borrow = article.borrow();
 						let id = borrow.id;
 						let updated = self.articles.entry(id)
-							.and_modify(|a| a.borrow_mut().update(&(borrow as Ref<dyn ArticleData>)))
+							.and_modify(|a| a.borrow_mut().update(&borrow))
 							.or_insert_with(|| article.clone());
 
 						valid_rc.push(Rc::downgrade(updated) as Weak<RefCell<dyn ArticleData>>);
@@ -397,7 +396,7 @@ impl Agent for PixivAgent {
 				for article in articles.into_iter() {
 					let borrow = article.borrow();
 					let valid_a_rc = self.articles.entry(borrow.id)
-						.and_modify(|a| a.borrow_mut().update(&(borrow as Ref<dyn ArticleData>)))
+						.and_modify(|a| a.borrow_mut().update(&borrow))
 						.or_insert_with(|| article.clone()).clone();
 
 					valid_rc.push(valid_a_rc);

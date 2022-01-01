@@ -76,13 +76,6 @@ impl ArticleData for TweetArticleData {
 	fn url(&self) -> String {
 		format!("https://twitter.com/{}/status/{}", &self.author_username(), &self.id())
 	}
-	fn update(&mut self, new: &Ref<dyn ArticleData>) {
-		self.liked = new.liked();
-		self.retweeted = new.reposted();
-		self.like_count = new.like_count();
-		self.retweet_count = new.repost_count();
-		self.raw_json = new.json();
-	}
 	fn marked_as_read(&self) -> bool {
 		self.marked_as_read.clone()
 	}
@@ -100,6 +93,7 @@ impl ArticleData for TweetArticleData {
 pub type StrongArticleRefType = ArticleRefType<Rc<RefCell<TweetArticleData>>>;
 
 impl TweetArticleData {
+	//TODO Deserialize response
 	pub fn from(json: &serde_json::Value, marked_as_read: &HashSet<u64>) -> (Rc<RefCell<Self>>, StrongArticleRefType) {
 		let id = json["id"].as_u64().unwrap();
 
@@ -219,6 +213,14 @@ impl TweetArticleData {
 			hidden: false,
 		}));
 		(data, referenced_article)
+	}
+
+	pub fn update(&mut self, new: &Ref<TweetArticleData>) {
+		self.liked = new.liked.clone();
+		self.retweeted = new.retweeted.clone();
+		self.like_count = new.like_count.clone();
+		self.retweet_count = new.retweet_count.clone();
+		self.raw_json = new.raw_json.clone();
 	}
 }
 

@@ -1,5 +1,5 @@
 use std::rc::{Rc, Weak};
-use std::cell::{RefCell, Ref};
+use std::cell::RefCell;
 use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher};
 use std::collections::{HashMap, HashSet};
 use gloo_storage::Storage;
@@ -172,25 +172,25 @@ impl Agent for TwitterAgent {
 					for (article, ref_article) in articles {
 						let borrow = article.borrow();
 						let valid_a_rc = self.articles.entry(borrow.id)
-							.and_modify(|a| a.borrow_mut().update(&(borrow as Ref<dyn ArticleData>)))
+							.and_modify(|a| a.borrow_mut().update(&borrow))
 							.or_insert_with(|| article.clone()).clone();
 
 						match ref_article {
 							StrongArticleRefType::Repost(a) | StrongArticleRefType::Quote(a) => {
 								let ref_borrow = a.borrow();
 								self.articles.entry(ref_borrow.id)
-									.and_modify(|a| a.borrow_mut().update(&(ref_borrow as Ref<dyn ArticleData>)))
+									.and_modify(|a| a.borrow_mut().update(&ref_borrow))
 									.or_insert_with(|| a.clone());
 							}
 							StrongArticleRefType::QuoteRepost(a, q) => {
 								let a_borrow = a.borrow();
 								self.articles.entry(a_borrow.id)
-									.and_modify(|a| a.borrow_mut().update(&(a_borrow as Ref<dyn ArticleData>)))
+									.and_modify(|a| a.borrow_mut().update(&a_borrow))
 									.or_insert_with(|| a.clone());
 
 								let q_borrow = q.borrow();
 								self.articles.entry(q_borrow.id)
-									.and_modify(|a| a.borrow_mut().update(&(q_borrow as Ref<dyn ArticleData>)))
+									.and_modify(|a| a.borrow_mut().update(&q_borrow))
 									.or_insert_with(|| q.clone());
 							}
 							_ => {},
@@ -217,7 +217,7 @@ impl Agent for TwitterAgent {
 					for article in articles {
 						let borrow = article.borrow();
 						let updated = self.articles.entry(borrow.id)
-							.and_modify(|a| a.borrow_mut().update(&(borrow as Ref<dyn ArticleData>)))
+							.and_modify(|a| a.borrow_mut().update(&borrow))
 							.or_insert_with(|| article.clone());
 
 						valid_rc.push(Rc::downgrade(updated) as Weak<RefCell<dyn ArticleData>>);

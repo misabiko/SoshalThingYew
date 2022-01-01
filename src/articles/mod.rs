@@ -1,5 +1,5 @@
 use std::rc::Weak;
-use std::cell::{RefCell, Ref};
+use std::cell::RefCell;
 use yew::prelude::*;
 use js_sys::Date;
 
@@ -43,7 +43,6 @@ pub trait ArticleData {
 	fn json(&self) -> serde_json::Value { serde_json::Value::Null }
 	fn referenced_article(&self) -> ArticleRefType { ArticleRefType::NoRef }
 	fn url(&self) -> String;
-	fn update(&mut self, new: &Ref<dyn ArticleData>);
 	fn marked_as_read(&self) -> bool;
 	fn set_marked_as_read(&mut self, value: bool);
 	fn hidden(&self) -> bool;
