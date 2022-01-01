@@ -1,32 +1,53 @@
+use std::collections::HashMap;
 use yew::prelude::*;
 
 mod pixiv;
 
 use crate::Model;
 
-pub trait PageInfo {
-	fn style_html(&self) -> Html;
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub enum FavViewerStyle {
+	Hidden,
+	Normal,
+}
 
-	fn favviewer_button(&self) -> Html;
+#[derive(Clone, PartialEq)]
+pub enum PageInfo {
+	Setup {
+		style_html: HashMap<FavViewerStyle, Html>,
+		make_activator: fn(Callback<MouseEvent>) -> Html,
+		add_timelines: fn(),	//TODO Try to remove methods from PageInfo
+	},
+	Ready {
+		style_html: HashMap<FavViewerStyle, Html>,
+		style: FavViewerStyle,
+		favviewer_button: Html,
+	}
+}
 
-	fn toggle_hidden(&mut self);
-
-	fn view(&self) -> Html {
-		html! {
-			<>
-				{ self.favviewer_button() }
-				{ self.style_html() }
-			</>
+impl PageInfo {
+	pub fn toggle_hidden(&mut self) {
+		if let PageInfo::Ready {style, ..} = self {
+			*style = match style {
+				FavViewerStyle::Hidden => FavViewerStyle::Normal,
+				FavViewerStyle::Normal => FavViewerStyle::Hidden,
+			};
 		}
 	}
 
-	fn add_timeline(&self, ctx: &Context<Model>, pathname: &str, search_opt: &Option<web_sys::UrlSearchParams>);
+	pub fn view(&self) -> Html {
+		match &self {
+			PageInfo::Ready { favviewer_button, style, style_html} => html! {
+				<>
+					{ favviewer_button.clone() }
+					{ style_html[&style].clone() }
+				</>
+			},
+			_ => html! {}
+		}
+	}
 }
 
 pub fn try_inject(href: &str, ) -> bool {
 	pixiv::setup(href)
-}
-
-pub fn page_info(ctx: &Context<Model>) -> Option<Box<dyn PageInfo>> {
-	pixiv::page_info(ctx)
 }

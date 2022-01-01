@@ -11,7 +11,7 @@ use crate::error::{Error, FetchResult};
 use crate::articles::ArticleData;
 use crate::timeline::agent::TimelineEndpointsSerialized;
 use crate::timeline::filters::{Filter, deserialize_filters};
-use crate::{TimelineId, TimelinePropsEndpointsClosure};
+use crate::{TimelineCreationMode, TimelineId, TimelinePropsEndpointsClosure};
 
 pub type EndpointId = i32;
 
@@ -54,40 +54,6 @@ impl TimelineEndpoints {
 pub enum RefreshTime {
 	Start,
 	OnRefresh,
-}
-
-pub enum Msg {
-	Refreshed(RefreshTime, EndpointId, (Vec<Rc<RefCell<dyn ArticleData>>>, Option<RateLimit>)),
-	RefreshFail(Error),
-	UpdatedState,
-	AutoRefreshEndpoint(EndpointId),
-	ResetAutoRefresh(EndpointId),
-}
-
-pub enum Request {
-	InitTimeline(TimelineId, Rc<RefCell<TimelineEndpoints>>, Callback<Vec<Weak<RefCell<dyn ArticleData>>>>),
-	RemoveTimeline(TimelineId),
-	Refresh(Weak<RefCell<TimelineEndpoints>>),
-	LoadBottom(Weak<RefCell<TimelineEndpoints>>),
-	LoadTop(Weak<RefCell<TimelineEndpoints>>),
-	RefreshEndpoint(EndpointId, RefreshTime),
-	EndpointFetchResponse(RefreshTime, EndpointId, FetchResult<Vec<Rc<RefCell<dyn ArticleData>>>>),
-	AddArticles(RefreshTime, EndpointId, Vec<Rc<RefCell<dyn ArticleData>>>),
-	AddEndpoint(Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>),
-	BatchAddEndpoints(Vec<Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>>, Vec<Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>>, Callback<TimelineEndpoints>),
-	InitService(String, EndpointConstructors),
-	UpdateRateLimit(EndpointId, RateLimit),
-	BatchNewEndpoints(Vec<(TimelineEndpointsSerialized, TimelinePropsEndpointsClosure)>),
-	RegisterTimelineContainer,
-	GetState,
-	StartAutoRefresh(EndpointId),
-	StopAutoRefresh(EndpointId),
-	SetAutoRefreshInterval(EndpointId, u32),
-}
-
-pub enum Response {
-	UpdatedState(HashMap<String, EndpointConstructors>, Vec<EndpointView>),
-	BatchRequestResponse(Vec<(TimelineEndpoints, TimelinePropsEndpointsClosure)>)
 }
 
 #[derive(Clone)]
@@ -136,6 +102,46 @@ impl EndpointInfo {
 			endpoint,
 		}
 	}
+}
+
+pub enum TimelineCreationRequest {
+	NameEndpoints(String),
+	Props(TimelinePropsEndpointsClosure)
+}
+
+pub enum Msg {
+	Refreshed(RefreshTime, EndpointId, (Vec<Rc<RefCell<dyn ArticleData>>>, Option<RateLimit>)),
+	RefreshFail(Error),
+	UpdatedState,
+	AutoRefreshEndpoint(EndpointId),
+	ResetAutoRefresh(EndpointId),
+}
+
+pub enum Request {
+	InitTimeline(TimelineId, Rc<RefCell<TimelineEndpoints>>, Callback<Vec<Weak<RefCell<dyn ArticleData>>>>),
+	RemoveTimeline(TimelineId),
+	Refresh(Weak<RefCell<TimelineEndpoints>>),
+	LoadBottom(Weak<RefCell<TimelineEndpoints>>),
+	LoadTop(Weak<RefCell<TimelineEndpoints>>),
+	RefreshEndpoint(EndpointId, RefreshTime),
+	EndpointFetchResponse(RefreshTime, EndpointId, FetchResult<Vec<Rc<RefCell<dyn ArticleData>>>>),
+	AddArticles(RefreshTime, EndpointId, Vec<Rc<RefCell<dyn ArticleData>>>),
+	AddEndpoint(Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>),
+	BatchAddEndpoints(Vec<Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>>, Vec<Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>>, TimelineCreationRequest),
+	InitService(String, EndpointConstructors),
+	UpdateRateLimit(EndpointId, RateLimit),
+	BatchNewEndpoints(Vec<(TimelineEndpointsSerialized, TimelinePropsEndpointsClosure)>),
+	RegisterTimelineContainer,
+	GetState,
+	StartAutoRefresh(EndpointId),
+	StopAutoRefresh(EndpointId),
+	SetAutoRefreshInterval(EndpointId, u32),
+}
+
+pub enum Response {
+	UpdatedState(HashMap<String, EndpointConstructors>, Vec<EndpointView>),
+	BatchRequestResponse(Vec<(TimelineEndpoints, TimelinePropsEndpointsClosure)>),
+	AddTimeline(TimelineCreationMode),
 }
 
 pub struct EndpointAgent {
@@ -307,22 +313,30 @@ impl Agent for EndpointAgent {
 
 				self.link.send_message(Msg::UpdatedState);
 			},
-			Request::BatchAddEndpoints(start_closures, refresh_closures, callback) => {
-				let start = start_closures.into_iter().map(|closure| {
-					let id = self.endpoint_counter.clone();
-					self.endpoints.insert(id.clone(), EndpointInfo::new((closure)(self.endpoint_counter)));
-					self.endpoint_counter += 1;
-					id.into()
-				}).collect();
-				let refresh = refresh_closures.into_iter().map(|closure| {
-					let id = self.endpoint_counter.clone();
-					self.endpoints.insert(id.clone(), EndpointInfo::new((closure)(self.endpoint_counter)));
-					self.endpoint_counter += 1;
-					id.into()
-				}).collect();
+			Request::BatchAddEndpoints(start_closures, refresh_closures, timeline_creation_request) => {
+				if let Some(timeline_container) = self.timeline_container {
+					let start = start_closures.into_iter().map(|closure| {
+						let id = self.endpoint_counter.clone();
+						self.endpoints.insert(id.clone(), EndpointInfo::new((closure)(self.endpoint_counter)));
+						self.endpoint_counter += 1;
+						id.into()
+					}).collect();
+					let refresh = refresh_closures.into_iter().map(|closure| {
+						let id = self.endpoint_counter.clone();
+						self.endpoints.insert(id.clone(), EndpointInfo::new((closure)(self.endpoint_counter)));
+						self.endpoint_counter += 1;
+						id.into()
+					}).collect();
 
-				callback.emit(TimelineEndpoints { start, refresh });
-				self.link.send_message(Msg::UpdatedState);
+					let endpoints = TimelineEndpoints { start, refresh };
+					self.link.respond(timeline_container.clone(), match timeline_creation_request {
+						TimelineCreationRequest::NameEndpoints(name) => Response::AddTimeline(TimelineCreationMode::NameEndpoints(name, endpoints)),
+						TimelineCreationRequest::Props(props) => Response::AddTimeline(TimelineCreationMode::Props(Box::new(|timeline_id| (props)(timeline_id, endpoints)))),
+					});
+					self.link.send_message(Msg::UpdatedState);
+				}else {
+					log::error!("BatchAddEndpoints: Model not yet registered to EndpointAgent");
+				}
 			},
 			Request::InitService(name, endpoints) => {
 				self.services.insert(name, endpoints);

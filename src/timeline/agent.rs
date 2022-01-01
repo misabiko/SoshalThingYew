@@ -87,6 +87,7 @@ impl Agent for TimelineAgent {
 			Request::RegisterModal => self.modal = Some(id),
 			Request::RegisterChooseEndpoints => self.choose_endpoints = Some(id),
 			Request::RegisterTimelineContainer => self.timeline_container = Some(id),
+			//TODO Less confusing name AddTimeline
 			Request::AddTimeline => {
 				if let Some(choose_endpoints) = self.choose_endpoints {
 					self.link.respond(choose_endpoints, Response::AddBlankTimeline)
