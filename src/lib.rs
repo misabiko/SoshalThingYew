@@ -16,13 +16,12 @@ use crate::timeline::{Props as TimelineProps, Timeline, TimelineId, Container};
 use crate::services::{
 	Endpoint,
 	endpoint_agent::{EndpointId, EndpointAgent, Request as EndpointRequest, Response as EndpointResponse, TimelineEndpoints},
-	pixiv::{FollowPageEndpoint, PixivAgent},
+	pixiv::PixivAgent,
 	twitter::{endpoints::*, TwitterAgent},
 };
-use crate::favviewer::{FavViewerStyle, PageInfo};
+use crate::favviewer::PageInfo;
 use crate::modals::AddTimelineModal;
 use crate::services::endpoint_agent::TimelineCreationRequest;
-use crate::services::pixiv::FollowAPIEndpoint;
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse};
 
 #[derive(PartialEq, Clone)]
@@ -85,6 +84,7 @@ impl Component for Model {
 	type Properties = Props;
 
 	fn create(ctx: &Context<Self>) -> Self {
+		//TODO Move service dispatch to main?
 		let _twitter = TwitterAgent::dispatcher();
 		let _pixiv = PixivAgent::dispatcher();
 
@@ -98,13 +98,13 @@ impl Component for Model {
 		let (pathname_opt, search_opt) = parse_url();
 
 		//TODO use memreplace Some(Setup) → None
-		let mut page_info = match &ctx.props().page_info {
-			Some(PageInfo::Setup { style_html, make_activator, add_timelines }) => {
+		let page_info = match &ctx.props().page_info {
+			Some(PageInfo::Setup { style_html, initial_style, make_activator, add_timelines }) => {
 				(add_timelines)();
 
 				Some(PageInfo::Ready {
 					style_html: style_html.clone(),
-					style: FavViewerStyle::Hidden,
+					style: initial_style.clone(),
 					favviewer_button: (make_activator)(ctx.link().callback(| _ | Msg::ToggleFavViewer))
 				})
 			}

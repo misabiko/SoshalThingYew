@@ -1,4 +1,5 @@
-use yew_agent::{Agent, AgentLink, HandlerId, Context as AgentContext, Dispatcher, Dispatched};
+//TODO Try to use fetch_agent or delete it
+/*use yew_agent::{Agent, AgentLink, HandlerId, Context as AgentContext, Dispatcher, Dispatched};
 use std::collections::HashSet;
 
 pub struct ArticleFetchAgent {
@@ -37,4 +38,4 @@ impl Agent for ArticleFetchAgent {
 	fn disconnected(&mut self, id: HandlerId) {
 		self.services.remove(&id);
 	}
-}
+}*/

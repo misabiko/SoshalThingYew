@@ -3,8 +3,6 @@ use yew::prelude::*;
 
 mod pixiv;
 
-use crate::Model;
-
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum FavViewerStyle {
 	Hidden,
@@ -15,8 +13,9 @@ pub enum FavViewerStyle {
 pub enum PageInfo {
 	Setup {
 		style_html: HashMap<FavViewerStyle, Html>,
+		initial_style: FavViewerStyle,
 		make_activator: fn(Callback<MouseEvent>) -> Html,
-		add_timelines: fn(),	//TODO Try to remove methods from PageInfo
+		add_timelines: fn(),
 	},
 	Ready {
 		style_html: HashMap<FavViewerStyle, Html>,

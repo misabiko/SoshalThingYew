@@ -246,14 +246,14 @@ struct FullPostAPIURLs {
 
 #[derive(Deserialize)]
 struct FollowAPIResponse {
-	page: FollowAPIPage,
+	//page: FollowAPIPage,
 	thumbnails: FollowAPIThumbnails,
 }
 
-#[derive(Deserialize)]
+/*#[derive(Deserialize)]
 struct FollowAPIPage {
 	ids: Vec<u32>,
-}
+}*/
 
 #[derive(Deserialize)]
 struct FollowAPIThumbnails {
@@ -672,6 +672,7 @@ impl Endpoint for FollowAPIEndpoint {
 	}
 }
 
+//TODO Stop using or rename FetchResult to RatelimitedFetchResult
 async fn fetch_posts(url: &str, storage: &SessionStorageService) -> FetchResult<Vec<Rc<RefCell<PixivArticleData>>>> {
 	let response = reqwest::Client::builder().build()?
 		.get(url)
@@ -681,12 +682,16 @@ async fn fetch_posts(url: &str, storage: &SessionStorageService) -> FetchResult<
 
 	let response: serde_json::Value = serde_json::from_str(&json_str)?;
 	let parsed: APIPayload<FollowAPIResponse> = serde_json::from_value(response.clone())?;
-	Ok((parsed.body.thumbnails.illust
+	if parsed.error {
+		Err(parsed.message.into())
+	}else {
+		Ok((parsed.body.thumbnails.illust
 			.iter().zip(response["body"]["thumbnails"]["illust"].as_array().unwrap())
 			.map(|(a, raw_json)| PixivArticleData::from((raw_json.clone(), a, storage)))
 			.map(|p| Rc::new(RefCell::new(p)))
 			.collect(),
 		None))
+	}
 }
 
 async fn fetch_post(url: &str, storage: &SessionStorageService) -> FetchResult<Rc<RefCell<PixivArticleData>>> {
@@ -700,3 +705,4 @@ async fn fetch_post(url: &str, storage: &SessionStorageService) -> FetchResult<R
 	let parsed: APIPayload<FullPostAPI> = serde_json::from_value(response.clone())?;
 	Ok((Rc::new(RefCell::new(PixivArticleData::from((response["body"].clone(), parsed.body, storage)))), None))
 }
+//TODO Move endpoints to their own module

@@ -1,14 +1,11 @@
 use yew::prelude::*;
-use yew_agent::{Dispatcher, Dispatched};
+use yew_agent::Dispatched;
 use std::collections::HashMap;
 use gloo_timers::callback::Timeout;
 
 use crate::favviewer::{FavViewerStyle, PageInfo};
 use crate::{Model, Props as ModelProps, DisplayMode, EndpointAgent};
-use crate::timeline::{
-	agent::{TimelineAgent, Request as TimelineAgentRequest},
-	Container,
-};
+use crate::timeline::Container;
 use crate::services::{
 	endpoint_agent::{Request as EndpointRequest},
 	pixiv::{FollowPageEndpoint, FollowAPIEndpoint},
@@ -101,6 +98,7 @@ pub fn setup(href: &str) -> bool {
 			},
 			page_info: Some(PageInfo::Setup {
 				style_html,
+				initial_style: FavViewerStyle::Hidden,
 				make_activator: make_follow_activator,
 				add_timelines: add_follow_timelines,
 			})
@@ -115,8 +113,8 @@ pub fn setup(href: &str) -> bool {
 			let nav = gloo_utils::document()
 				.get_elements_by_tag_name("nav").get_with_index(0).expect("couldn't find a nav");
 
-			let navGrandParent = nav.parent_element().expect("couldn't find nav parent").parent_element().expect("couldn't find nav grandparent");
-			navGrandParent.after_with_node_1(&mount_point);
+			let nav_grand_parent = nav.parent_element().expect("couldn't find nav parent").parent_element().expect("couldn't find nav grandparent");
+			nav_grand_parent.after_with_node_1(&mount_point).expect("couldn't add mount_point");
 
 			let document_head = gloo_utils::document().head().expect("head element to be present");
 			let mut style_html = HashMap::new();
@@ -137,6 +135,7 @@ pub fn setup(href: &str) -> bool {
 				},
 				page_info: Some(PageInfo::Setup {
 					style_html,
+					initial_style: FavViewerStyle::Hidden,
 					make_activator: make_user_activator,
 					add_timelines: add_user_timeline,
 				})
