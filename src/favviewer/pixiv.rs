@@ -8,7 +8,7 @@ use crate::{Model, Props as ModelProps, DisplayMode, EndpointAgent};
 use crate::timeline::Container;
 use crate::services::{
 	endpoint_agent::{Request as EndpointRequest},
-	pixiv::{FollowPageEndpoint, FollowAPIEndpoint},
+	pixiv::endpoints::*,
 };
 use crate::services::endpoint_agent::TimelineCreationRequest;
 
