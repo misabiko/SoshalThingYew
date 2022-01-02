@@ -3,7 +3,7 @@ use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 
 use crate::error::Result;
-use crate::articles::{view_article, ArticleData, ArticleComponent, ArticleMedia};
+use crate::articles::{ArticleData, ArticleComponent, ArticleMedia, ArticleView};
 
 /*Make containers dynamic?
 	Would require to dynamically list container names without an enum/vec
@@ -63,7 +63,7 @@ pub struct Props {
 	#[prop_or(1)]
 	pub column_count: u8,
 	pub rtl: bool,
-	pub article_component: ArticleComponent,
+	pub article_component: ArticleView,
 	pub articles: Vec<Weak<RefCell<dyn ArticleData>>>
 }
 
@@ -85,13 +85,15 @@ impl PartialEq for Props {
 pub fn column_container(props: &Props) -> Html {
 	html! {
 		<div class="articlesContainer columnContainer" ref={props.container_ref.clone()}>
-			{ for props.articles.iter().map(|article| view_article(
-				&props.article_component,
-				props.compact.clone(),
-				props.animated_as_gifs.clone(),
-				props.hide_text.clone(),
-				None,
-				article.clone()))}
+			{ for props.articles.iter().map(|article| html! {
+				<ArticleComponent
+					article={article.clone()}
+					article_view={props.article_component.clone()}
+					compact={props.compact.clone()}
+					animated_as_gifs={props.animated_as_gifs.clone()}
+					hide_text={props.hide_text.clone()}
+				/>
+			}) }
 		</div>
 	}
 }
@@ -104,14 +106,16 @@ pub fn row_container(props: &Props) -> Html {
 	};
 	html! {
 		<div class="articlesContainer rowContainer" ref={props.container_ref.clone()} {style}>
-			{ for props.articles.iter().map(|article| view_article(
-				&props.article_component,
-				props.compact.clone(),
-				props.animated_as_gifs.clone(),
-				props.hide_text.clone(),
-				Some(format!("width: {}%", 100.0 / (props.column_count as f64))),
-				article.clone()
-			)) }
+			{ for props.articles.iter().map(|article| html! {
+				<ArticleComponent
+					article={article.clone()}
+					article_view={props.article_component.clone()}
+					compact={props.compact.clone()}
+					animated_as_gifs={props.animated_as_gifs.clone()}
+					hide_text={props.hide_text.clone()}
+					style={format!("width: {}%", 100.0 / (props.column_count as f64))}
+				/>
+			}) }
 		</div>
 	}
 }
@@ -170,14 +174,15 @@ pub fn masonry_container(props: &Props) -> Html {
 		<div class="articlesContainer masonryContainer" ref={props.container_ref.clone()}>
 			{ for columns.enumerate().map(|(column_index, column)| html! {
 				<div class="masonryColumn" key={column_index}>
-					{ for column.map(|article| view_article(
-						&props.article_component,
-						props.compact.clone(),
-						props.animated_as_gifs.clone(),
-						props.hide_text.clone(),
-						None,
-						Rc::downgrade(article)
-					))}
+					{ for column.map(|article| html! {
+						<ArticleComponent
+							article={Rc::downgrade(article)}
+							article_view={props.article_component.clone()}
+							compact={props.compact.clone()}
+							animated_as_gifs={props.animated_as_gifs.clone()}
+							hide_text={props.hide_text.clone()}
+						/>
+					}) }
 				</div>
 			})}
 		</div>

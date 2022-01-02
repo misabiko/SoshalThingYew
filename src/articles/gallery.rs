@@ -262,6 +262,8 @@ impl GalleryArticle {
 					</Dropdown>
 				</div>
 				<div class="holderBox holderBoxBottom">
+					<button class="button">
+					</button>
 				</div>
 			</>
 		}

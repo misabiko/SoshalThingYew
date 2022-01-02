@@ -3,10 +3,12 @@ use std::cell::RefCell;
 use yew::prelude::*;
 use js_sys::Date;
 
+pub mod component;
 pub mod fetch_agent;
 mod social;
 mod gallery;
 
+pub use component::ArticleComponent;
 pub use crate::articles::social::SocialArticle;
 pub use crate::articles::gallery::GalleryArticle;
 
@@ -31,8 +33,8 @@ pub trait ArticleData {
 	fn id(&self) -> String;
 	fn creation_time(&self) -> Date;
 	fn text(&self) -> String;
-	fn author_username(&self) -> String;
 	fn author_name(&self) -> String;
+	fn author_username(&self) -> String { self.author_name() }
 	fn author_avatar_url(&self) -> String;
 	fn author_url(&self) -> String;
 	fn like_count(&self) -> u32 { 0 }
@@ -86,32 +88,17 @@ impl PartialEq<Props> for Props {
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub enum ArticleComponent {
+pub enum ArticleView {
 	Social,
 	Gallery
 }
 
-impl ArticleComponent {
+impl ArticleView {
 	pub fn name(&self) -> &'static str {
 		match self {
-			ArticleComponent::Social => "Social",
-			ArticleComponent::Gallery => "Gallery",
+			ArticleView::Social => "Social",
+			ArticleView::Gallery => "Gallery",
 		}
-	}
-}
-
-pub fn view_article(component: &ArticleComponent, compact: bool, animated_as_gifs: bool, hide_text: bool, style: Option<String>, article: Weak<RefCell<dyn ArticleData>>) -> Html {
-	if let Some(strong) = article.upgrade() {
-		match component {
-			ArticleComponent::Social => html! {
-			<SocialArticle key={strong.borrow().id()} {compact} {animated_as_gifs} {hide_text} {style} data={article.clone()}/>
-		},
-			ArticleComponent::Gallery => html! {
-			<GalleryArticle key={strong.borrow().id()} {compact} {animated_as_gifs} {hide_text} {style} data={article.clone()}/>
-		},
-		}
-	}else {
-		html! {}
 	}
 }
 

@@ -17,7 +17,7 @@ use containers::{view_container, Props as ContainerProps};
 use filters::{Filter, default_filters};
 use sort_methods::{SortMethod, default_sort_methods};
 use agent::{TimelineAgent, Request as TimelineAgentRequest};
-use crate::articles::{ArticleComponent, ArticleData};
+use crate::articles::{ArticleView, ArticleData};
 use crate::services::endpoint_agent::{EndpointAgent, Request as EndpointRequest, TimelineEndpoints};
 use crate::modals::ModalCard;
 use crate::choose_endpoints::ChooseEndpoints;
@@ -60,7 +60,7 @@ pub struct Timeline {
 	show_article_component_dropdown: bool,
 	column_count: u8,
 	width: u8,
-	article_component: ArticleComponent,
+	article_component: ArticleView,
 	show_choose_endpoint: bool,
 	container_ref: NodeRef,
 	autoscroll: Rc<RefCell<Autoscroll>>,
@@ -85,7 +85,7 @@ pub enum Msg {
 	ToggleHideText,
 	ChangeContainer(Container),
 	ToggleContainerDropdown,
-	ChangeArticleComponent(ArticleComponent),
+	ChangeArticleComponent(ArticleView),
 	ToggleArticleComponentDropdown,
 	ChangeColumnCount(u8),
 	ChangeWidth(u8),
@@ -116,8 +116,8 @@ pub struct Props {
 	pub main_timeline: bool,
 	#[prop_or(Container::Column)]
 	pub container: Container,
-	#[prop_or(ArticleComponent::Social)]
-	pub article_component: ArticleComponent,
+	#[prop_or(ArticleView::Social)]
+	pub article_component: ArticleView,
 	#[prop_or(1)]
 	pub width: u8,
 	#[prop_or(1)]
@@ -629,8 +629,8 @@ impl Timeline {
 				<div class="block control">
 					<label class="label">{"Component"}</label>
 					<Dropdown current_label={DropdownLabel::Text(self.article_component.name().to_string())}>
-						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeArticleComponent(ArticleComponent::Social))}> {"Social"} </a>
-						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeArticleComponent(ArticleComponent::Gallery))}> {"Gallery"} </a>
+						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeArticleComponent(ArticleView::Social))}> {"Social"} </a>
+						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeArticleComponent(ArticleView::Gallery))}> {"Gallery"} </a>
 					</Dropdown>
 				</div>
 				<div class="control">

@@ -227,7 +227,10 @@ impl Component for SocialArticle {
 				<div class="media">
 					<figure class="media-left">
 						<p class="image is-64x64">
-							<img src={actual_borrow.author_avatar_url().clone()} alt={format!("{}'s avatar", &actual_borrow.author_username())}/>
+							{ match actual_borrow.author_avatar_url().as_str() {
+								"" => html! {},
+								url => html! { <img src={url.to_owned()} alt={format!("{}'s avatar", &actual_borrow.author_username())}/> }
+							} }
 						</p>
 					</figure>
 					<div class="media-content">
