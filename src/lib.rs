@@ -391,3 +391,12 @@ pub fn parse_pathname(ctx: &Context<Model>, pathname: &str, search_opt: &Option<
 		}
 	}
 }
+
+//Maybe move to a generic util module?
+pub fn base_url() -> String {
+	let location = web_sys::window().unwrap().location();
+	let host = location.host().unwrap();
+	let protocol = location.protocol().unwrap();
+
+	format!("{}//{}", protocol, host)
+}

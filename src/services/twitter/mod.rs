@@ -10,18 +10,19 @@ mod article;
 pub use article::TweetArticleData;
 use article::{TwitterUser, StrongArticleRefType};
 use crate::articles::{ArticleData, ArticleRefType};
+use crate::base_url;
 use crate::services::{
 	RateLimit,
 	endpoint_agent::{EndpointAgent, Request as EndpointRequest, EndpointId, EndpointConstructor, EndpointConstructors, RefreshTime},
 	article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest},
 	twitter::endpoints::{UserTimelineEndpoint, HomeTimelineEndpoint, ListEndpoint, SingleTweetEndpoint},
 };
-use crate::error::{Error, RatelimitedResult, Result};
+use crate::error::{Error, RatelimitedResult};
 use crate::services::storages::{SoshalSessionStorage, mark_article_as_read};
 
 pub async fn fetch_tweets(url: &str, marked_as_read: &HashSet<u64>) -> RatelimitedResult<Vec<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)>> {
 	let response = reqwest::Client::builder().build()?
-		.get(format!("{}{}", base_url()?, url))
+		.get(format!("{}{}", base_url(), url))
 		.send().await?;
 
 	let headers = response.headers();
@@ -44,7 +45,7 @@ pub async fn fetch_tweets(url: &str, marked_as_read: &HashSet<u64>) -> Ratelimit
 
 pub async fn fetch_tweet(url: &str, marked_as_read: &HashSet<u64>) -> RatelimitedResult<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)> {
 	let response = reqwest::Client::builder().build()?
-		.get(format!("{}{}", base_url()?, url))
+		.get(format!("{}{}", base_url(), url))
 		.send().await?;
 
 	let headers = response.headers();
@@ -54,15 +55,6 @@ pub async fn fetch_tweet(url: &str, marked_as_read: &HashSet<u64>) -> Ratelimite
 
 	let value: serde_json::Value = serde_json::from_str(&json_str).unwrap();
 	Ok((TweetArticleData::from(&value, &marked_as_read), Some(ratelimit)))
-}
-
-fn base_url() -> Result<String> {
-	let window = web_sys::window().ok_or(Error::from("Couldn't get global window"))?;
-	let location = window.location();
-	let host = location.host()?;
-	let protocol = location.protocol()?;
-
-	Ok(format!("{}//{}", protocol, host))
 }
 
 //TODO Receive TwitterUser
