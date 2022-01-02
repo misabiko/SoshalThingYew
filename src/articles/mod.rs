@@ -1,6 +1,5 @@
 use std::rc::Weak;
 use std::cell::RefCell;
-use yew::prelude::*;
 use js_sys::Date;
 
 pub mod component;
@@ -61,29 +60,6 @@ impl PartialEq<dyn ArticleData> for dyn ArticleData {
 			self.author_avatar_url() == other.author_avatar_url() &&
 			self.author_url() == other.author_url() &&
 			self.media() == other.media()
-	}
-}
-
-#[derive(Properties, Clone)]
-pub struct Props {
-	pub data: Weak<RefCell<dyn ArticleData>>,
-	#[prop_or_default]
-	pub compact: bool,
-	#[prop_or_default]
-	pub style: Option<String>,
-	#[prop_or_default]
-	pub animated_as_gifs: bool,
-	#[prop_or_default]
-	pub hide_text: bool,
-}
-
-impl PartialEq<Props> for Props {
-	fn eq(&self, other: &Props) -> bool {
-		self.compact == other.compact &&
-		self.animated_as_gifs == other.animated_as_gifs &&
-		self.hide_text == other.hide_text &&
-			self.style == other.style &&
-			Weak::ptr_eq(&self.data, &other.data)
 	}
 }
 

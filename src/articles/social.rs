@@ -1,48 +1,34 @@
 use yew::prelude::*;
 use js_sys::Date;
-use wasm_bindgen::JsValue;
-use web_sys::console;
 use std::cell::Ref;
 use wasm_bindgen::closure::Closure;
-use yew_agent::{Bridge, Bridged, Dispatcher, Dispatched};
+use yew_agent::{Dispatcher, Dispatched};
 
-use crate::articles::{ArticleData, ArticleRefType, Props, ArticleMedia};
+use crate::articles::{ArticleData, ArticleRefType, ArticleMedia};
+use crate::articles::component::{ViewProps, Msg as ParentMsg};
 use crate::dropdown::{Dropdown, DropdownLabel};
-use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest, Response as ArticleActionsResponse};
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest};
 use crate::modals::Modal;
 
 pub struct SocialArticle {
 	compact: Option<bool>,
-	article_actions: Box<dyn Bridge<ArticleActionsAgent>>,
-	video_ref: NodeRef,
 	add_timeline_agent: Dispatcher<TimelineAgent>,
 	in_modal: bool,
 }
 
 pub enum Msg {
+	ParentCallback(ParentMsg),
 	ToggleCompact,
-	OnImageClick,
-	LogData,
-	FetchData,
-	Like,
-	Repost,
-	ToggleMarkAsRead,
-	ToggleHide,
-	ActionsCallback(ArticleActionsResponse),
 	AddUserTimeline(String, String),
-	ToggleInModal,
 }
 
 impl Component for SocialArticle {
 	type Message = Msg;
-	type Properties = Props;
+	type Properties = ViewProps;
 
-	fn create(ctx: &Context<Self>) -> Self {
+	fn create(_ctx: &Context<Self>) -> Self {
 		Self {
 			compact: None,
-			article_actions: ArticleActionsAgent::bridge(ctx.link().callback(Msg::ActionsCallback)),
-			video_ref: NodeRef::default(),
 			add_timeline_agent: TimelineAgent::dispatcher(),
 			in_modal: false,
 		}
@@ -50,6 +36,10 @@ impl Component for SocialArticle {
 
 	fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
 		match msg {
+			Msg::ParentCallback(message) => {
+				ctx.props().parent_callback.emit(message);
+				false
+			},
 			Msg::ToggleCompact => {
 				match self.compact {
 					Some(compact) => self.compact = Some(!compact),
@@ -57,139 +47,15 @@ impl Component for SocialArticle {
 				};
 				true
 			}
-			Msg::OnImageClick => {
-				ctx.link().send_message(Msg::ToggleMarkAsRead);
-				false
-			}
-			Msg::LogData => {
-				let strong = ctx.props().data.upgrade().unwrap();
-				let json = &strong.borrow().json();
-				let is_mobile = web_sys::window().expect("couldn't get global window")
-					.navigator().user_agent()
-					.map(|n| n.contains("Mobile"))
-					.unwrap_or(false);
-				if is_mobile {
-					log::info!("{}", serde_json::to_string_pretty(json).unwrap_or("Couldn't parse json data.".to_owned()));
-				}else {
-					console::dir_1(&JsValue::from_serde(&json).unwrap_or_default());
-				}
-				false
-			}
-			Msg::FetchData => {
-				let strong = ctx.props().data.upgrade().unwrap();
-				let borrow = strong.borrow();
-
-				self.article_actions.send(ArticleActionsRequest::FetchData(match borrow.referenced_article() {
-					ArticleRefType::NoRef | ArticleRefType::Quote(_) => ctx.props().data.clone(),
-					ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => a,
-				}));
-				false
-			}
-			Msg::Like => {
-				let strong = ctx.props().data.upgrade().unwrap();
-				let borrow = strong.borrow();
-
-				self.article_actions.send(ArticleActionsRequest::Like(match borrow.referenced_article() {
-					ArticleRefType::NoRef | ArticleRefType::Quote(_) => ctx.props().data.clone(),
-					ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => a,
-				}));
-				false
-			}
-			Msg::Repost => {
-				let strong = ctx.props().data.upgrade().unwrap();
-				let borrow = strong.borrow();
-
-				self.article_actions.send(ArticleActionsRequest::Repost(match borrow.referenced_article() {
-					ArticleRefType::NoRef | ArticleRefType::Quote(_) => ctx.props().data.clone(),
-					ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => a,
-				}));
-				false
-			}
-			Msg::ToggleMarkAsRead => {
-				if let Some(video) = self.video_ref.cast::<web_sys::HtmlVideoElement>() {
-					video.set_muted(true);
-					match video.pause() {
-						Err(err) => log::warn!("Failed to try and pause the video.\n{:?}", &err),
-						Ok(_) => {}
-					}
-				}
-
-				let strong = ctx.props().data.upgrade().unwrap();
-				let mut borrow = strong.borrow_mut();
-
-				match borrow.referenced_article() {
-					ArticleRefType::NoRef | ArticleRefType::Quote(_) => {
-						let marked_as_read = borrow.marked_as_read();
-						borrow.set_marked_as_read(!marked_as_read);
-						self.article_actions.send(ArticleActionsRequest::MarkAsRead(ctx.props().data.clone(), !marked_as_read));
-					},
-					ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => {
-						let strong = a.upgrade().unwrap();
-						let mut borrow = strong.borrow_mut();
-
-						let marked_as_read = borrow.marked_as_read();
-						borrow.set_marked_as_read(!marked_as_read);
-						self.article_actions.send(ArticleActionsRequest::MarkAsRead(a.clone(), !marked_as_read));
-					}
-				};
-
-				true
-			}
-			Msg::ToggleHide => {
-				if let Some(video) = self.video_ref.cast::<web_sys::HtmlVideoElement>() {
-					video.set_muted(true);
-					match video.pause() {
-						Err(err) => log::warn!("Failed to try and pause the video.\n{:?}", &err),
-						Ok(_) => {}
-					}
-				}
-
-				let strong = ctx.props().data.upgrade().unwrap();
-				let mut borrow = strong.borrow_mut();
-
-				match borrow.referenced_article() {
-					ArticleRefType::NoRef | ArticleRefType::Quote(_) => {
-						let hidden = borrow.hidden();
-						borrow.set_hidden(!hidden);
-					},
-					ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => {
-						let strong = a.upgrade().unwrap();
-						let mut borrow = strong.borrow_mut();
-
-						let hidden = borrow.hidden();
-						borrow.set_hidden(!hidden);
-					}
-				};
-
-				true
-			}
-			Msg::ActionsCallback(response) => {
-				match response {
-					ArticleActionsResponse::Callback(articles) => {
-						//For some reason Weak::ptr_eq() always returns false
-						let strong = ctx.props().data.upgrade().unwrap();
-						let borrow = strong.borrow();
-						articles.iter().any(|a| {
-							let strong_a = a.upgrade().unwrap();
-							let eq = borrow.id() == strong_a.borrow().id();
-							eq
-						})
-					}
-				}
-			}
 			Msg::AddUserTimeline(service, username) => {
 				self.add_timeline_agent.send(TimelineAgentRequest::AddUserTimeline(service, username));
 				false
-			}
-			Msg::ToggleInModal => {
-				self.in_modal = !self.in_modal;
-				true
 			}
 		}
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
-		let strong = ctx.props().data.upgrade().unwrap();
+		let strong = ctx.props().article.upgrade().unwrap();
 		let borrow = strong.borrow();
 
 		let (actual_article, retweet_header, quoted_post) = match &borrow.referenced_article() {
@@ -260,7 +126,7 @@ impl Component for SocialArticle {
 
 		if self.in_modal {
 			html! {
-				<Modal content_style="width: 75%" close_modal_callback={ctx.link().callback(|_| Msg::ToggleInModal)}>
+				<Modal content_style="width: 75%" close_modal_callback={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleInModal))}>
 					{ html }
 				</Modal>
 			}
@@ -270,7 +136,7 @@ impl Component for SocialArticle {
 	}
 
 	fn rendered(&mut self, ctx: &Context<Self>, _first_render: bool) {
-		if let Some(video) = self.video_ref.cast::<web_sys::HtmlVideoElement>() {
+		if let Some(video) = ctx.props().video_ref.cast::<web_sys::HtmlVideoElement>() {
 			match ctx.props().animated_as_gifs {
 				true => {
 					video.set_muted(true);
@@ -316,7 +182,7 @@ impl SocialArticle {
 	}
 
 	fn view_nav(&self, ctx: &Context<Self>, actual_borrow: &Ref<dyn ArticleData>) -> Html {
-		let strong = ctx.props().data.upgrade().unwrap();
+		let strong = ctx.props().article.upgrade().unwrap();
 		let borrow = strong.borrow();
 		let ontoggle_compact = ctx.link().callback(|_| Msg::ToggleCompact);
 		let dropdown_buttons = match &borrow.referenced_article() {
@@ -341,7 +207,7 @@ impl SocialArticle {
 							<>
 								<a
 									class={classes!("level-item", "articleButton", "repostButton", if actual_borrow.reposted() { Some("repostedPostButton") } else { None })}
-									onclick={ctx.link().callback(|_| Msg::Repost)}
+									onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::Repost))}
 								>
 									<span class="icon">
 										<i class="fas fa-retweet"/>
@@ -355,7 +221,7 @@ impl SocialArticle {
 								</a>
 								<a
 									class={classes!("level-item", "articleButton", "likeButton", if actual_borrow.liked() { Some("likedPostButton") } else { None })}
-									onclick={ctx.link().callback(|_| Msg::Like)}
+									onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::Like))}
 								>
 									<span class="icon">
 										<i class={classes!("fa-heart", if actual_borrow.liked() { "fas" } else { "far" })}/>
@@ -382,7 +248,7 @@ impl SocialArticle {
 								{
 									match self.in_modal {
 										false => html! {
-											<a class="level-item articleButton" onclick={ctx.link().callback(|_| Msg::ToggleInModal)}>
+											<a class="level-item articleButton" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleInModal))}>
 												<span class="icon">
 													<i class="fas fa-expand-alt"/>
 												</span>
@@ -397,8 +263,8 @@ impl SocialArticle {
 						true => html! {},
 					} }
 					<Dropdown current_label={DropdownLabel::Icon("fas fa-ellipsis-h".to_owned())} label_classes={classes!("articleButton")}>
-						<div class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ToggleMarkAsRead)}> {"Mark as read"} </div>
-						<div class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ToggleHide)}> {"Hide"} </div>
+						<div class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleMarkAsRead))}> {"Mark as read"} </div>
+						<div class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleHide))}> {"Hide"} </div>
 						<div class="dropdown-item" onclick={&ontoggle_compact}> { if self.is_compact(ctx) { "Show expanded" } else { "Show compact" } } </div>
 						<a
 							class="dropdown-item"
@@ -408,8 +274,8 @@ impl SocialArticle {
 							{ "External Link" }
 						</a>
 						{ dropdown_buttons }
-						<div class="dropdown-item" onclick={ctx.link().callback(|_| Msg::LogData)}>{"Log Data"}</div>
-						<div class="dropdown-item" onclick={ctx.link().callback(|_| Msg::FetchData)}>{"Fetch Data"}</div>
+						<div class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::LogData))}>{"Log Data"}</div>
+						<div class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::FetchData))}>{"Fetch Data"}</div>
 					</Dropdown>
 				</div>
 			</nav>
@@ -457,14 +323,14 @@ impl SocialArticle {
 			}
 			(false, [ArticleMedia::Video(video_src, _)]) => html! {
 				<div class="postMedia postVideo">
-					<video ref={self.video_ref.clone()} controls=true onclick={ctx.link().callback(|_| Msg::OnImageClick)}>
+					<video ref={ctx.props().video_ref.clone()} controls=true onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}>
 						<source src={video_src.clone()} type="video/mp4"/>
 					</video>
 				</div>
 			},
 			(_, [ArticleMedia::VideoGif(gif_src, _)]) | (true, [ArticleMedia::Video(gif_src, _)]) => html! {
 				<div class="postMedia postVideo">
-					<video ref={self.video_ref.clone()} controls=true autoplay=true loop=true muted=true onclick={ctx.link().callback(|_| Msg::OnImageClick)}>
+					<video ref={ctx.props().video_ref.clone()} controls=true autoplay=true loop=true muted=true onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}>
 						<source src={gif_src.clone()} type="video/mp4"/>
 					</video>
 				</div>
@@ -484,7 +350,7 @@ impl SocialArticle {
 		html! {
 			<div class={media_holder_classes}>
 				<div class="is-hidden imgPlaceholder"/>
-				<img alt={actual_borrow.id()} src={image} onclick={ctx.link().callback(|_| Msg::OnImageClick)}/>
+				<img alt={actual_borrow.id()} src={image} onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}/>
 			</div>
 		}
 	}
