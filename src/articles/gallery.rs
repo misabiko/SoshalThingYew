@@ -116,11 +116,11 @@ impl GalleryArticle {
 							<i class="fas fa-external-link-alt"/>
 						</span>
 					</a>
-					/*<button class="button" onclick={actual_article.url()} target="_blank">
+					<button class="button" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleInModal))}>
 						<span class="icon darkIcon is-small">
-							<i class="fas fa-external-link-alt"/>
+							<i class="fas fa-expand-arrows-alt"/>
 						</span>
-					</button>*/
+					</button>
 					<Dropdown on_expanded_change={ctx.link().callback(Msg::SetDrawOnTop)} is_right=true current_label={DropdownLabel::Icon("fas fa-ellipsis-h".to_owned())} label_classes={classes!("articleButton")}>
 						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleMarkAsRead))}> {"Mark as read"} </a>
 						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleHide))}> {"Hide"} </a>
@@ -136,7 +136,15 @@ impl GalleryArticle {
 					</Dropdown>
 				</div>
 				<div class="holderBox holderBoxBottom">
-					<button class="button">
+					<button class="button" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::Like))}>
+						<span class="icon darkIcon is-small">
+							<i class="fas fa-heart"/>
+						</span>
+					</button>
+					<button class="button" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::Repost))}>
+						<span class="icon darkIcon is-small">
+							<i class="fas fa-retweet"/>
+						</span>
 					</button>
 				</div>
 			</>
