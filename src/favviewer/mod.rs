@@ -47,6 +47,10 @@ impl PageInfo {
 	}
 }
 
+pub fn default_hidden_style() -> &'static str {
+	"#favviewer {display: none;}"
+}
+
 pub fn try_inject(href: &str, ) -> bool {
 	pixiv::setup(href)
 }

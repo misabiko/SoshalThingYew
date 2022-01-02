@@ -3,7 +3,7 @@ use yew_agent::Dispatched;
 use std::collections::HashMap;
 use gloo_timers::callback::Timeout;
 
-use crate::favviewer::{FavViewerStyle, PageInfo};
+use crate::favviewer::{FavViewerStyle, PageInfo, default_hidden_style};
 use crate::{Model, Props as ModelProps, DisplayMode, EndpointAgent};
 use crate::timeline::Container;
 use crate::services::{
@@ -86,7 +86,7 @@ pub fn setup(href: &str) -> bool {
 			}, document_head.clone().into()
 		));
 		style_html.insert(FavViewerStyle::Hidden, create_portal(html! {
-                <style>{"#favviewer {display: none;} #root {width: 100%} "}</style>
+                <style>{format!("{} #root {{width: 100%}}", default_hidden_style())}</style>
 			}, document_head.into()
 		));
 

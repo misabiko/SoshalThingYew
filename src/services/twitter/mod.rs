@@ -17,7 +17,7 @@ use crate::services::{
 	twitter::endpoints::{UserTimelineEndpoint, HomeTimelineEndpoint, ListEndpoint, SingleTweetEndpoint},
 };
 use crate::error::{Error, RatelimitedResult, Result};
-use crate::services::storages::{SoshalSessionStorage, SessionStorageService};
+use crate::services::storages::{SoshalSessionStorage, mark_article_as_read};
 
 pub async fn fetch_tweets(url: &str, marked_as_read: &HashSet<u64>) -> RatelimitedResult<Vec<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)>> {
 	let response = reqwest::Client::builder().build()?
@@ -256,50 +256,7 @@ impl Agent for TwitterAgent {
 				let strong = article.upgrade().unwrap();
 				let borrow = strong.borrow();
 
-				let session_storage: SoshalSessionStorage = match gloo_storage::SessionStorage::get("SoshalThingYew") {
-					Ok(storage) => {
-						let mut session_storage: SoshalSessionStorage = storage;
-						(match session_storage.services.get_mut("Twitter") {
-							Some(service) => Some(service),
-							None => {
-								let service = SessionStorageService {
-									articles_marked_as_read: HashSet::new(),
-									cached_articles: HashMap::new(),
-								};
-								session_storage.services.insert("Twitter".to_owned(), service);
-								session_storage.services.get_mut("Twitter")
-							}
-						})
-							.map(|s| &mut s.articles_marked_as_read).
-							map(|cached| if value {
-								cached.insert(borrow.id());
-							}else {
-								cached.remove(&borrow.id());
-							});
-
-						session_storage
-					},
-					Err(_err) => {
-						SoshalSessionStorage {
-							services: HashMap::from([
-								("Twitter".to_owned(), SessionStorageService {
-									articles_marked_as_read: match value {
-										true => {
-											let mut set = HashSet::new();
-											set.insert(borrow.id());
-											set
-										},
-										false => HashSet::new(),
-									},
-									cached_articles: HashMap::new(),
-								})
-							])
-						}
-					}
-				};
-
-				gloo_storage::SessionStorage::set("SoshalThingYew", &session_storage)
-					.expect("couldn't write session storage");
+				mark_article_as_read("Twitter", borrow.id(), value);
 
 				self.actions_agent.send(ArticleActionsRequest::Callback(vec![article]));
 			}

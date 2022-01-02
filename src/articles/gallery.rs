@@ -53,7 +53,7 @@ impl Component for GalleryArticle {
 				true
 			},
 			Msg::OnImageClick => {
-				ctx.link().send_message(Msg::ToggleCompact);
+				ctx.link().send_message(Msg::ToggleMarkAsRead);
 				true
 			},
 			Msg::ActionsCallback(response) => {
@@ -216,7 +216,7 @@ impl GalleryArticle {
 			<>
 				{ for actual_article.media().iter().map(|m| match (&ctx.props().animated_as_gifs, m) {
 					(_, ArticleMedia::Image(src, _) | ArticleMedia::Gif(src, _)) => html! {
-								<img src={src.clone()}/>
+								<img src={src.clone()} onclick={ctx.link().callback(|_| Msg::OnImageClick)}/>
 							},
 					(false, ArticleMedia::Video(video_src, _)) => html! {
 								<video ref={self.video_ref.clone()} controls=true onclick={ctx.link().callback(|_| Msg::OnImageClick)}>
