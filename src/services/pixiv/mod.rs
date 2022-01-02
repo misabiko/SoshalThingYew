@@ -9,7 +9,7 @@ pub mod article;
 use article::{PixivArticleData, PixivArticleCached};
 
 use crate::articles::ArticleData;
-use crate::error::FetchResult;
+use crate::error::RatelimitedResult;
 use crate::services::article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest};
 use crate::services::endpoint_agent::{EndpointAgent, Request as EndpointRequest, EndpointId, RefreshTime, EndpointConstructors};
 use crate::services::pixiv::endpoints::{APIPayload, FollowAPIResponse, FullPostAPI};
@@ -24,8 +24,8 @@ pub struct PixivAgent {
 }
 
 pub enum Msg {
-	FetchResponse(FetchResult<Vec<Rc<RefCell<PixivArticleData>>>>),
-	EndpointFetchResponse(RefreshTime, EndpointId, FetchResult<Vec<Rc<RefCell<PixivArticleData>>>>),
+	FetchResponse(RatelimitedResult<Vec<Rc<RefCell<PixivArticleData>>>>),
+	EndpointFetchResponse(RefreshTime, EndpointId, RatelimitedResult<Vec<Rc<RefCell<PixivArticleData>>>>),
 	FetchData(HandlerId, Weak<RefCell<dyn ArticleData>>),
 }
 
@@ -194,8 +194,8 @@ impl PixivAgent {
 	}
 }
 
-//TODO Stop using or rename FetchResult to RatelimitedFetchResult
-async fn fetch_posts(url: &str, storage: &SessionStorageService) -> FetchResult<Vec<Rc<RefCell<PixivArticleData>>>> {
+//TODO Stop using RatelimitedResult
+async fn fetch_posts(url: &str, storage: &SessionStorageService) -> RatelimitedResult<Vec<Rc<RefCell<PixivArticleData>>>> {
 	let response = reqwest::Client::builder().build()?
 		.get(url)
 		.send().await?;
@@ -216,7 +216,7 @@ async fn fetch_posts(url: &str, storage: &SessionStorageService) -> FetchResult<
 	}
 }
 
-async fn fetch_post(url: &str, storage: &SessionStorageService) -> FetchResult<Rc<RefCell<PixivArticleData>>> {
+async fn fetch_post(url: &str, storage: &SessionStorageService) -> RatelimitedResult<Rc<RefCell<PixivArticleData>>> {
 	let response = reqwest::Client::builder().build()?
 		.get(url)
 		.send().await?;

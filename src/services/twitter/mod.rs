@@ -16,10 +16,10 @@ use crate::services::{
 	article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest},
 	twitter::endpoints::{UserTimelineEndpoint, HomeTimelineEndpoint, ListEndpoint, SingleTweetEndpoint},
 };
-use crate::error::{Error, FetchResult, Result};
+use crate::error::{Error, RatelimitedResult, Result};
 use crate::services::storages::{SoshalSessionStorage, SessionStorageService};
 
-pub async fn fetch_tweets(url: &str, marked_as_read: &HashSet<u64>) -> FetchResult<Vec<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)>> {
+pub async fn fetch_tweets(url: &str, marked_as_read: &HashSet<u64>) -> RatelimitedResult<Vec<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)>> {
 	let response = reqwest::Client::builder().build()?
 		.get(format!("{}{}", base_url()?, url))
 		.send().await?;
@@ -42,7 +42,7 @@ pub async fn fetch_tweets(url: &str, marked_as_read: &HashSet<u64>) -> FetchResu
 		.map_err(|err| Error::from(err))
 }
 
-pub async fn fetch_tweet(url: &str, marked_as_read: &HashSet<u64>) -> FetchResult<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)> {
+pub async fn fetch_tweet(url: &str, marked_as_read: &HashSet<u64>) -> RatelimitedResult<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)> {
 	let response = reqwest::Client::builder().build()?
 		.get(format!("{}{}", base_url()?, url))
 		.send().await?;
@@ -86,8 +86,8 @@ pub enum Request {
 }
 
 pub enum Msg {
-	FetchResponse(HandlerId, FetchResult<Vec<Rc<RefCell<TweetArticleData>>>>),
-	EndpointFetchResponse(RefreshTime, EndpointId, FetchResult<Vec<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)>>),
+	FetchResponse(HandlerId, RatelimitedResult<Vec<Rc<RefCell<TweetArticleData>>>>),
+	EndpointFetchResponse(RefreshTime, EndpointId, RatelimitedResult<Vec<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)>>),
 	Like(HandlerId, Weak<RefCell<dyn ArticleData>>),
 	Retweet(HandlerId, Weak<RefCell<dyn ArticleData>>),
 	MarkAsRead(HandlerId, Weak<RefCell<dyn ArticleData>>, bool),

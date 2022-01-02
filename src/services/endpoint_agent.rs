@@ -7,7 +7,7 @@ use serde_json::json;
 use gloo_timers::callback::Interval;
 
 use super::{Endpoint, EndpointSerialized, RateLimit};
-use crate::error::{Error, FetchResult};
+use crate::error::{Error, RatelimitedResult};
 use crate::articles::ArticleData;
 use crate::timeline::agent::TimelineEndpointsSerialized;
 use crate::timeline::filters::{Filter, deserialize_filters};
@@ -124,7 +124,7 @@ pub enum Request {
 	LoadBottom(Weak<RefCell<TimelineEndpoints>>),
 	LoadTop(Weak<RefCell<TimelineEndpoints>>),
 	RefreshEndpoint(EndpointId, RefreshTime),
-	EndpointFetchResponse(RefreshTime, EndpointId, FetchResult<Vec<Rc<RefCell<dyn ArticleData>>>>),
+	EndpointFetchResponse(RefreshTime, EndpointId, RatelimitedResult<Vec<Rc<RefCell<dyn ArticleData>>>>),
 	AddArticles(RefreshTime, EndpointId, Vec<Rc<RefCell<dyn ArticleData>>>),
 	AddEndpoint(Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>),
 	BatchAddEndpoints(Vec<Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>>, Vec<Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>>, TimelineCreationRequest),
