@@ -8,12 +8,10 @@ use crate::articles::{ArticleData, ArticleRefType, ArticleMedia};
 use crate::articles::component::{ViewProps, Msg as ParentMsg};
 use crate::dropdown::{Dropdown, DropdownLabel};
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest};
-use crate::modals::Modal;
 
 pub struct SocialArticle {
 	compact: Option<bool>,
 	add_timeline_agent: Dispatcher<TimelineAgent>,
-	in_modal: bool,
 }
 
 pub enum Msg {
@@ -30,7 +28,6 @@ impl Component for SocialArticle {
 		Self {
 			compact: None,
 			add_timeline_agent: TimelineAgent::dispatcher(),
-			in_modal: false,
 		}
 	}
 
@@ -87,7 +84,7 @@ impl Component for SocialArticle {
 			Msg::AddUserTimeline(borrow.service().to_owned(), borrow.author_username())
 		});
 
-		let html = html! {
+		html! {
 			<article class="article" articleId={borrow.id()} key={borrow.id()} style={ctx.props().style.clone()}>
 				{ retweet_header }
 				<div class="media">
@@ -122,16 +119,6 @@ impl Component for SocialArticle {
 					true => html! {},
 				} }
 			</article>
-		};
-
-		if self.in_modal {
-			html! {
-				<Modal content_style="width: 75%" close_modal_callback={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleInModal))}>
-					{ html }
-				</Modal>
-			}
-		}else {
-			html
 		}
 	}
 
@@ -246,7 +233,7 @@ impl SocialArticle {
 									}
 								}
 								{
-									match self.in_modal {
+									match ctx.props().in_modal {
 										false => html! {
 											<a class="level-item articleButton" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleInModal))}>
 												<span class="icon">

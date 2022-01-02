@@ -9,6 +9,7 @@ use std::convert::identity;
 use super::{ArticleView, SocialArticle, GalleryArticle};
 use crate::articles::{ArticleData, ArticleRefType};
 use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest, Response as ArticleActionsResponse};
+use crate::modals::Modal;
 
 pub struct ArticleComponent {
 	in_modal: bool,
@@ -58,6 +59,7 @@ pub struct ViewProps {
 	pub style: Option<String>,
 	pub animated_as_gifs: bool,
 	pub hide_text: bool,
+	pub in_modal: bool,
 	pub video_ref: NodeRef,
 	//Maybe use ctx.link().get_parent()?
 	pub parent_callback: Callback<Msg>,
@@ -68,6 +70,7 @@ impl PartialEq<ViewProps> for ViewProps {
 		self.compact == other.compact &&
 			self.animated_as_gifs == other.animated_as_gifs &&
 			self.hide_text == other.hide_text &&
+			self.in_modal == other.in_modal &&
 			self.style == other.style &&
 			Weak::ptr_eq(&self.article, &other.article)
 	}
@@ -216,35 +219,49 @@ impl Component for ArticleComponent {
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
-		if let Some(strong) = ctx.props().article.upgrade() {
-			match &ctx.props().article_view {
-				ArticleView::Social => html! {
-					<SocialArticle
-						key={strong.borrow().id()}
-						article={ctx.props().article.clone()}
-						compact={ctx.props().compact.clone()}
-						animated_as_gifs={ctx.props().animated_as_gifs.clone()}
-						hide_text={ctx.props().hide_text.clone()}
-						style={ctx.props().style.clone()}
-						video_ref={self.video_ref.clone()}
-						parent_callback={ctx.link().callback(identity)}
-					/>
-				},
-				ArticleView::Gallery => html! {
-					<GalleryArticle
-						key={strong.borrow().id()}
-						article={ctx.props().article.clone()}
-						compact={ctx.props().compact.clone()}
-						animated_as_gifs={ctx.props().animated_as_gifs.clone()}
-						hide_text={ctx.props().hide_text.clone()}
-						style={ctx.props().style.clone()}
-						video_ref={self.video_ref.clone()}
-						parent_callback={ctx.link().callback(identity)}
-					/>
-				},
+		let strong = ctx.props().article.upgrade();
+		if strong.is_none() {
+			return html! {}
+		}
+		let strong = strong.unwrap();
+
+		let html = match &ctx.props().article_view {
+			ArticleView::Social => html! {
+				<SocialArticle
+					key={strong.borrow().id()}
+					article={ctx.props().article.clone()}
+					compact={ctx.props().compact.clone()}
+					animated_as_gifs={ctx.props().animated_as_gifs.clone()}
+					hide_text={ctx.props().hide_text.clone()}
+					in_modal={self.in_modal.clone()}
+					style={ctx.props().style.clone()}
+					video_ref={self.video_ref.clone()}
+					parent_callback={ctx.link().callback(identity)}
+				/>
+			},
+			ArticleView::Gallery => html! {
+				<GalleryArticle
+					key={strong.borrow().id()}
+					article={ctx.props().article.clone()}
+					compact={ctx.props().compact.clone()}
+					animated_as_gifs={ctx.props().animated_as_gifs.clone()}
+					hide_text={ctx.props().hide_text.clone()}
+					in_modal={self.in_modal.clone()}
+					style={ctx.props().style.clone()}
+					video_ref={self.video_ref.clone()}
+					parent_callback={ctx.link().callback(identity)}
+				/>
+			},
+		};
+
+		if self.in_modal {
+			html! {
+				<Modal content_style="width: 75%" close_modal_callback={ctx.link().callback(|_| Msg::ToggleInModal)}>
+					{ html }
+				</Modal>
 			}
 		}else {
-			html! {}
+			html
 		}
 	}
 }
