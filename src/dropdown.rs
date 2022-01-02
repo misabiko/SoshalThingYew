@@ -21,6 +21,10 @@ pub struct Props {
 	#[prop_or_default]
 	pub label_classes: Option<Classes>,
 	pub children: Children,
+	#[prop_or_default]
+	pub is_right: bool,
+	#[prop_or_default]
+	pub on_expanded_change: Option<Callback<bool>>,
 }
 
 impl Component for Dropdown {
@@ -33,10 +37,13 @@ impl Component for Dropdown {
 		}
 	}
 
-	fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
+	fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
 		match msg {
 			Msg::ToggleExpanded => {
 				self.expanded = !self.expanded;
+				if let Some(on_expanded_change) = &ctx.props().on_expanded_change {
+					on_expanded_change.emit(self.expanded);
+				}
 				true
 			}
 		}
@@ -51,7 +58,7 @@ impl Component for Dropdown {
 		});
 
 		html! {
-			<div class={classes!("dropdown", if self.expanded { Some("is-active") } else { None })}>
+			<div class={classes!("dropdown", if self.expanded { Some("is-active") } else { None }, if ctx.props().is_right { Some("is-right") } else { None })}>
 				<div class="dropdown-trigger">
 					<button class={classes!("button", ctx.props().label_classes.clone())} onclick={ctx.link().callback(|_| Msg::ToggleExpanded)}>
 						{ match &ctx.props().current_label {

@@ -3,3 +3,40 @@
 article.article.galleryArticle
 	padding: 0px
 	margin-bottom: 0px
+	position: relative
+
+article:hover .holderBox
+	display: flex
+
+.holderBox
+	justify-content: space-between
+	flex-wrap: nowrap
+	position: absolute
+	height: 45px
+	width: 100%
+	opacity: 0.5
+	display: none
+
+	& > *
+		height: inherit
+		padding-top: unset
+		padding-bottom: unset
+
+	//TODO Hack
+	& .dropdown-content
+		overflow-x: hidden
+
+.holderBoxTop
+	top: 0px
+
+.holderBoxBottom
+	bottom: 0px
+
+img.articleMediaLoading
+	position: absolute
+
+.articleThumb
+	z-index: -1
+
+ul.articleTags
+	list-style-type: none
