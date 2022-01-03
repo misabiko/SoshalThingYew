@@ -53,7 +53,7 @@ pub struct Timeline {
 	hide_text: bool,
 	endpoint_agent: Dispatcher<EndpointAgent>,
 	filters: Vec<Filter>,
-	sort_method: Option<(SortMethod, bool)>,
+	sort_method: (Option<SortMethod>, bool),
 	container: Container,
 	show_container_dropdown: bool,
 	show_article_component_dropdown: bool,
@@ -95,6 +95,7 @@ pub enum Msg {
 	ToggleFilterInverted(usize),
 	SetSortMethod(Option<&'static SortMethod>),
 	ToggleSortReversed,
+	SortOnce(&'static SortMethod),
 	ScrollTop,
 	ActionsCallback(ArticleActionsResponse),
 	SetMainTimeline,
@@ -178,7 +179,10 @@ impl Component for Timeline {
 			hide_text: ctx.props().hide_text.clone(),
 			endpoint_agent,
 			filters: ctx.props().filters.as_ref().map(|f| f.clone()).unwrap_or_else(|| default_filters()),
-			sort_method: ctx.props().sort_method,
+			sort_method: match ctx.props().sort_method {
+				Some((method, reversed)) => (Some(method), reversed),
+				None => (None, false)
+			},
 			container: ctx.props().container.clone(),
 			show_container_dropdown: false,
 			show_article_component_dropdown: false,
@@ -281,7 +285,7 @@ impl Component for Timeline {
 			}
 			Msg::Shuffle => {
 				self.articles.shuffle(&mut thread_rng());
-				self.sort_method = None;
+				self.sort_method = (None, false);
 				true
 			}
 			Msg::SetChooseEndpointModal(value) => {
@@ -367,16 +371,20 @@ impl Component for Timeline {
 				true
 			}
 			Msg::SetSortMethod(new_method) => {
-				self.sort_method = match self.sort_method {
-					Some(old_method) => new_method.map(|method| (*method, old_method.1)),
-					None => new_method.map(|method| (*method, false)),
-				};
+				self.sort_method.0 = new_method.map(|method| *method);
+				true
+			}
+			Msg::SortOnce(method) => {
+				self.articles.sort_by(|a, b| {
+					match self.sort_method.1 {
+						false => compare(method, &a, &b),
+						true => compare(method, &a, &b).reverse(),
+					}
+				});
 				true
 			}
 			Msg::ToggleSortReversed => {
-				if let Some(mut sort_method) = self.sort_method {
-					sort_method.1 = !sort_method.1;
-				}
+				self.sort_method.1 = !self.sort_method.1;
 				true
 			}
 			Msg::ScrollTop => {
@@ -429,11 +437,11 @@ impl Component for Timeline {
 			}
 		}
 
-		if let Some(sort_method) = self.sort_method {
+		if let Some(method) = self.sort_method.0 {
 			articles.sort_by(|a, b| {
-				match sort_method.1 {
-					false => compare(&sort_method.0, &a, &b),
-					true => compare(&sort_method.0, &a, &b).reverse(),
+				match self.sort_method.1 {
+					false => compare(&method, &a, &b),
+					true => compare(&method, &a, &b).reverse(),
 				}
 			});
 		}
@@ -712,7 +720,22 @@ impl Timeline {
 	}
 
 	fn view_sort_options(&self, ctx: &Context<Self>) -> Html {
-		let current_method = self.sort_method.map(|method| (method.0.to_string(), method.1));
+		let current_method_name = self.sort_method.0.map(|method| (method.to_string()));
+		let sort_once = if self.sort_method.0.is_none() {
+			html! {
+				<div class="control">
+					<Dropdown current_label={DropdownLabel::Text("Sort once".to_owned())}>
+						{ for SortMethod::iter().map(|method| html! {
+							<a class="dropdown-item" onclick={ctx.link().callback(move |_| Msg::SortOnce(method))}>
+								{ format!("{} - {}", method, method.direction_label(self.sort_method.1)) }
+							</a>
+						}) }
+					</Dropdown>
+				</div>
+			}
+		}else {
+			html! {}
+		};
 
 		html! {
 			<div class="box">
@@ -722,18 +745,22 @@ impl Timeline {
 					</div>
 					<div class="field-body">
 						<div class="control">
-							<Dropdown current_label={DropdownLabel::Text(current_method.as_ref().map(|m| m.0.clone()).unwrap_or("Unsorted".to_owned()))}>
+							<Dropdown current_label={DropdownLabel::Text(current_method_name.unwrap_or("Unsorted".to_owned()))}>
 								{ for SortMethod::iter().map(|method| html! {
 									<a class="dropdown-item" onclick={ctx.link().callback(move |_| Msg::SetSortMethod(Some(method)))}> { method } </a>
-								})}
+								}) }
 								<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::SetSortMethod(None))}> { "Unsorted" } </a>
 							</Dropdown>
 						</div>
 						<div class="control">
 							<button class="button" onclick={ctx.link().callback(|_| Msg::ToggleSortReversed)}>
-								{ if current_method.map(|m| m.1).unwrap_or(false) { "Reversed" } else { "Normal" }}
+								{ match self.sort_method.0 {
+									Some(method) => method.direction_label(self.sort_method.1),
+									None => if self.sort_method.1 { "Reversed" } else { "Normal" }
+								} }
 							</button>
 						</div>
+						{ sort_once }
 					</div>
 				</div>
 			</div>
