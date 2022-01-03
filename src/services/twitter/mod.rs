@@ -18,7 +18,7 @@ use crate::services::{
 	twitter::endpoints::{UserTimelineEndpoint, HomeTimelineEndpoint, ListEndpoint, SingleTweetEndpoint},
 };
 use crate::error::{Error, RatelimitedResult};
-use crate::services::storages::{SoshalSessionStorage, mark_article_as_read};
+use crate::services::storages::SoshalSessionStorage;
 
 pub async fn fetch_tweets(url: &str, marked_as_read: &HashSet<u64>) -> RatelimitedResult<Vec<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)>> {
 	let response = reqwest::Client::builder().build()?
@@ -82,7 +82,6 @@ pub enum Msg {
 	EndpointFetchResponse(RefreshTime, EndpointId, RatelimitedResult<Vec<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)>>),
 	Like(HandlerId, Weak<RefCell<dyn ArticleData>>),
 	Retweet(HandlerId, Weak<RefCell<dyn ArticleData>>),
-	MarkAsRead(HandlerId, Weak<RefCell<dyn ArticleData>>, bool),
 }
 
 impl Agent for TwitterAgent {
@@ -136,7 +135,6 @@ impl Agent for TwitterAgent {
 		actions_agent.send(ArticleActionsRequest::Init("Twitter", ServiceActions {
 			like: Some(link.callback(|(id, article)| Msg::Like(id, article))),
 			repost: Some(link.callback(|(id, article)| Msg::Retweet(id, article))),
-			mark_as_read: Some(link.callback(|(id, article, value)| Msg::MarkAsRead(id, article, value))),
 			fetch_data: None,
 		}));
 
@@ -215,7 +213,7 @@ impl Agent for TwitterAgent {
 						valid_rc.push(Rc::downgrade(updated) as Weak<RefCell<dyn ArticleData>>);
 					}
 
-					self.actions_agent.send(ArticleActionsRequest::Callback(valid_rc));
+					self.actions_agent.send(ArticleActionsRequest::RedrawTimelines(valid_rc));
 				}
 			}
 			Msg::Like(id, article) => {
@@ -243,14 +241,6 @@ impl Agent for TwitterAgent {
 						Msg::FetchResponse(id, fetch_tweet(&path, &marked_as_read).await.map(|(articles, ratelimit)| (vec![articles.0], ratelimit)))
 					})
 				}
-			}
-			Msg::MarkAsRead(_id, article, value) => {
-				let strong = article.upgrade().unwrap();
-				let borrow = strong.borrow();
-
-				mark_article_as_read("Twitter", borrow.id(), value);
-
-				self.actions_agent.send(ArticleActionsRequest::Callback(vec![article]));
 			}
 		};
 	}

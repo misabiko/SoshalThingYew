@@ -13,6 +13,7 @@ pub struct TwitterUser {
 	pub avatar_url: String,
 }
 
+#[derive(Clone)]
 pub struct TweetArticleData {
 	pub id: u64,
 	pub text: String,
@@ -90,6 +91,9 @@ impl ArticleData for TweetArticleData {
 	}
 	fn set_hidden(&mut self, value: bool) {
 		self.hidden = value;
+	}
+	fn clone_data(&self) -> Box<dyn ArticleData> {
+		Box::new(self.clone())
 	}
 }
 

@@ -1,20 +1,21 @@
 use std::cell::RefCell;
 use std::rc::Weak;
 use yew::prelude::*;
-use yew_agent::{Bridge, Bridged};
+use yew_agent::{Dispatcher, Dispatched};
 use web_sys::console;
 use wasm_bindgen::JsValue;
 use std::convert::identity;
 
 use super::{ArticleView, SocialArticle, GalleryArticle};
 use crate::articles::{ArticleData, ArticleRefType};
-use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest, Response as ArticleActionsResponse};
+use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest};
 use crate::modals::Modal;
 use crate::error::log_warn;
+use crate::services::storages::mark_article_as_read;
 
 pub struct ArticleComponent {
 	in_modal: bool,
-	article_actions: Box<dyn Bridge<ArticleActionsAgent>>,
+	article_actions: Dispatcher<ArticleActionsAgent>,
 	video_ref: NodeRef,
 }
 
@@ -26,13 +27,13 @@ pub enum Msg {
 	Repost,
 	ToggleMarkAsRead,
 	ToggleHide,
-	ActionsCallback(ArticleActionsResponse),
 	ToggleInModal,
 }
 
-#[derive(Properties, Clone)]
+#[derive(Properties)]
 pub struct Props {
-	pub article: Weak<RefCell<dyn ArticleData>>,
+	pub weak_ref: Weak<RefCell<dyn ArticleData>>,
+	pub article: Box<dyn ArticleData>,
 	pub article_view: ArticleView,
 	pub compact: bool,
 	pub animated_as_gifs: bool,
@@ -43,18 +44,34 @@ pub struct Props {
 
 impl PartialEq for Props {
 	fn eq(&self, other: &Self) -> bool {
-		Weak::ptr_eq(&self.article, &other.article) &&
+		Weak::ptr_eq(&self.weak_ref, &other.weak_ref) &&
 			self.article_view == other.article_view &&
 			self.compact == other.compact &&
 			self.animated_as_gifs == other.animated_as_gifs &&
 			self.hide_text == other.hide_text &&
-			self.style == other.style
+			self.style == other.style &&
+			&self.article == &other.article
 	}
 }
 
-#[derive(Properties, Clone)]
+impl Clone for Props {
+	fn clone(&self) -> Self {
+		Props {
+			weak_ref: self.weak_ref.clone(),
+			article: self.article.clone_data(),
+			article_view: self.article_view.clone(),
+			compact: self.compact.clone(),
+			animated_as_gifs: self.animated_as_gifs.clone(),
+			hide_text: self.hide_text.clone(),
+			style: self.style.clone(),
+		}
+	}
+}
+
+#[derive(Properties)]
 pub struct ViewProps {
-	pub article: Weak<RefCell<dyn ArticleData>>,
+	pub weak_ref: Weak<RefCell<dyn ArticleData>>,
+	pub article: Box<dyn ArticleData>,
 	pub compact: bool,
 	#[prop_or_default]
 	pub style: Option<String>,
@@ -73,7 +90,24 @@ impl PartialEq<ViewProps> for ViewProps {
 			self.hide_text == other.hide_text &&
 			self.in_modal == other.in_modal &&
 			self.style == other.style &&
-			Weak::ptr_eq(&self.article, &other.article)
+			Weak::ptr_eq(&self.weak_ref, &other.weak_ref) &&
+			&self.article == &other.article
+	}
+}
+
+impl Clone for ViewProps {
+	fn clone(&self) -> Self {
+		Self {
+			weak_ref: self.weak_ref.clone(),
+			article: self.article.clone_data(),
+			compact: self.compact.clone(),
+			style: self.style.clone(),
+			animated_as_gifs: self.animated_as_gifs.clone(),
+			hide_text: self.hide_text.clone(),
+			in_modal: self.in_modal.clone(),
+			video_ref: self.video_ref.clone(),
+			parent_callback: self.parent_callback.clone(),
+		}
 	}
 }
 
@@ -81,10 +115,10 @@ impl Component for ArticleComponent {
 	type Message = Msg;
 	type Properties = Props;
 
-	fn create(ctx: &Context<Self>) -> Self {
+	fn create(_ctx: &Context<Self>) -> Self {
 		Self {
 			in_modal: false,
-			article_actions: ArticleActionsAgent::bridge(ctx.link().callback(Msg::ActionsCallback)),
+			article_actions: ArticleActionsAgent::dispatcher(),
 			video_ref: NodeRef::default(),
 		}
 	}
@@ -97,8 +131,7 @@ impl Component for ArticleComponent {
 				false
 			}
 			Msg::LogData => {
-				let strong = ctx.props().article.upgrade().unwrap();
-				let json = &strong.borrow().json();
+				let json = &ctx.props().article.json();
 				let is_mobile = web_sys::window().expect("couldn't get global window")
 					.navigator().user_agent()
 					.map(|n| n.contains("Mobile"))
@@ -111,31 +144,22 @@ impl Component for ArticleComponent {
 				false
 			}
 			Msg::FetchData => {
-				let strong = ctx.props().article.upgrade().unwrap();
-				let borrow = strong.borrow();
-
-				self.article_actions.send(ArticleActionsRequest::FetchData(match borrow.referenced_article() {
-					ArticleRefType::NoRef | ArticleRefType::Quote(_) => ctx.props().article.clone(),
+				self.article_actions.send(ArticleActionsRequest::FetchData(match ctx.props().article.referenced_article() {
+					ArticleRefType::NoRef | ArticleRefType::Quote(_) => ctx.props().weak_ref.clone(),
 					ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => a,
 				}));
 				false
 			}
 			Msg::Like => {
-				let strong = ctx.props().article.upgrade().unwrap();
-				let borrow = strong.borrow();
-
-				self.article_actions.send(ArticleActionsRequest::Like(match borrow.referenced_article() {
-					ArticleRefType::NoRef | ArticleRefType::Quote(_) => ctx.props().article.clone(),
+				self.article_actions.send(ArticleActionsRequest::Like(match ctx.props().article.referenced_article() {
+					ArticleRefType::NoRef | ArticleRefType::Quote(_) => ctx.props().weak_ref.clone(),
 					ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => a,
 				}));
 				false
 			}
 			Msg::Repost => {
-				let strong = ctx.props().article.upgrade().unwrap();
-				let borrow = strong.borrow();
-
-				self.article_actions.send(ArticleActionsRequest::Repost(match borrow.referenced_article() {
-					ArticleRefType::NoRef | ArticleRefType::Quote(_) => ctx.props().article.clone(),
+				self.article_actions.send(ArticleActionsRequest::Repost(match ctx.props().article.referenced_article() {
+					ArticleRefType::NoRef | ArticleRefType::Quote(_) => ctx.props().weak_ref.clone(),
 					ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => a,
 				}));
 				false
@@ -149,24 +173,27 @@ impl Component for ArticleComponent {
 					}
 				}
 
-				let strong = ctx.props().article.upgrade().unwrap();
+				let strong = ctx.props().weak_ref.upgrade().unwrap();
 				let mut borrow = strong.borrow_mut();
 
 				match borrow.referenced_article() {
 					ArticleRefType::NoRef | ArticleRefType::Quote(_) => {
-						let marked_as_read = borrow.marked_as_read();
-						borrow.set_marked_as_read(!marked_as_read);
-						self.article_actions.send(ArticleActionsRequest::MarkAsRead(ctx.props().article.clone(), !marked_as_read));
+						let new_marked_as_read = !borrow.marked_as_read();
+						borrow.set_marked_as_read(new_marked_as_read);
+
+						mark_article_as_read(borrow.service(), borrow.id(), new_marked_as_read);
 					},
 					ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => {
 						let strong = a.upgrade().unwrap();
 						let mut borrow = strong.borrow_mut();
 
-						let marked_as_read = borrow.marked_as_read();
-						borrow.set_marked_as_read(!marked_as_read);
-						self.article_actions.send(ArticleActionsRequest::MarkAsRead(a.clone(), !marked_as_read));
+						let new_marked_as_read = !borrow.marked_as_read();
+						borrow.set_marked_as_read(new_marked_as_read);
+						mark_article_as_read(borrow.service(), borrow.id(), new_marked_as_read);
 					}
 				};
+
+				self.article_actions.send(ArticleActionsRequest::RedrawTimelines(vec![ctx.props().weak_ref.clone()]));
 
 				true
 			}
@@ -179,7 +206,7 @@ impl Component for ArticleComponent {
 					}
 				}
 
-				let strong = ctx.props().article.upgrade().unwrap();
+				let strong = ctx.props().weak_ref.upgrade().unwrap();
 				let mut borrow = strong.borrow_mut();
 
 				match borrow.referenced_article() {
@@ -196,21 +223,9 @@ impl Component for ArticleComponent {
 					}
 				};
 
+				self.article_actions.send(ArticleActionsRequest::RedrawTimelines(vec![ctx.props().weak_ref.clone()]));
+
 				true
-			}
-			Msg::ActionsCallback(response) => {
-				match response {
-					ArticleActionsResponse::Callback(articles) => {
-						//For some reason Weak::ptr_eq() always returns false
-						let strong = ctx.props().article.upgrade().unwrap();
-						let borrow = strong.borrow();
-						articles.iter().any(|a| {
-							let strong_a = a.upgrade().unwrap();
-							let eq = borrow.id() == strong_a.borrow().id();
-							eq
-						})
-					}
-				}
 			}
 			Msg::ToggleInModal => {
 				self.in_modal = !self.in_modal;
@@ -220,17 +235,12 @@ impl Component for ArticleComponent {
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
-		let strong = ctx.props().article.upgrade();
-		if strong.is_none() {
-			return html! {}
-		}
-		let strong = strong.unwrap();
-
 		let html = match &ctx.props().article_view {
 			ArticleView::Social => html! {
 				<SocialArticle
-					key={strong.borrow().id()}
-					article={ctx.props().article.clone()}
+					key={ctx.props().article.id()}
+					weak_ref={ctx.props().weak_ref.clone()}
+					article={ctx.props().article.clone_data()}
 					compact={ctx.props().compact.clone()}
 					animated_as_gifs={ctx.props().animated_as_gifs.clone()}
 					hide_text={ctx.props().hide_text.clone()}
@@ -242,8 +252,9 @@ impl Component for ArticleComponent {
 			},
 			ArticleView::Gallery => html! {
 				<GalleryArticle
-					key={strong.borrow().id()}
-					article={ctx.props().article.clone()}
+					key={ctx.props().article.id()}
+					weak_ref={ctx.props().weak_ref.clone()}
+					article={ctx.props().article.clone_data()}
 					compact={ctx.props().compact.clone()}
 					animated_as_gifs={ctx.props().animated_as_gifs.clone()}
 					hide_text={ctx.props().hide_text.clone()}

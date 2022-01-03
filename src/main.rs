@@ -31,5 +31,3 @@ fn main() {
 //TODO Add "Open @myusername on soshalthing" context menu?
 
 //TODO Show multiple article types in same timeline
-
-//TODO Fix articles not redrawing when they redraw...

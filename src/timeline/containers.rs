@@ -64,30 +64,30 @@ pub struct Props {
 	pub column_count: u8,
 	pub rtl: bool,
 	pub article_component: ArticleView,
-	pub articles: Vec<Weak<RefCell<dyn ArticleData>>>
+	pub articles: Vec<(Weak<RefCell<dyn ArticleData>>, Box<dyn ArticleData>)>
 }
 
 impl PartialEq for Props {
 	fn eq(&self, other: &Self) -> bool {
 		self.compact == other.compact &&
-		self.animated_as_gifs == other.animated_as_gifs &&
-		self.hide_text == other.hide_text &&
-		self.column_count == other.column_count &&
+			self.animated_as_gifs == other.animated_as_gifs &&
+			self.hide_text == other.hide_text &&
+			self.column_count == other.column_count &&
 			self.article_component == other.article_component &&
 			self.articles.len() == other.articles.len() &&
 			self.articles.iter().zip(other.articles.iter())
-				.all(|(ai, bi)| Weak::ptr_eq(&ai, &bi))
+				.all(|((weak_a, a), (weak_b, b))| Weak::ptr_eq(&weak_a, &weak_b) && a == b)
 	}
 }
-
 
 #[function_component(ColumnContainer)]
 pub fn column_container(props: &Props) -> Html {
 	html! {
 		<div class="articlesContainer columnContainer" ref={props.container_ref.clone()}>
-			{ for props.articles.iter().map(|article| html! {
+			{ for props.articles.iter().map(|(weak_ref, article)| html! {
 				<ArticleComponent
-					article={article.clone()}
+					weak_ref={weak_ref.clone()}
+					article={article.clone_data()}
 					article_view={props.article_component.clone()}
 					compact={props.compact.clone()}
 					animated_as_gifs={props.animated_as_gifs.clone()}
@@ -106,9 +106,10 @@ pub fn row_container(props: &Props) -> Html {
 	};
 	html! {
 		<div class="articlesContainer rowContainer" ref={props.container_ref.clone()} {style}>
-			{ for props.articles.iter().map(|article| html! {
+			{ for props.articles.iter().map(|(weak_ref, article)| html! {
 				<ArticleComponent
-					article={article.clone()}
+					weak_ref={weak_ref.clone()}
+					article={article.clone_data()}
 					article_view={props.article_component.clone()}
 					compact={props.compact.clone()}
 					animated_as_gifs={props.animated_as_gifs.clone()}
@@ -120,11 +121,12 @@ pub fn row_container(props: &Props) -> Html {
 	}
 }
 
-type RatioedArticle<'a> = (&'a Rc<RefCell<dyn ArticleData>>, f32);
+type ArticleTuple = (Rc<RefCell<dyn ArticleData>>, Box<dyn ArticleData>);
+type RatioedArticle<'a> = (&'a ArticleTuple, f32);
 type Column<'a> = (u8, Vec<RatioedArticle<'a>>);
 
-fn relative_height(article: &Rc<RefCell<dyn ArticleData>>) -> f32 {
-	(1.0 as f32) + article.borrow()
+fn relative_height(article: &Box<dyn ArticleData>) -> f32 {
+	(1.0 as f32) + article
 		.media().iter()
 		.map(|m| match m {
 			ArticleMedia::Image(_, ratio) | ArticleMedia::Video(_, ratio) | ArticleMedia::VideoGif(_, ratio) | ArticleMedia::Gif(_, ratio) => ratio
@@ -142,8 +144,8 @@ fn height(column: &Column) -> f32 {
 	}
 }
 
-fn to_columns<'a>(articles: impl Iterator<Item = &'a Rc<RefCell<dyn ArticleData>>>, column_count: &'a u8, rtl: &bool) -> impl Iterator<Item = impl Iterator<Item = &'a Rc<RefCell<dyn ArticleData>>>> {
-	let ratioed_articles = articles.map(|a| (a, relative_height(&a)));
+fn to_columns<'a>(articles: impl Iterator<Item = &'a ArticleTuple>, column_count: &'a u8, rtl: &bool) -> impl Iterator<Item = impl Iterator<Item = &'a ArticleTuple>> {
+	let ratioed_articles = articles.map(|t| (t, relative_height(&t.1)));
 
 	let mut columns = ratioed_articles.fold(
 		(0..*column_count)
@@ -167,16 +169,17 @@ fn to_columns<'a>(articles: impl Iterator<Item = &'a Rc<RefCell<dyn ArticleData>
 
 #[function_component(MasonryContainer)]
 pub fn masonry_container(props: &Props) -> Html {
-	let strongs: Vec<Rc<RefCell<dyn ArticleData>>> = props.articles.iter().filter_map(|a| a.upgrade()).collect();
+	let strongs: Vec<ArticleTuple> = props.articles.iter().filter_map(|t| t.0.upgrade().map(|s| (s, t.1.clone_data()))).collect();
 	let columns = to_columns(strongs.iter(), &props.column_count, &props.rtl);
 
 	html! {
 		<div class="articlesContainer masonryContainer" ref={props.container_ref.clone()}>
 			{ for columns.enumerate().map(|(column_index, column)| html! {
 				<div class="masonryColumn" key={column_index}>
-					{ for column.map(|article| html! {
+					{ for column.map(|(strong_ref, article)| html! {
 						<ArticleComponent
-							article={Rc::downgrade(article)}
+							weak_ref={Rc::downgrade(strong_ref)}
+							article={article.clone_data()}
 							article_view={props.article_component.clone()}
 							compact={props.compact.clone()}
 							animated_as_gifs={props.animated_as_gifs.clone()}

@@ -53,7 +53,7 @@ impl Component for SocialArticle {
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
-		let strong = ctx.props().article.upgrade().unwrap();
+		let strong = ctx.props().weak_ref.upgrade().unwrap();
 		let borrow = strong.borrow();
 
 		let (actual_article, retweet_header, quoted_post) = match &borrow.referenced_article() {
@@ -173,7 +173,8 @@ impl SocialArticle {
 	}
 
 	fn view_nav(&self, ctx: &Context<Self>, actual_borrow: &Ref<dyn ArticleData>) -> Html {
-		let strong = ctx.props().article.upgrade().unwrap();
+		//TODO Use cloned data instead of borrowing immutable
+		let strong = ctx.props().weak_ref.upgrade().unwrap();
 		let borrow = strong.borrow();
 		let ontoggle_compact = ctx.link().callback(|_| Msg::ToggleCompact);
 		let dropdown_buttons = match &borrow.referenced_article() {

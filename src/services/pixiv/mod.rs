@@ -54,7 +54,6 @@ impl Agent for PixivAgent {
 		actions_agent.send(ArticleActionsRequest::Init("Pixiv", ServiceActions {
 			like: None,
 			repost: None,
-			mark_as_read: None,
 			fetch_data: Some(link.callback(|(id, article)| Msg::FetchData(id, article))),
 		}));
 
@@ -111,7 +110,7 @@ impl Agent for PixivAgent {
 					}
 
 					self.check_unfetched_articles();
-					self.actions_agent.send(ArticleActionsRequest::Callback(valid_rc));
+					self.actions_agent.send(ArticleActionsRequest::RedrawTimelines(valid_rc));
 				}
 			}
 			Msg::FetchData(_handler_id, article) => {

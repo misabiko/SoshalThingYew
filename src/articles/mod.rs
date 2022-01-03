@@ -51,17 +51,26 @@ pub trait ArticleData {
 	fn hidden(&self) -> bool;
 	fn set_hidden(&mut self, value: bool);
 	fn is_fully_fetched(&self) -> &bool { &true }
+	fn clone_data(&self) -> Box<dyn ArticleData>;
 }
 
 impl PartialEq<dyn ArticleData> for dyn ArticleData {
 	fn eq(&self, other: &dyn ArticleData) -> bool {
 		self.id() == other.id() &&
 			self.text() == other.text() &&
+			self.creation_time() == other.creation_time() &&
 			self.author_username() == other.author_username() &&
 			self.author_name() == other.author_name() &&
 			self.author_avatar_url() == other.author_avatar_url() &&
 			self.author_url() == other.author_url() &&
-			self.media() == other.media()
+			self.like_count() == other.like_count() &&
+			self.liked() == other.liked() &&
+			self.repost_count() == other.repost_count() &&
+			self.reposted() == other.reposted() &&
+			self.media() == other.media() &&
+			self.marked_as_read() == other.marked_as_read() &&
+			self.hidden() == other.hidden() &&
+			self.is_fully_fetched() == other.is_fully_fetched()
 	}
 }
 

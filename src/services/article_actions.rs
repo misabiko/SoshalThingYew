@@ -9,7 +9,6 @@ use crate::articles::ArticleData;
 pub struct ServiceActions {
 	pub like: Option<Callback<(HandlerId, Weak<RefCell<dyn ArticleData>>)>>,
 	pub repost: Option<Callback<(HandlerId, Weak<RefCell<dyn ArticleData>>)>>,
-	pub mark_as_read: Option<Callback<(HandlerId, Weak<RefCell<dyn ArticleData>>, bool)>>,
 	pub fetch_data: Option<Callback<(HandlerId, Weak<RefCell<dyn ArticleData>>)>>,
 }
 
@@ -21,15 +20,16 @@ pub struct ArticleActionsAgent {
 
 pub enum Request {
 	Init(&'static str, ServiceActions),
-	Callback(Vec<Weak<RefCell<dyn ArticleData>>>),
+	//Callback(Vec<Weak<RefCell<dyn ArticleData>>>),
 	Like(Weak<RefCell<dyn ArticleData>>),
 	Repost(Weak<RefCell<dyn ArticleData>>),
-	MarkAsRead(Weak<RefCell<dyn ArticleData>>, bool),
 	FetchData(Weak<RefCell<dyn ArticleData>>),
+	RedrawTimelines(Vec<Weak<RefCell<dyn ArticleData>>>),
 }
 
 pub enum Response {
-	Callback(Vec<Weak<RefCell<dyn ArticleData>>>),
+	//Callback(Vec<Weak<RefCell<dyn ArticleData>>>),
+	RedrawTimelines(Vec<Weak<RefCell<dyn ArticleData>>>),
 }
 
 impl Agent for ArticleActionsAgent {
@@ -57,13 +57,20 @@ impl Agent for ArticleActionsAgent {
 			Request::Init(service, actions) => {
 				self.services.insert(service, actions);
 			}
-			Request::Callback(articles) => {
+			Request::RedrawTimelines(articles) => {
+				for sub in &self.subscribers {
+					if sub.is_respondable() {
+						self.link.respond(*sub, Response::RedrawTimelines(articles.clone()));
+					}
+				}
+			}
+			/*Request::Callback(articles) => {
 				for sub in &self.subscribers {
 					if sub.is_respondable() {
 						self.link.respond(*sub, Response::Callback(articles.clone()));
 					}
 				}
-			},
+			},*/
 			Request::Like(article) => {
 				let strong = article.upgrade().unwrap();
 				let borrow = strong.borrow();
@@ -79,14 +86,6 @@ impl Agent for ArticleActionsAgent {
 				self.services.get(&borrow.service())
 					.and_then(|s| s.repost.as_ref())
 					.map(|r| r.emit((id, article.clone())));
-			}
-			Request::MarkAsRead(article, value) => {
-				let strong = article.upgrade().unwrap();
-				let borrow = strong.borrow();
-
-				self.services.get(&borrow.service())
-					.and_then(|s| s.mark_as_read.as_ref())
-					.map(|m| m.emit((id, article.clone(), value)));
 			}
 			Request::FetchData(article) => {
 				let strong = article.upgrade().unwrap();

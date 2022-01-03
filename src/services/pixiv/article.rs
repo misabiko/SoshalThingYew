@@ -4,6 +4,7 @@ use serde::{Serialize, Deserialize};
 
 use crate::articles::{ArticleData, ArticleMedia};
 
+#[derive(Clone)]
 pub struct PixivArticleData {
 	pub id: u32,
 	pub creation_time: Date,
@@ -26,27 +27,35 @@ impl ArticleData for PixivArticleData {
 	fn service(&self) -> &'static str {
 		"Pixiv"
 	}
+
 	fn id(&self) -> String {
 		self.id.clone().to_string()
 	}
+
 	fn sortable_id(&self) -> usize {
 		self.id as usize
 	}
+
 	fn creation_time(&self) -> Date {
 		self.creation_time.clone()
 	}
+
 	fn text(&self) -> String {
 		self.title.clone()
 	}
+
 	fn author_username(&self) -> String {
 		self.author_id.clone().to_string()
 	}
+
 	fn author_name(&self) -> String {
 		self.author_name.clone()
 	}
+
 	fn author_avatar_url(&self) -> String {
 		self.author_avatar_url.clone()
 	}
+
 	fn author_url(&self) -> String {
 		format!("https://www.pixiv.net/en/users/{}", &self.author_id)
 	}
@@ -96,6 +105,10 @@ impl ArticleData for PixivArticleData {
 
 	fn reposted(&self) -> bool {
 		self.bookmarked.clone()
+	}
+
+	fn clone_data(&self) -> Box<dyn ArticleData> {
+		Box::new(self.clone())
 	}
 }
 

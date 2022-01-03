@@ -398,7 +398,8 @@ impl Component for Timeline {
 			}
 			Msg::ActionsCallback(response) => {
 				match response {
-					ArticleActionsResponse::Callback(_articles) => true
+					//Could filter articles for perfs
+					ArticleActionsResponse::RedrawTimelines(_articles) => true
 				}
 			}
 			Msg::SetMainTimeline => {
@@ -452,6 +453,13 @@ impl Component for Timeline {
 				.take(self.section.1)
 				.collect();
 		}
+
+		let articles: Vec<(Weak<RefCell<dyn ArticleData>>, Box<dyn ArticleData>)> = articles.into_iter()
+			.map(|a| {
+				let data = a.upgrade().expect("upgrading article")
+					.borrow().clone_data();
+				(a, data)
+			}).collect();
 
 		let style = if self.width > 1 {
 			Some(format!("width: {}px", (self.width as i32) * 500))

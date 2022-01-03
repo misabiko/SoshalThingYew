@@ -40,7 +40,8 @@ impl Component for GalleryArticle {
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
-		let strong = ctx.props().article.upgrade().unwrap();
+		//TODO Use cloned data instead of borrowing immutable
+		let strong = ctx.props().weak_ref.upgrade().unwrap();
 		let borrow = strong.borrow();
 		let actual_article = match &borrow.referenced_article() {
 			ArticleRefType::NoRef | ArticleRefType::Quote(_) => strong.clone(),
