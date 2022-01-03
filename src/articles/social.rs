@@ -267,6 +267,7 @@ impl SocialArticle {
 						</a>
 						{ dropdown_buttons }
 						<div class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::LogData))}>{"Log Data"}</div>
+						<div class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::LogJsonData))}>{"Log Json Data"}</div>
 						<div class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::FetchData))}>{"Fetch Data"}</div>
 					</Dropdown>
 				</div>

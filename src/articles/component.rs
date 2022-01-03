@@ -22,6 +22,7 @@ pub struct ArticleComponent {
 pub enum Msg {
 	OnImageClick,
 	LogData,
+	LogJsonData,
 	FetchData,
 	Like,
 	Repost,
@@ -130,7 +131,7 @@ impl Component for ArticleComponent {
 				ctx.link().send_message(Msg::ToggleMarkAsRead);
 				false
 			}
-			Msg::LogData => {
+			Msg::LogJsonData => {
 				let json = &ctx.props().article.json();
 				let is_mobile = web_sys::window().expect("couldn't get global window")
 					.navigator().user_agent()
@@ -141,6 +142,10 @@ impl Component for ArticleComponent {
 				}else {
 					console::dir_1(&JsValue::from_serde(&json).unwrap_or_default());
 				}
+				false
+			}
+			Msg::LogData => {
+				log::info!("{:#?}", &ctx.props().article);
 				false
 			}
 			Msg::FetchData => {

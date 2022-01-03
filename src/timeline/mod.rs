@@ -55,11 +55,9 @@ pub struct Timeline {
 	filters: Vec<Filter>,
 	sort_method: (Option<SortMethod>, bool),
 	container: Container,
-	show_container_dropdown: bool,
-	show_article_component_dropdown: bool,
 	column_count: u8,
 	width: u8,
-	article_component: ArticleView,
+	article_view: ArticleView,
 	show_choose_endpoint: bool,
 	container_ref: NodeRef,
 	autoscroll: Rc<RefCell<Autoscroll>>,
@@ -83,9 +81,7 @@ pub enum Msg {
 	ToggleAnimatedAsGifs,
 	ToggleHideText,
 	ChangeContainer(Container),
-	ToggleContainerDropdown,
-	ChangeArticleComponent(ArticleView),
-	ToggleArticleComponentDropdown,
+	ChangeArticleView(ArticleView),
 	ChangeColumnCount(u8),
 	ChangeWidth(u8),
 	Shuffle,
@@ -117,7 +113,7 @@ pub struct Props {
 	#[prop_or(Container::Column)]
 	pub container: Container,
 	#[prop_or(ArticleView::Social)]
-	pub article_component: ArticleView,
+	pub article_view: ArticleView,
 	#[prop_or(1)]
 	pub width: u8,
 	#[prop_or(1)]
@@ -184,11 +180,9 @@ impl Component for Timeline {
 				None => (None, false)
 			},
 			container: ctx.props().container.clone(),
-			show_container_dropdown: false,
-			show_article_component_dropdown: false,
 			column_count: ctx.props().column_count.clone(),
 			width: ctx.props().width.clone(),
-			article_component: ctx.props().article_component.clone(),
+			article_view: ctx.props().article_view.clone(),
 			show_choose_endpoint: false,
 			container_ref: NodeRef::default(),
 			autoscroll: Rc::new(RefCell::new(Autoscroll {
@@ -263,16 +257,8 @@ impl Component for Timeline {
 				self.container = c;
 				true
 			}
-			Msg::ToggleContainerDropdown => {
-				self.show_container_dropdown = !self.show_container_dropdown;
-				true
-			}
-			Msg::ChangeArticleComponent(c) => {
-				self.article_component = c;
-				true
-			}
-			Msg::ToggleArticleComponentDropdown => {
-				self.show_article_component_dropdown = !self.show_article_component_dropdown;
+			Msg::ChangeArticleView(c) => {
+				self.article_view = c;
 				true
 			}
 			Msg::ChangeColumnCount(new_column_count) => {
@@ -528,7 +514,7 @@ impl Component for Timeline {
 					hide_text: self.hide_text,
 					column_count: self.column_count,
 					rtl: self.rtl,
-					article_component: self.article_component.clone(),
+					article_view: self.article_view.clone(),
 					articles
 				}}) }
 			</div>
@@ -644,9 +630,9 @@ impl Timeline {
 			<div class="box">
 				<div class="block control">
 					<label class="label">{"Component"}</label>
-					<Dropdown current_label={DropdownLabel::Text(self.article_component.name().to_string())}>
-						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeArticleComponent(ArticleView::Social))}> {"Social"} </a>
-						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeArticleComponent(ArticleView::Gallery))}> {"Gallery"} </a>
+					<Dropdown current_label={DropdownLabel::Text(self.article_view.name().to_string())}>
+						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeArticleView(ArticleView::Social))}> {"Social"} </a>
+						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeArticleView(ArticleView::Gallery))}> {"Gallery"} </a>
 					</Dropdown>
 				</div>
 				<div class="control">

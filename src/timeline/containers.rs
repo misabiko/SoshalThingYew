@@ -63,7 +63,7 @@ pub struct Props {
 	#[prop_or(1)]
 	pub column_count: u8,
 	pub rtl: bool,
-	pub article_component: ArticleView,
+	pub article_view: ArticleView,
 	pub articles: Vec<(Weak<RefCell<dyn ArticleData>>, Box<dyn ArticleData>)>
 }
 
@@ -73,7 +73,7 @@ impl PartialEq for Props {
 			self.animated_as_gifs == other.animated_as_gifs &&
 			self.hide_text == other.hide_text &&
 			self.column_count == other.column_count &&
-			self.article_component == other.article_component &&
+			self.article_view == other.article_view &&
 			self.articles.len() == other.articles.len() &&
 			self.articles.iter().zip(other.articles.iter())
 				.all(|((weak_a, a), (weak_b, b))| Weak::ptr_eq(&weak_a, &weak_b) && a == b)
@@ -86,9 +86,10 @@ pub fn column_container(props: &Props) -> Html {
 		<div class="articlesContainer columnContainer" ref={props.container_ref.clone()}>
 			{ for props.articles.iter().map(|(weak_ref, article)| html! {
 				<ArticleComponent
+					key={article.id()}
 					weak_ref={weak_ref.clone()}
 					article={article.clone_data()}
-					article_view={props.article_component.clone()}
+					article_view={props.article_view.clone()}
 					compact={props.compact.clone()}
 					animated_as_gifs={props.animated_as_gifs.clone()}
 					hide_text={props.hide_text.clone()}
@@ -106,17 +107,18 @@ pub fn row_container(props: &Props) -> Html {
 	};
 	html! {
 		<div class="articlesContainer rowContainer" ref={props.container_ref.clone()} {style}>
-			{ for props.articles.iter().map(|(weak_ref, article)| html! {
+			{ for props.articles.iter().map(|(weak_ref, article)| { html! {
 				<ArticleComponent
+					key={article.id()}
 					weak_ref={weak_ref.clone()}
 					article={article.clone_data()}
-					article_view={props.article_component.clone()}
+					article_view={props.article_view.clone()}
 					compact={props.compact.clone()}
 					animated_as_gifs={props.animated_as_gifs.clone()}
 					hide_text={props.hide_text.clone()}
 					style={format!("width: {}%", 100.0 / (props.column_count as f64))}
 				/>
-			}) }
+			}}) }
 		</div>
 	}
 }
@@ -172,15 +174,17 @@ pub fn masonry_container(props: &Props) -> Html {
 	let strongs: Vec<ArticleTuple> = props.articles.iter().filter_map(|t| t.0.upgrade().map(|s| (s, t.1.clone_data()))).collect();
 	let columns = to_columns(strongs.iter(), &props.column_count, &props.rtl);
 
+	//TODO I don't know why but switching ArticleView makes the articles drawn in reverse order until resorted, the initial order/sorting doesn't matter
 	html! {
 		<div class="articlesContainer masonryContainer" ref={props.container_ref.clone()}>
 			{ for columns.enumerate().map(|(column_index, column)| html! {
 				<div class="masonryColumn" key={column_index}>
 					{ for column.map(|(strong_ref, article)| html! {
 						<ArticleComponent
+							key={article.id()}
 							weak_ref={Rc::downgrade(strong_ref)}
 							article={article.clone_data()}
-							article_view={props.article_component.clone()}
+							article_view={props.article_view.clone()}
 							compact={props.compact.clone()}
 							animated_as_gifs={props.animated_as_gifs.clone()}
 							hide_text={props.hide_text.clone()}

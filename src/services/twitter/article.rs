@@ -6,14 +6,14 @@ use std::collections::HashSet;
 
 use crate::articles::{ArticleData, ArticleMedia, ArticleRefType};
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct TwitterUser {
 	pub username: String,
 	pub name: String,
 	pub avatar_url: String,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TweetArticleData {
 	pub id: u64,
 	pub text: String,

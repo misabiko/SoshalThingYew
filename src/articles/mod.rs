@@ -1,5 +1,6 @@
 use std::rc::Weak;
 use std::cell::RefCell;
+use std::fmt::Debug;
 use js_sys::Date;
 
 pub mod component;
@@ -11,7 +12,7 @@ pub use component::ArticleComponent;
 pub use crate::articles::social::SocialArticle;
 pub use crate::articles::gallery::GalleryArticle;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum ArticleRefType<Pointer = Weak<RefCell<dyn ArticleData>>> {
 	NoRef,
 	Repost(Pointer),
@@ -27,7 +28,7 @@ pub enum ArticleMedia {
 	Gif(String, f32),
 }
 
-pub trait ArticleData {
+pub trait ArticleData : Debug {
 	fn service(&self) -> &'static str;
 	fn id(&self) -> String;
 	fn sortable_id(&self) -> usize;

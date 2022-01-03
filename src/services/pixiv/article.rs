@@ -4,7 +4,7 @@ use serde::{Serialize, Deserialize};
 
 use crate::articles::{ArticleData, ArticleMedia};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PixivArticleData {
 	pub id: u32,
 	pub creation_time: Date,
