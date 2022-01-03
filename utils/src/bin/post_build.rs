@@ -10,8 +10,13 @@ fn main() -> std::io::Result<()> {
             .map(|p| p.path());
         let file_name = path.as_ref().and_then(|p| p.file_name()).and_then(|s| s.to_str());
         let extension = path.as_ref().and_then(|p| p.extension()).and_then(|s| s.to_str());
-        if let Some((file_name, extension)) = &file_name.zip(extension) {
-            if file_name.starts_with("index-") {
+        if let Some((file_name, extension)) = file_name.zip(extension) {
+            let prefix = match extension {
+                "css" => "partial-index-",
+                _ => "index-",
+            };
+
+            if file_name.contains(prefix) {
                 json[extension] = Value::String(file_name.to_string());
             }
         }
