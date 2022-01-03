@@ -565,10 +565,15 @@ impl Timeline {
 
 		html! {
 			<div class="box">
-				<div class="block control">
-					<label class="label">{"Column Count"}</label>
-					<input class="input" type="number" value={self.column_count.clone().to_string()} min=1 oninput={on_column_count_input}/>
-				</div>
+				{ match self.container {
+					Container::Column => html! {},
+					_ => html! {
+						<div class="block control">
+							<label class="label">{"Column Count"}</label>
+							<input class="input" type="number" value={self.column_count.clone().to_string()} min=1 oninput={on_column_count_input}/>
+						</div>
+					},
+				} }
 				<div class="block control">
 					<label class="label">{"Timeline Width"}</label>
 					<input class="input" type="number" value={self.width.clone().to_string()} min=1 oninput={on_width_input}/>
