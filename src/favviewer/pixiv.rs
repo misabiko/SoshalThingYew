@@ -70,7 +70,7 @@ fn add_user_timeline() {
 pub fn setup(href: &str) -> bool {
 	if href.contains("pixiv.net/bookmark_new_illust") {
 		let mount_point = gloo_utils::document().create_element("div").expect("to create empty div");
-		mount_point.set_id("favviewer");
+		mount_point.class_list().add_1("favviewer").expect("adding favviewer class");
 
 		gloo_utils::document()
 			.query_selector("#root > div:last-child > div:nth-child(2)")
@@ -108,7 +108,7 @@ pub fn setup(href: &str) -> bool {
 	}else if href.contains("pixiv.net/en/users") {
 		Timeout::new(3_000, || {
 			let mount_point = gloo_utils::document().create_element("div").expect("to create empty div");
-			mount_point.set_id("favviewer");
+			mount_point.class_list().add_1("favviewer").expect("adding favviewer class");
 
 			let nav = gloo_utils::document()
 				.get_elements_by_tag_name("nav").get_with_index(0).expect("couldn't find a nav");
@@ -119,11 +119,11 @@ pub fn setup(href: &str) -> bool {
 			let document_head = gloo_utils::document().head().expect("head element to be present");
 			let mut style_html = HashMap::new();
 			style_html.insert(FavViewerStyle::Normal, create_portal(html! {
-                <style>{"#favviewer {width: 100%; height: 50%}#root {width: 100%} #root > :nth-child(2), .sc-1nr368f-2.bGUtlw { height: 100%; } .sc-jgyytr-1 {display: none}"}</style>
+                <style>{".favviewer {width: 100%; height: 50%}#root {width: 100%} #root > :nth-child(2), .sc-1nr368f-2.bGUtlw { height: 100%; } .sc-jgyytr-1 {display: none}"}</style>
 			}, document_head.clone().into()
 			));
 			style_html.insert(FavViewerStyle::Hidden, create_portal(html! {
-                <style>{"#favviewer {display: none;} #root {width: 100%} "}</style>
+                <style>{".favviewer {display: none;} #root {width: 100%} "}</style>
 			}, document_head.into()
 			));
 

@@ -86,7 +86,7 @@ impl Component for SocialArticle {
 		});
 
 		html! {
-			<article class="article" articleId={borrow.id()} key={borrow.id()} style={ctx.props().style.clone()}>
+			<article class="article socialArticle" articleId={borrow.id()} key={borrow.id()} style={ctx.props().style.clone()}>
 				{ retweet_header }
 				<div class="media">
 					<figure class="media-left">
