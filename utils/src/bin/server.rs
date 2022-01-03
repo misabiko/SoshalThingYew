@@ -33,7 +33,7 @@ fn get_token<'a>(id: &'a Identity, tokens: &'a HashMap<u64, egg_mode::Token>, be
 				}
 			}
 			Err(err) => {
-				println!("{:?}", err);
+				println!("{}", err);
 				bearer_token
 			}
 		}
@@ -58,7 +58,7 @@ fn get_access_token<'a>(id: &'a Identity, tokens: &'a HashMap<u64, egg_mode::Tok
 				}
 			}
 			Err(err) => {
-				println!("{:?}", err);
+				println!("{}", err);
 				None
 			}
 		}

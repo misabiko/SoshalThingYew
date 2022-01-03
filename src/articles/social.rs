@@ -8,6 +8,7 @@ use crate::articles::{ArticleData, ArticleRefType, ArticleMedia};
 use crate::articles::component::{ViewProps, Msg as ParentMsg};
 use crate::dropdown::{Dropdown, DropdownLabel};
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest};
+use crate::error::log_warn;
 
 pub struct SocialArticle {
 	compact: Option<bool>,
@@ -123,21 +124,22 @@ impl Component for SocialArticle {
 	}
 
 	fn rendered(&mut self, ctx: &Context<Self>, _first_render: bool) {
+		//TODO Make method for video pausing
 		if let Some(video) = ctx.props().video_ref.cast::<web_sys::HtmlVideoElement>() {
 			match ctx.props().animated_as_gifs {
 				true => {
 					video.set_muted(true);
 					match video.play() {
 						Ok(promise) => {
-							let _ = promise.catch(&Closure::once(Box::new(|err| log::warn!("Failed to play video.\n{:?}", &err))));
+							let _ = promise.catch(&Closure::once(Box::new(|err| log_warn(Some("Failed to play video"), err))));
 						}
-						Err(err) => log::warn!("Failed to try and play the video.\n{:?}", &err)
+						Err(err) => log_warn(Some("Failed to try and play the video"), err)
 					}
 				},
 				false => {
 					video.set_muted(false);
 					match video.pause() {
-						Err(err) => log::warn!("Failed to try and pause the video.\n{:?}", &err),
+						Err(err) => log_warn(Some("Failed to try and pause the video"), err),
 						Ok(_) => {}
 					}
 				},

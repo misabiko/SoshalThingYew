@@ -23,6 +23,7 @@ use crate::favviewer::PageInfo;
 use crate::modals::AddTimelineModal;
 use crate::services::endpoint_agent::TimelineCreationRequest;
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse};
+use crate::error::log_error;
 
 #[derive(PartialEq, Clone)]
 pub enum DisplayMode {
@@ -324,13 +325,13 @@ pub fn parse_url() -> (Option<String>, Option<web_sys::UrlSearchParams>) {
 		Some(location) => (match location.pathname() {
 			Ok(pathname_opt) => Some(pathname_opt),
 			Err(err) => {
-				log::error!("Failed to get location.pathname.\n{:?}", err);
+				log_error(Some("Failed to get location.pathname"), err);
 				None
 			}
 		}, match location.search().and_then(|s| web_sys::UrlSearchParams::new_with_str(&s)) {
 			Ok(search_opt) => Some(search_opt),
 			Err(err) => {
-				log::error!("Failed to get location.search.\n{:?}", err);
+				log_error(Some("Failed to get location.search"), err);
 				None
 			}
 		}),

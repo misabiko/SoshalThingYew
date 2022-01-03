@@ -205,7 +205,7 @@ impl Agent for EndpointAgent {
 				self.link.send_message(Msg::UpdatedState);
 			}
 			Msg::RefreshFail(err) => {
-				log::error!("Failed to fetch:\n{:?}", err);
+				err.log_error();
 			}
 			Msg::UpdatedState => {
 				for sub in &self.subscribers {

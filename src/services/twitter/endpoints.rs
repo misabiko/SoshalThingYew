@@ -65,7 +65,7 @@ impl Endpoint for UserTimelineEndpoint {
 		self.agent.send(TwitterRequest::FetchTweets(
 			refresh_time,
 			id,
-			format!("/proxy/twitter/user/{}?replies={:?}&rts={:?}&count=20", self.username, &self.include_replies, &self.include_retweets)
+			format!("/proxy/twitter/user/{}?replies={}&rts={}&count=20", self.username, &self.include_replies, &self.include_retweets)
 		))
 	}
 
@@ -76,7 +76,7 @@ impl Endpoint for UserTimelineEndpoint {
 				self.agent.send(TwitterRequest::FetchTweets(
 					refresh_time,
 					id,
-					format!("/proxy/twitter/user/{}?replies={:?}&rts={:?}&max_id={}", &self.username, &self.include_replies, &self.include_retweets, &last_id.upgrade().unwrap().borrow().id())
+					format!("/proxy/twitter/user/{}?replies={}&rts={}&max_id={}", &self.username, &self.include_replies, &self.include_retweets, &last_id.upgrade().unwrap().borrow().id())
 				))
 			}
 			None => self.refresh(refresh_time)

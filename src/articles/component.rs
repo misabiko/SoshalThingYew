@@ -10,6 +10,7 @@ use super::{ArticleView, SocialArticle, GalleryArticle};
 use crate::articles::{ArticleData, ArticleRefType};
 use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest, Response as ArticleActionsResponse};
 use crate::modals::Modal;
+use crate::error::log_warn;
 
 pub struct ArticleComponent {
 	in_modal: bool,
@@ -143,7 +144,7 @@ impl Component for ArticleComponent {
 				if let Some(video) = self.video_ref.cast::<web_sys::HtmlVideoElement>() {
 					video.set_muted(true);
 					match video.pause() {
-						Err(err) => log::warn!("Failed to try and pause the video.\n{:?}", &err),
+						Err(err) => log_warn(Some("Failed to try and pause the video"), err),
 						Ok(_) => {}
 					}
 				}
@@ -173,7 +174,7 @@ impl Component for ArticleComponent {
 				if let Some(video) = self.video_ref.cast::<web_sys::HtmlVideoElement>() {
 					video.set_muted(true);
 					match video.pause() {
-						Err(err) => log::warn!("Failed to try and pause the video.\n{:?}", &err),
+						Err(err) => log_warn(Some("Failed to try and pause the video"), err),
 						Ok(_) => {}
 					}
 				}
