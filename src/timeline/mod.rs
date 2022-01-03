@@ -752,7 +752,9 @@ impl Timeline {
 						<div class="control">
 							<Dropdown current_label={DropdownLabel::Text(current_method_name.unwrap_or("Unsorted".to_owned()))}>
 								{ for SortMethod::iter().map(|method| html! {
-									<a class="dropdown-item" onclick={ctx.link().callback(move |_| Msg::SetSortMethod(Some(method)))}> { method } </a>
+									<a class="dropdown-item" onclick={ctx.link().callback(move |_| Msg::SetSortMethod(Some(method)))}>
+										{ format!("{} - {}", method, method.direction_label(self.sort_method.1)) }
+									</a>
 								}) }
 								<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::SetSortMethod(None))}> { "Unsorted" } </a>
 							</Dropdown>
