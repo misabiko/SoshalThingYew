@@ -89,14 +89,16 @@ impl Component for SocialArticle {
 			<article class="article socialArticle" articleId={borrow.id()} key={borrow.id()} style={ctx.props().style.clone()}>
 				{ retweet_header }
 				<div class="media">
-					<figure class="media-left">
-						<p class="image is-64x64">
-							{ match actual_borrow.author_avatar_url().as_str() {
-								"" => html! {},
-								url => html! { <img src={url.to_owned()} alt={format!("{}'s avatar", &actual_borrow.author_username())}/> }
-							} }
-						</p>
-					</figure>
+					{ match actual_borrow.author_avatar_url().as_str() {
+						"" => html! {},
+						url => html! {
+							<figure class="media-left">
+								<p class="image is-64x64">
+									<img src={url.to_owned()} alt={format!("{}'s avatar", &actual_borrow.author_username())}/>
+								</p>
+							</figure>
+						}
+					} }
 					<div class="media-content">
 						<div class="content">
 							<div class="articleHeader">
