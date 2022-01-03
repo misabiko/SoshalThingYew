@@ -1,45 +1,80 @@
 use std::rc::Weak;
 use std::cell::RefCell;
+use std::fmt::{Display, Formatter};
+use serde::{Serialize, Deserialize};
 
 use crate::articles::{actual_article, ArticleData};
 
-pub struct SortMethod {
-	pub name: String,
-	pub compare: fn(a: &Weak<RefCell<dyn ArticleData>>, b: &Weak<RefCell<dyn ArticleData>>) -> std::cmp::Ordering,
+//TODO Check for cases where Copy is derivable
+#[derive(Clone, Copy, Serialize, Deserialize)]
+pub enum SortMethod {
+	Id,
+	Index,
+	Date,
+	Likes,
+	Reposts,
 }
 
-pub fn default_sort_methods() -> Vec<SortMethod> {
-	vec![SortMethod {
-		name: "Id".to_owned(),
-		compare: |a, b| {
-			let a = a.upgrade().and_then(|s| s.borrow().id().parse::<u32>().ok()).unwrap_or_default();
-			let b = b.upgrade().and_then(|s| s.borrow().id().parse::<u32>().ok()).unwrap_or_default();
+impl SortMethod {
+	pub fn iter() -> impl ExactSizeIterator<Item = &'static SortMethod> {
+		[
+			SortMethod::Id,
+			SortMethod::Index,
+			SortMethod::Date,
+			SortMethod::Likes,
+			SortMethod::Reposts,
+		].iter()
+	}
+}
+
+impl Display for SortMethod {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		match self {
+			SortMethod::Id => f.write_str("Id"),
+			SortMethod::Index => f.write_str("Index"),
+			SortMethod::Date => f.write_str("Date"),
+			SortMethod::Likes => f.write_str("Likes"),
+			SortMethod::Reposts => f.write_str("Reposts"),
+		}
+	}
+}
+
+impl Default for SortMethod {
+	fn default() -> Self {
+		SortMethod::Id
+	}
+}
+
+pub fn compare(method: &SortMethod, a: &Weak<RefCell<dyn ArticleData>>, b: &Weak<RefCell<dyn ArticleData>>) -> std::cmp::Ordering {
+	match method {
+		SortMethod::Id => {
+			let a = a.upgrade().map(|s| s.borrow().sortable_id()).unwrap_or_default();
+			let b = b.upgrade().map(|s| s.borrow().sortable_id()).unwrap_or_default();
 			b.partial_cmp(&a).unwrap()
 		},
-	},SortMethod {
-		name: "Date".to_owned(),
-		compare: |a, b| {
+		SortMethod::Index => {
+			let a = a.upgrade().map(|s| s.borrow().index()).unwrap_or_default();
+			let b = b.upgrade().map(|s| s.borrow().index()).unwrap_or_default();
+			a.partial_cmp(&b).unwrap()
+		}
+		SortMethod::Date => {
 			let a = a.upgrade().map(|s| s.borrow().creation_time()).map(|d| d.get_time()).unwrap_or(0.0);
 			let b = b.upgrade().map(|s| s.borrow().creation_time()).map(|d| d.get_time()).unwrap_or(0.0);
 			b.partial_cmp(&a).unwrap()
-		},
-	},SortMethod {
-		name: "Likes".to_owned(),
-		compare: |a, b| {
+		}
+		SortMethod::Likes => {
 			let (a, b) = (actual_article(&a), actual_article(&b));
 			let a = a.upgrade().map(|s| s.borrow().like_count()).unwrap_or_default();
 			let b = b.upgrade().map(|s| s.borrow().like_count()).unwrap_or_default();
 			b.partial_cmp(&a).unwrap()
-		},
-	},SortMethod {
-		name: "Reposts".to_owned(),
-		compare: |a, b| {
+		}
+		SortMethod::Reposts => {
 			let (a, b) = (actual_article(&a), actual_article(&b));
 			let a = a.upgrade().map(|s| s.borrow().repost_count()).unwrap_or_default();
 			let b = b.upgrade().map(|s| s.borrow().repost_count()).unwrap_or_default();
 			b.partial_cmp(&a).unwrap()
-		},
-	},]
+		}
+	}
 }
 
 pub fn sort_by_id(a: &Weak<RefCell<dyn ArticleData>>, b: &Weak<RefCell<dyn ArticleData>>) -> std::cmp::Ordering {

@@ -36,6 +36,9 @@ impl ArticleData for TweetArticleData {
 	fn id(&self) -> String {
 		self.id.clone().to_string()
 	}
+	fn sortable_id(&self) -> usize {
+		self.id as usize
+	}
 	fn creation_time(&self) -> Date {
 		self.creation_time.clone()
 	}

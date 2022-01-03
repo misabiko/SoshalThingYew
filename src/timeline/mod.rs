@@ -15,7 +15,7 @@ mod containers;
 pub use containers::Container;
 use containers::{view_container, Props as ContainerProps};
 use filters::{Filter, default_filters};
-use sort_methods::{SortMethod, default_sort_methods};
+use sort_methods::{SortMethod, compare};
 use agent::{TimelineAgent, Request as TimelineAgentRequest};
 use crate::articles::{ArticleView, ArticleData};
 use crate::services::endpoint_agent::{EndpointAgent, Request as EndpointRequest, TimelineEndpoints};
@@ -53,8 +53,7 @@ pub struct Timeline {
 	hide_text: bool,
 	endpoint_agent: Dispatcher<EndpointAgent>,
 	filters: Vec<Filter>,
-	sort_methods: Vec<SortMethod>,
-	sort_method: Option<(usize, bool)>,
+	sort_method: Option<(SortMethod, bool)>,
 	container: Container,
 	show_container_dropdown: bool,
 	show_article_component_dropdown: bool,
@@ -94,7 +93,7 @@ pub enum Msg {
 	Autoscroll,
 	ToggleFilterEnabled(usize),
 	ToggleFilterInverted(usize),
-	SetSortMethod(Option<usize>),
+	SetSortMethod(Option<&'static SortMethod>),
 	ToggleSortReversed,
 	ScrollTop,
 	ActionsCallback(ArticleActionsResponse),
@@ -128,8 +127,8 @@ pub struct Props {
 	pub articles: Vec<Weak<RefCell<dyn ArticleData>>>,
 	#[prop_or_default]
 	pub filters: Option<Vec<Filter>>,
-	#[prop_or(Some((0, false)))]
-	pub sort_method: Option<(usize, bool)>,
+	#[prop_or(Some((SortMethod::Id, false)))]
+	pub sort_method: Option<(SortMethod, bool)>,
 	#[prop_or_default]
 	pub compact: bool,
 	#[prop_or_default]
@@ -179,8 +178,7 @@ impl Component for Timeline {
 			hide_text: ctx.props().hide_text.clone(),
 			endpoint_agent,
 			filters: ctx.props().filters.as_ref().map(|f| f.clone()).unwrap_or_else(|| default_filters()),
-			sort_methods: default_sort_methods(),
-			sort_method: ctx.props().sort_method.clone(),
+			sort_method: ctx.props().sort_method,
 			container: ctx.props().container.clone(),
 			show_container_dropdown: false,
 			show_article_component_dropdown: false,
@@ -368,10 +366,10 @@ impl Component for Timeline {
 				filter.inverted = !filter.inverted;
 				true
 			}
-			Msg::SetSortMethod(sort_index) => {
+			Msg::SetSortMethod(new_method) => {
 				self.sort_method = match self.sort_method {
-					Some(method) => sort_index.map(|i| (i, method.1)),
-					None => sort_index.map(|i| (i, false)),
+					Some(old_method) => new_method.map(|method| (*method, old_method.1)),
+					None => new_method.map(|method| (*method, false)),
 				};
 				true
 			}
@@ -431,16 +429,13 @@ impl Component for Timeline {
 			}
 		}
 
-		if !self.sort_methods.is_empty() {
-			if let Some(sort_method) = self.sort_method {
-				let method = &self.sort_methods[sort_method.0.clone()];
-				articles.sort_by(|a, b| {
-					match sort_method.1 {
-						false => (method.compare)(&a, &b),
-						true => (method.compare)(&a, &b).reverse(),
-					}
-				});
-			}
+		if let Some(sort_method) = self.sort_method {
+			articles.sort_by(|a, b| {
+				match sort_method.1 {
+					false => compare(&sort_method.0, &a, &b),
+					true => compare(&sort_method.0, &a, &b).reverse(),
+				}
+			});
 		}
 
 		if self.use_section {
@@ -717,16 +712,7 @@ impl Timeline {
 	}
 
 	fn view_sort_options(&self, ctx: &Context<Self>) -> Html {
-		let current_method = if !self.sort_methods.is_empty() {
-			if let Some(sort_method) = self.sort_method {
-				let method = &self.sort_methods[sort_method.0.clone()];
-				Some((method.name.clone(), sort_method.1.clone()))
-			} else {
-				None
-			}
-		}else {
-			None
-		};
+		let current_method = self.sort_method.map(|method| (method.0.to_string(), method.1));
 
 		html! {
 			<div class="box">
@@ -737,10 +723,10 @@ impl Timeline {
 					<div class="field-body">
 						<div class="control">
 							<Dropdown current_label={DropdownLabel::Text(current_method.as_ref().map(|m| m.0.clone()).unwrap_or("Unsorted".to_owned()))}>
-								{ for self.sort_methods.iter().enumerate().map(|(i, method)| html! {
-									<a class="dropdown-item" onclick={ctx.link().callback(move |_| Msg::SetSortMethod(Some(i)))}> {method.name.clone()} </a>
+								{ for SortMethod::iter().map(|method| html! {
+									<a class="dropdown-item" onclick={ctx.link().callback(move |_| Msg::SetSortMethod(Some(method)))}> { method } </a>
 								})}
-								<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::SetSortMethod(None))}> {"Unsorted"} </a>
+								<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::SetSortMethod(None))}> { "Unsorted" } </a>
 							</Dropdown>
 						</div>
 						<div class="control">

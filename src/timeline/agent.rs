@@ -9,6 +9,7 @@ use crate::services::endpoint_agent::{TimelineEndpoints, Request as EndpointRequ
 use crate::{TimelinePropsClosure, TimelinePropsEndpointsClosure};
 use crate::error::log_warn;
 use crate::timeline::filters::{FilterSerialized, deserialize_filters};
+use crate::timeline::sort_methods::SortMethod;
 
 pub struct TimelineAgent {
 	link: AgentLink<Self>,
@@ -57,6 +58,8 @@ pub struct SoshalTimelineStorage {
 	width: u8,
 	#[serde(default)]
 	filters: Vec<FilterSerialized>,
+	#[serde(default = "default_sort_method")]
+	sort_method: Option<(SortMethod, bool)>,
 	#[serde(default)]
 	compact: bool,
 	#[serde(default)]
@@ -138,9 +141,10 @@ impl Agent for TimelineAgent {
 						}else {
 							Some(deserialize_filters(&t.filters))
 						};
-						let compact = t.compact.clone();
-						let animated_as_gifs = t.animated_as_gifs.clone();
-						let hide_text = t.hide_text.clone();
+						let sort_method = t.sort_method;
+						let compact = t.compact;
+						let animated_as_gifs = t.animated_as_gifs;
+						let hide_text = t.hide_text;
 
 						(
 							t.endpoints,
@@ -153,6 +157,7 @@ impl Agent for TimelineAgent {
 									width,
 									column_count,
 									filters,
+									sort_method,
 									compact,
 									animated_as_gifs,
 									hide_text,
@@ -183,4 +188,8 @@ impl Agent for TimelineAgent {
 
 fn default_1() -> u8 {
 	1
+}
+
+fn default_sort_method() -> Option<(SortMethod, bool)> {
+	Some((SortMethod::default(), false))
 }
