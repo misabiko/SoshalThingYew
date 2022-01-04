@@ -6,6 +6,7 @@ use serde::{Serialize, Deserialize};
 
 pub mod component;
 pub mod fetch_agent;
+pub mod media_load_queue;
 mod social;
 mod gallery;
 
