@@ -38,9 +38,10 @@ pub enum MediaType {
 	Gif,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Default)]
 pub struct MediaQueueInfo {
 	pub thumbnail: Option<(String, f32)>,
+	pub loaded: bool,
 }
 
 pub trait ArticleData : Debug {
@@ -68,6 +69,7 @@ pub trait ArticleData : Debug {
 	fn set_hidden(&mut self, value: bool);
 	fn is_fully_fetched(&self) -> &bool { &true }
 	fn clone_data(&self) -> Box<dyn ArticleData>;
+	fn media_loaded(&mut self, index: usize);
 }
 
 impl PartialEq<dyn ArticleData> for dyn ArticleData {

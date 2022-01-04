@@ -109,6 +109,12 @@ impl ArticleData for PixivArticleData {
 	fn clone_data(&self) -> Box<dyn ArticleData> {
 		Box::new(self.clone())
 	}
+
+	fn media_loaded(&mut self, _index: usize) {
+		if let Some(queue_info) = &mut self.media.queue_load_info {
+			queue_info.loaded = true;
+		}
+	}
 }
 
 impl PixivArticleData {

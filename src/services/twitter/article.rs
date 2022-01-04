@@ -95,6 +95,9 @@ impl ArticleData for TweetArticleData {
 	fn clone_data(&self) -> Box<dyn ArticleData> {
 		Box::new(self.clone())
 	}
+	fn media_loaded(&mut self, _index: usize) {
+		log::warn!("Twitter doesn't do lazy loading.");
+	}
 }
 
 pub type StrongArticleRefType = ArticleRefType<Rc<RefCell<TweetArticleData>>>;

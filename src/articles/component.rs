@@ -147,10 +147,10 @@ impl Component for ArticleComponent {
 			article_actions: ArticleActionsAgent::dispatcher(),
 			video_ref: NodeRef::default(),
 			media_load_states: ctx.props().article.media().iter().map(|m|
-				if ctx.props().lazy_loading && m.queue_load_info.is_some() {
+				if ctx.props().lazy_loading && m.queue_load_info.as_ref().map(|q| !q.loaded).unwrap_or(false) {
 					MediaLoadState::NotLoaded
 				}else {
-					MediaLoadState::Loaded
+					MediaLoadState::Loaded	//Consider still setting it as loading?
 				}
 			).collect(),
 			media_load_queue,
@@ -287,6 +287,11 @@ impl Component for ArticleComponent {
 			Msg::MediaLoaded(index) => {
 				self.media_load_queue.send(MediaLoadRequest::MediaLoaded(ctx.props().article.id(), index));
 				self.media_load_states[index] = MediaLoadState::Loaded;
+				let article = ctx.props().weak_ref.upgrade().unwrap();
+				let mut article = article.borrow_mut();
+				article.media_loaded(index);
+				//This is for future loads of the article, no need to redraw
+
 				true
 			}
 			Msg::MediaLoadResponse(response) => match response {
