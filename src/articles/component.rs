@@ -49,7 +49,9 @@ pub struct Props {
 	pub animated_as_gifs: bool,
 	pub hide_text: bool,
 	#[prop_or_default]
-	pub style: Option<String>
+	pub style: Option<String>,
+	#[prop_or_default]
+	pub lazy_loading: bool,
 }
 
 impl PartialEq for Props {
@@ -60,6 +62,7 @@ impl PartialEq for Props {
 			self.animated_as_gifs == other.animated_as_gifs &&
 			self.hide_text == other.hide_text &&
 			self.style == other.style &&
+			self.lazy_loading == other.lazy_loading &&
 			&self.article == &other.article
 	}
 }
@@ -70,10 +73,11 @@ impl Clone for Props {
 			weak_ref: self.weak_ref.clone(),
 			article: self.article.clone_data(),
 			article_view: self.article_view.clone(),
-			compact: self.compact.clone(),
-			animated_as_gifs: self.animated_as_gifs.clone(),
-			hide_text: self.hide_text.clone(),
+			compact: self.compact,
+			animated_as_gifs: self.animated_as_gifs,
+			hide_text: self.hide_text,
 			style: self.style.clone(),
+			lazy_loading: self.lazy_loading,
 		}
 	}
 }
@@ -130,7 +134,7 @@ impl Component for ArticleComponent {
 			article_actions: ArticleActionsAgent::dispatcher(),
 			video_ref: NodeRef::default(),
 			media_load_states: ctx.props().article.media().iter().map(|m|
-				if m.queue_load_info.is_some() {
+				if ctx.props().lazy_loading && m.queue_load_info.is_some() {
 					MediaLoadState::NotLoaded
 				}else {
 					MediaLoadState::Loaded

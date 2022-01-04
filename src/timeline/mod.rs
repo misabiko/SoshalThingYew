@@ -66,6 +66,7 @@ pub struct Timeline {
 	use_section: bool,
 	section: (usize, usize),
 	rtl: bool,
+	lazy_loading: bool,
 }
 
 pub enum Msg {
@@ -98,6 +99,7 @@ pub enum Msg {
 	RemoveTimeline,
 	ToggleSection,
 	UpdateSection(Option<usize>, Option<usize>),
+	ToggleLazyLoading,
 }
 
 #[derive(Properties, Clone)]
@@ -195,6 +197,7 @@ impl Component for Timeline {
 			use_section: false,
 			section: (0, 50),
 			rtl: ctx.props().rtl.clone(),
+			lazy_loading: true,
 		}
 	}
 
@@ -409,6 +412,10 @@ impl Component for Timeline {
 				);
 				true
 			}
+			Msg::ToggleLazyLoading => {
+				self.lazy_loading = !self.lazy_loading;
+				true
+			}
 		}
 	}
 
@@ -514,6 +521,7 @@ impl Component for Timeline {
 					hide_text: self.hide_text,
 					column_count: self.column_count,
 					rtl: self.rtl,
+					lazy_loading: self.lazy_loading,
 					article_view: self.article_view.clone(),
 					articles
 				}}) }
@@ -645,6 +653,12 @@ impl Timeline {
 					<label class="checkbox">
 						<input type="checkbox" checked={self.animated_as_gifs} onclick={ctx.link().callback(|_| Msg::ToggleAnimatedAsGifs)}/>
 						{ " Show all animated as gifs" }
+					</label>
+				</div>
+				<div class="control">
+					<label class="checkbox">
+						<input type="checkbox" checked={self.lazy_loading} onclick={ctx.link().callback(|_| Msg::ToggleLazyLoading)}/>
+						{ " Lazy media loading" }
 					</label>
 				</div>
 				<div class="block control">

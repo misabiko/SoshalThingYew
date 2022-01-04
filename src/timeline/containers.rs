@@ -64,7 +64,8 @@ pub struct Props {
 	pub column_count: u8,
 	pub rtl: bool,
 	pub article_view: ArticleView,
-	pub articles: Vec<(Weak<RefCell<dyn ArticleData>>, Box<dyn ArticleData>)>
+	pub articles: Vec<(Weak<RefCell<dyn ArticleData>>, Box<dyn ArticleData>)>,
+	pub lazy_loading: bool,
 }
 
 impl PartialEq for Props {
@@ -73,6 +74,7 @@ impl PartialEq for Props {
 			self.animated_as_gifs == other.animated_as_gifs &&
 			self.hide_text == other.hide_text &&
 			self.column_count == other.column_count &&
+			self.lazy_loading == other.lazy_loading &&
 			self.article_view == other.article_view &&
 			self.articles.len() == other.articles.len() &&
 			self.articles.iter().zip(other.articles.iter())
@@ -90,9 +92,10 @@ pub fn column_container(props: &Props) -> Html {
 					weak_ref={weak_ref.clone()}
 					article={article.clone_data()}
 					article_view={props.article_view.clone()}
-					compact={props.compact.clone()}
-					animated_as_gifs={props.animated_as_gifs.clone()}
-					hide_text={props.hide_text.clone()}
+					compact={props.compact}
+					animated_as_gifs={props.animated_as_gifs}
+					hide_text={props.hide_text}
+					lazy_loading={props.lazy_loading}
 				/>
 			}) }
 		</div>
@@ -113,9 +116,10 @@ pub fn row_container(props: &Props) -> Html {
 					weak_ref={weak_ref.clone()}
 					article={article.clone_data()}
 					article_view={props.article_view.clone()}
-					compact={props.compact.clone()}
-					animated_as_gifs={props.animated_as_gifs.clone()}
-					hide_text={props.hide_text.clone()}
+					compact={props.compact}
+					animated_as_gifs={props.animated_as_gifs}
+					hide_text={props.hide_text}
+					lazy_loading={props.lazy_loading}
 					style={format!("width: {}%", 100.0 / (props.column_count as f64))}
 				/>
 			}}) }
@@ -182,9 +186,10 @@ pub fn masonry_container(props: &Props) -> Html {
 							weak_ref={Rc::downgrade(strong_ref)}
 							article={article.clone_data()}
 							article_view={props.article_view.clone()}
-							compact={props.compact.clone()}
-							animated_as_gifs={props.animated_as_gifs.clone()}
-							hide_text={props.hide_text.clone()}
+							compact={props.compact}
+							animated_as_gifs={props.animated_as_gifs}
+							hide_text={props.hide_text}
+							lazy_loading={props.lazy_loading}
 						/>
 					}) }
 				</div>
