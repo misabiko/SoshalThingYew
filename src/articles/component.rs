@@ -42,6 +42,7 @@ pub struct Props {
 	pub weak_ref: Weak<RefCell<dyn ArticleData>>,
 	pub article: Box<dyn ArticleData>,
 	pub article_view: ArticleView,
+	pub load_priority: u32,
 	pub compact: bool,
 	pub animated_as_gifs: bool,
 	pub hide_text: bool,
@@ -60,6 +61,7 @@ impl PartialEq for Props {
 			self.hide_text == other.hide_text &&
 			self.style == other.style &&
 			self.lazy_loading == other.lazy_loading &&
+			self.load_priority == other.load_priority &&
 			&self.article == &other.article
 	}
 }
@@ -75,6 +77,7 @@ impl Clone for Props {
 			hide_text: self.hide_text,
 			style: self.style.clone(),
 			lazy_loading: self.lazy_loading,
+			load_priority: self.load_priority,
 		}
 	}
 }
@@ -128,6 +131,7 @@ impl Component for ArticleComponent {
 	fn create(ctx: &Context<Self>) -> Self {
 		let mut media_load_queue = MediaLoadAgent::bridge(ctx.link().callback(Msg::MediaLoadResponse));
 
+		//TODO Avoir first-come-first-serve on initial load
 		if ctx.props().lazy_loading {
 			let id = ctx.props().article.id();
 			let media = ctx.props().article.media();
@@ -138,7 +142,7 @@ impl Component for ArticleComponent {
 				);
 
 			for i in media_to_queue {
-				media_load_queue.send(MediaLoadRequest::QueueMedia(id.clone(), i));
+				media_load_queue.send(MediaLoadRequest::QueueMedia(id.clone(), i, ctx.props().load_priority));
 			}
 		}
 
@@ -155,17 +159,6 @@ impl Component for ArticleComponent {
 			).collect(),
 			media_load_queue,
 		}
-	}
-
-	fn changed(&mut self, _ctx: &Context<Self>) -> bool {
-		/*self.media_load_states = ctx.props().article.media().iter().map(|m|
-			if m.queue_load_info.is_some() {
-				MediaLoadState::NotLoaded
-			}else {
-				MediaLoadState::Loaded
-			}
-		).collect();*/
-		true
 	}
 
 	fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
@@ -296,11 +289,6 @@ impl Component for ArticleComponent {
 			}
 			Msg::MediaLoadResponse(response) => match response {
 				MediaLoadResponse::UpdateState(index, state) => {
-					match &state {
-						MediaLoadState::NotLoaded => log::debug!("Article {}/{} not loading??", &ctx.props().article.id(), &index),
-						MediaLoadState::Loading => log::debug!("Article {}/{} loading!", &ctx.props().article.id(), &index),
-						MediaLoadState::Loaded => log::debug!("Article {}/{} done loading!!", &ctx.props().article.id(), &index),
-					};
 					self.media_load_states[index] = state;
 					true
 				},
