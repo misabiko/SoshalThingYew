@@ -2,8 +2,8 @@ use std::cell::Ref;
 use yew::prelude::*;
 use wasm_bindgen::closure::Closure;
 
-use crate::articles::{ArticleRefType, MediaType, ArticleData};
-use crate::articles::component::{ViewProps, Msg as ParentMsg, MediaLoadState};
+use crate::articles::{ArticleRefType, MediaType, ArticleData, media_load_queue::MediaLoadState};
+use crate::articles::component::{ViewProps, Msg as ParentMsg};
 use crate::dropdown::{Dropdown, DropdownLabel};
 use crate::error::log_warn;
 
@@ -90,7 +90,7 @@ impl GalleryArticle {
 	fn view_media(&self, ctx: &Context<Self>, actual_article: &Ref<dyn ArticleData>) -> Html {
 		html! {
 			<>
-				{ for actual_article.media().iter().zip(ctx.props().media_load_states.iter()).map(|(m, load_state)| {
+				{ for actual_article.media().iter().enumerate().zip(ctx.props().media_load_states.iter()).map(|((i, m), load_state)| {
 					if m.queue_load_info.is_some() && *load_state == MediaLoadState::NotLoaded {
 						if let Some((src, _)) = &m.queue_load_info.as_ref().unwrap().thumbnail {
 							html! {
@@ -102,17 +102,37 @@ impl GalleryArticle {
 							}
 						}
 					}else {
+						let onloaded = ctx.link().callback(move |_| Msg::ParentCallback(ParentMsg::MediaLoaded(i)));
 						match (&ctx.props().animated_as_gifs, m.media_type) {
 							(_, MediaType::Image | MediaType::Gif) => html! {
-								<img src={m.src.clone()} onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}/>
+								<img
+									src={m.src.clone()}
+									onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}
+									onload={onloaded.clone()}
+								/>
 							},
 							(false, MediaType::Video) => html! {
-								<video ref={ctx.props().video_ref.clone()} controls=true onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}>
+								<video
+									ref={ctx.props().video_ref.clone()}
+									controls=true
+									onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}
+									onloadeddata={onloaded.clone()}
+									onload={onloaded.clone()}
+								>
 									<source src={m.src.clone()} type="video/mp4"/>
 								</video>
 							},
 							(_, MediaType::VideoGif) | (true, MediaType::Video) => html! {
-								<video ref={ctx.props().video_ref.clone()} controls=true autoplay=true loop=true muted=true onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}>
+								<video
+									ref={ctx.props().video_ref.clone()}
+									controls=true
+									autoplay=true
+									loop=true
+									muted=true
+									onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}
+									onloadeddata={onloaded.clone()}
+									onload={onloaded.clone()}
+								>
 									<source src={m.src.clone()} type="video/mp4"/>
 								</video>
 							},

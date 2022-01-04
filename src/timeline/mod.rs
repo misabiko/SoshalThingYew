@@ -197,7 +197,7 @@ impl Component for Timeline {
 			use_section: false,
 			section: (0, 50),
 			rtl: ctx.props().rtl.clone(),
-			lazy_loading: false,
+			lazy_loading: true,
 		}
 	}
 

@@ -1,30 +1,25 @@
 use std::cell::RefCell;
 use std::rc::Weak;
 use yew::prelude::*;
-use yew_agent::{Dispatcher, Dispatched};
+use yew_agent::{Dispatcher, Dispatched, Bridge, Bridged};
 use web_sys::console;
 use wasm_bindgen::JsValue;
 use std::convert::identity;
 
 use super::{ArticleView, SocialArticle, GalleryArticle};
 use crate::articles::{ArticleData, ArticleRefType};
+use crate::articles::media_load_queue::{MediaLoadAgent, Request as MediaLoadRequest, Response as MediaLoadResponse, MediaLoadState};
 use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest};
 use crate::modals::Modal;
 use crate::error::log_warn;
 use crate::services::storages::mark_article_as_read;
-
-#[derive(Clone, Copy, PartialEq, Debug)]
-pub enum MediaLoadState {
-	NotLoaded,
-	Loading,
-	Loaded,
-}
 
 pub struct ArticleComponent {
 	in_modal: bool,
 	article_actions: Dispatcher<ArticleActionsAgent>,
 	video_ref: NodeRef,
 	media_load_states: Vec<MediaLoadState>,
+	media_load_queue: Box<dyn Bridge<MediaLoadAgent>>,
 }
 
 pub enum Msg {
@@ -38,6 +33,8 @@ pub enum Msg {
 	ToggleHide,
 	ToggleInModal,
 	LoadMedia(usize),
+	MediaLoaded(usize),
+	MediaLoadResponse(MediaLoadResponse),
 }
 
 #[derive(Properties)]
@@ -129,6 +126,22 @@ impl Component for ArticleComponent {
 	type Properties = Props;
 
 	fn create(ctx: &Context<Self>) -> Self {
+		let mut media_load_queue = MediaLoadAgent::bridge(ctx.link().callback(Msg::MediaLoadResponse));
+
+		if ctx.props().lazy_loading {
+			let id = ctx.props().article.id();
+			let media = ctx.props().article.media();
+			let media_to_queue = media.iter()
+				.enumerate()
+				.filter_map(|(i, m)|
+					if m.queue_load_info.is_some() {Some(i) } else { None }
+				);
+
+			for i in media_to_queue {
+				media_load_queue.send(MediaLoadRequest::QueueMedia(id.clone(), i));
+			}
+		}
+
 		Self {
 			in_modal: false,
 			article_actions: ArticleActionsAgent::dispatcher(),
@@ -139,7 +152,8 @@ impl Component for ArticleComponent {
 				}else {
 					MediaLoadState::Loaded
 				}
-			).collect()
+			).collect(),
+			media_load_queue,
 		}
 	}
 
@@ -266,8 +280,25 @@ impl Component for ArticleComponent {
 				true
 			}
 			Msg::LoadMedia(index) => {
+				self.media_load_queue.send(MediaLoadRequest::LoadMedia(ctx.props().article.id(), index));
 				self.media_load_states[index] = MediaLoadState::Loading;
 				true
+			}
+			Msg::MediaLoaded(index) => {
+				self.media_load_queue.send(MediaLoadRequest::MediaLoaded(ctx.props().article.id(), index));
+				self.media_load_states[index] = MediaLoadState::Loaded;
+				true
+			}
+			Msg::MediaLoadResponse(response) => match response {
+				MediaLoadResponse::UpdateState(index, state) => {
+					match &state {
+						MediaLoadState::NotLoaded => log::debug!("Article {}/{} not loading??", &ctx.props().article.id(), &index),
+						MediaLoadState::Loading => log::debug!("Article {}/{} loading!", &ctx.props().article.id(), &index),
+						MediaLoadState::Loaded => log::debug!("Article {}/{} done loading!!", &ctx.props().article.id(), &index),
+					};
+					self.media_load_states[index] = state;
+					true
+				},
 			}
 		}
 	}
