@@ -254,7 +254,7 @@ impl SocialArticle {
 						},
 						true => html! {},
 					} }
-					<Dropdown current_label={DropdownLabel::Icon("fas fa-ellipsis-h".to_owned())} label_classes={classes!("articleButton")}>
+					<Dropdown current_label={DropdownLabel::Icon("fas fa-ellipsis-h".to_owned())} trigger_classes={classes!("level-item")} label_classes={classes!("articleButton")}>
 						<div class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleMarkAsRead))}> {"Mark as read"} </div>
 						<div class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleHide))}> {"Hide"} </div>
 						<div class="dropdown-item" onclick={&ontoggle_compact}> { if self.is_compact(ctx) { "Show expanded" } else { "Show compact" } } </div>

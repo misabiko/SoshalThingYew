@@ -85,7 +85,7 @@ article.socialArticle
 		overflow-wrap: anywhere
 
 
-	.articleButton, .dropdown-trigger .articleButton
+	.articleButton
 		color: $light
 
 		&:focus
@@ -96,6 +96,11 @@ article.socialArticle
 
 		&:hover.commentButton span
 			color: $comment-color
+
+	.dropdown-trigger .articleButton
+		width: 24px
+		i
+			color: $white-ter
 
 	button.articleButton
 		@include borderless-button

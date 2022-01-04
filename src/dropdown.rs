@@ -20,6 +20,8 @@ pub struct Props {
 	pub current_label: DropdownLabel,
 	#[prop_or_default]
 	pub label_classes: Option<Classes>,
+	#[prop_or_default]
+	pub trigger_classes: Option<Classes>,
 	pub children: Children,
 	#[prop_or_default]
 	pub is_right: bool,
@@ -59,7 +61,7 @@ impl Component for Dropdown {
 
 		html! {
 			<div class={classes!("dropdown", if self.expanded { Some("is-active") } else { None }, if ctx.props().is_right { Some("is-right") } else { None })}>
-				<div class="dropdown-trigger">
+				<div class={classes!("dropdown-trigger", ctx.props().trigger_classes.clone())}>
 					<button class={classes!("button", ctx.props().label_classes.clone())} onclick={ctx.link().callback(|_| Msg::ToggleExpanded)}>
 						{ match &ctx.props().current_label {
 							DropdownLabel::Text(text) => html! {
