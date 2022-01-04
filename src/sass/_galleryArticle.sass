@@ -22,11 +22,15 @@ article.article.galleryArticle
 		opacity: 0.5
 		display: none
 		direction: ltr
+		pointer-events: none
 
 		& > *
 			height: inherit
 			padding-top: unset
 			padding-bottom: unset
+
+		*
+			pointer-events: auto
 
 		//TODO Hack
 		.dropdown-content
