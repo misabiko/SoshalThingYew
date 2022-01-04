@@ -3,41 +3,46 @@
 article.article.galleryArticle
 	padding: 0px
 	margin-bottom: 0px
-	position: relative
 
-article:hover .holderBox
-	display: flex
+	& > div
+		position: relative
 
-.holderBox
-	justify-content: space-between
-	flex-wrap: nowrap
-	position: absolute
-	height: 56px
-	width: 100%
-	opacity: 0.5
-	display: none
-	direction: ltr
+	img, video
+		width: 100%
 
-	& > *
-		height: inherit
-		padding-top: unset
-		padding-bottom: unset
+	article:hover .holderBox
+		display: flex
 
-	//TODO Hack
-	& .dropdown-content
-		overflow-x: hidden
+	.holderBox
+		justify-content: space-between
+		flex-wrap: nowrap
+		position: absolute
+		height: 56px
+		width: 100%
+		opacity: 0.5
+		display: none
+		direction: ltr
 
-.holderBoxTop
-	top: 0px
+		& > *
+			height: inherit
+			padding-top: unset
+			padding-bottom: unset
 
-.holderBoxBottom
-	bottom: 0px
+		//TODO Hack
+		.dropdown-content
+			overflow-x: hidden
 
-img.articleMediaLoading
-	position: absolute
+	.holderBoxTop
+		top: 0px
 
-.articleThumb
-	z-index: -1
+	.holderBoxBottom
+		bottom: 0px
 
-ul.articleTags
-	list-style-type: none
+	img.articleMediaLoading
+		position: absolute
+
+	.articleThumb
+		z-index: -1
+
+	ul.articleTags
+		list-style-type: none

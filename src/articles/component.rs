@@ -74,8 +74,6 @@ pub struct ViewProps {
 	pub weak_ref: Weak<RefCell<dyn ArticleData>>,
 	pub article: Box<dyn ArticleData>,
 	pub compact: bool,
-	#[prop_or_default]
-	pub style: Option<String>,
 	pub animated_as_gifs: bool,
 	pub hide_text: bool,
 	pub in_modal: bool,
@@ -90,7 +88,6 @@ impl PartialEq<ViewProps> for ViewProps {
 			self.animated_as_gifs == other.animated_as_gifs &&
 			self.hide_text == other.hide_text &&
 			self.in_modal == other.in_modal &&
-			self.style == other.style &&
 			Weak::ptr_eq(&self.weak_ref, &other.weak_ref) &&
 			&self.article == &other.article
 	}
@@ -102,7 +99,6 @@ impl Clone for ViewProps {
 			weak_ref: self.weak_ref.clone(),
 			article: self.article.clone_data(),
 			compact: self.compact.clone(),
-			style: self.style.clone(),
 			animated_as_gifs: self.animated_as_gifs.clone(),
 			hide_text: self.hide_text.clone(),
 			in_modal: self.in_modal.clone(),
@@ -240,7 +236,7 @@ impl Component for ArticleComponent {
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
-		let html = match &ctx.props().article_view {
+		let view_html = match &ctx.props().article_view {
 			ArticleView::Social => html! {
 				<SocialArticle
 					key={ctx.props().article.id()}
@@ -250,7 +246,6 @@ impl Component for ArticleComponent {
 					animated_as_gifs={ctx.props().animated_as_gifs.clone()}
 					hide_text={ctx.props().hide_text.clone()}
 					in_modal={self.in_modal.clone()}
-					style={ctx.props().style.clone()}
 					video_ref={self.video_ref.clone()}
 					parent_callback={ctx.link().callback(identity)}
 				/>
@@ -264,21 +259,32 @@ impl Component for ArticleComponent {
 					animated_as_gifs={ctx.props().animated_as_gifs.clone()}
 					hide_text={ctx.props().hide_text.clone()}
 					in_modal={self.in_modal.clone()}
-					style={ctx.props().style.clone()}
 					video_ref={self.video_ref.clone()}
 					parent_callback={ctx.link().callback(identity)}
 				/>
 			},
 		};
 
+		let class = match ctx.props().article_view {
+			ArticleView::Social => "article socialArticle".to_owned(),
+			ArticleView::Gallery => "article galleryArticle".to_owned(),
+		};
+
+		//For some reason, the view needs at least a wrapper otherwise when changing article_view, the container draws everything in reverse order...
+		let article_html = html! {
+			<article {class} articleId={ctx.props().article.id()} key={ctx.props().article.id()} style={ctx.props().style.clone()}>
+				{ view_html }
+			</article>
+		};
+
 		if self.in_modal {
 			html! {
 				<Modal content_style="width: 75%" close_modal_callback={ctx.link().callback(|_| Msg::ToggleInModal)}>
-					{ html }
+					{ article_html }
 				</Modal>
 			}
 		}else {
-			html
+			article_html
 		}
 	}
 }

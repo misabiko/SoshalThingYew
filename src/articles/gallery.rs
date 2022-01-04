@@ -50,15 +50,15 @@ impl Component for GalleryArticle {
 		let actual_borrow = actual_article.borrow();
 
 		let style = match self.draw_on_top {
-			false => ctx.props().style.clone(),
-			true => Some(format!("{} z-index: 20", ctx.props().style.clone().unwrap_or_default())),
+			true => Some("z-index: 20".to_owned()),
+			false => None,
 		};
 
 		html! {
-			<article class="article galleryArticle" articleId={actual_borrow.id()} key={borrow.id()} {style}>
+			<div {style}>
 				{ self.view_media(ctx, &actual_borrow) }
 				{ self.view_nav(ctx, &actual_borrow) }
-			</article>
+			</div>
 		}
 	}
 

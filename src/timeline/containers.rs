@@ -174,7 +174,6 @@ pub fn masonry_container(props: &Props) -> Html {
 	let strongs: Vec<ArticleTuple> = props.articles.iter().filter_map(|t| t.0.upgrade().map(|s| (s, t.1.clone_data()))).collect();
 	let columns = to_columns(strongs.iter(), &props.column_count, &props.rtl);
 
-	//TODO I don't know why but switching ArticleView makes the articles drawn in reverse order until resorted, the initial order/sorting doesn't matter
 	html! {
 		<div class="articlesContainer masonryContainer" ref={props.container_ref.clone()}>
 			{ for columns.enumerate().map(|(column_index, column)| html! {

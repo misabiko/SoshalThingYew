@@ -86,7 +86,7 @@ impl Component for SocialArticle {
 		});
 
 		html! {
-			<article class="article socialArticle" articleId={borrow.id()} key={borrow.id()} style={ctx.props().style.clone()}>
+			<>
 				{ retweet_header }
 				<div class="media">
 					{ match actual_borrow.author_avatar_url().as_str() {
@@ -121,7 +121,7 @@ impl Component for SocialArticle {
 					false => self.view_media(ctx, &actual_borrow),
 					true => html! {},
 				} }
-			</article>
+			</>
 		}
 	}
 

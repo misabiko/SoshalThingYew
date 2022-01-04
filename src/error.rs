@@ -99,7 +99,7 @@ impl Display for ActualError {
 		match self {
 			ActualError::Text(str) => f.write_str(str),
 			ActualError::Reqwest(err) => Display::fmt(err, f),
-			ActualError::SerdeJson(err) => Display::fmt(err, f),
+			ActualError::SerdeJson(err) => f.write_fmt(format_args!("{}:{} - {}", err.line(), err.column(), err)),
 			ActualError::ToStr(err) => Display::fmt(err, f),
 			ActualError::ParseInt(err) => Display::fmt(err, f),
 			ActualError::JsValue(value) => Debug::fmt(value, f),
