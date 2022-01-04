@@ -13,10 +13,18 @@ use crate::modals::Modal;
 use crate::error::log_warn;
 use crate::services::storages::mark_article_as_read;
 
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum MediaLoadState {
+	NotLoaded,
+	Loading,
+	Loaded,
+}
+
 pub struct ArticleComponent {
 	in_modal: bool,
 	article_actions: Dispatcher<ArticleActionsAgent>,
 	video_ref: NodeRef,
+	media_load_states: Vec<MediaLoadState>,
 }
 
 pub enum Msg {
@@ -29,6 +37,7 @@ pub enum Msg {
 	ToggleMarkAsRead,
 	ToggleHide,
 	ToggleInModal,
+	LoadMedia(usize),
 }
 
 #[derive(Properties)]
@@ -80,6 +89,7 @@ pub struct ViewProps {
 	pub video_ref: NodeRef,
 	//Maybe use ctx.link().get_parent()?
 	pub parent_callback: Callback<Msg>,
+	pub media_load_states: Vec<MediaLoadState>,
 }
 
 impl PartialEq<ViewProps> for ViewProps {
@@ -88,6 +98,7 @@ impl PartialEq<ViewProps> for ViewProps {
 			self.animated_as_gifs == other.animated_as_gifs &&
 			self.hide_text == other.hide_text &&
 			self.in_modal == other.in_modal &&
+			self.media_load_states == other.media_load_states &&
 			Weak::ptr_eq(&self.weak_ref, &other.weak_ref) &&
 			&self.article == &other.article
 	}
@@ -104,6 +115,7 @@ impl Clone for ViewProps {
 			in_modal: self.in_modal.clone(),
 			video_ref: self.video_ref.clone(),
 			parent_callback: self.parent_callback.clone(),
+			media_load_states: self.media_load_states.clone(),
 		}
 	}
 }
@@ -112,17 +124,34 @@ impl Component for ArticleComponent {
 	type Message = Msg;
 	type Properties = Props;
 
-	fn create(_ctx: &Context<Self>) -> Self {
+	fn create(ctx: &Context<Self>) -> Self {
 		Self {
 			in_modal: false,
 			article_actions: ArticleActionsAgent::dispatcher(),
 			video_ref: NodeRef::default(),
+			media_load_states: ctx.props().article.media().iter().map(|m|
+				if m.queue_load_info.is_some() {
+					MediaLoadState::NotLoaded
+				}else {
+					MediaLoadState::Loaded
+				}
+			).collect()
 		}
+	}
+
+	fn changed(&mut self, _ctx: &Context<Self>) -> bool {
+		/*self.media_load_states = ctx.props().article.media().iter().map(|m|
+			if m.queue_load_info.is_some() {
+				MediaLoadState::NotLoaded
+			}else {
+				MediaLoadState::Loaded
+			}
+		).collect();*/
+		true
 	}
 
 	fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
 		match msg {
-
 			Msg::OnImageClick => {
 				ctx.link().send_message(Msg::ToggleMarkAsRead);
 				false
@@ -232,6 +261,10 @@ impl Component for ArticleComponent {
 				self.in_modal = !self.in_modal;
 				true
 			}
+			Msg::LoadMedia(index) => {
+				self.media_load_states[index] = MediaLoadState::Loading;
+				true
+			}
 		}
 	}
 
@@ -248,6 +281,7 @@ impl Component for ArticleComponent {
 					in_modal={self.in_modal.clone()}
 					video_ref={self.video_ref.clone()}
 					parent_callback={ctx.link().callback(identity)}
+					media_load_states={self.media_load_states.clone()}
 				/>
 			},
 			ArticleView::Gallery => html! {
@@ -261,6 +295,7 @@ impl Component for ArticleComponent {
 					in_modal={self.in_modal.clone()}
 					video_ref={self.video_ref.clone()}
 					parent_callback={ctx.link().callback(identity)}
+					media_load_states={self.media_load_states.clone()}
 				/>
 			},
 		};

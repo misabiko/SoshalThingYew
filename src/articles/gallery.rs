@@ -3,7 +3,7 @@ use yew::prelude::*;
 use wasm_bindgen::closure::Closure;
 
 use crate::articles::{ArticleRefType, MediaType, ArticleData};
-use crate::articles::component::{ViewProps, Msg as ParentMsg};
+use crate::articles::component::{ViewProps, Msg as ParentMsg, MediaLoadState};
 use crate::dropdown::{Dropdown, DropdownLabel};
 use crate::error::log_warn;
 
@@ -90,20 +90,34 @@ impl GalleryArticle {
 	fn view_media(&self, ctx: &Context<Self>, actual_article: &Ref<dyn ArticleData>) -> Html {
 		html! {
 			<>
-				{ for actual_article.media().iter().map(|m| match (&ctx.props().animated_as_gifs, m.media_type) {
-					(_, MediaType::Image | MediaType::Gif) => html! {
-						<img src={m.src.clone()} onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}/>
-					},
-					(false, MediaType::Video) => html! {
-						<video ref={ctx.props().video_ref.clone()} controls=true onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}>
-							<source src={m.src.clone()} type="video/mp4"/>
-						</video>
-					},
-					(_, MediaType::VideoGif) | (true, MediaType::Video) => html! {
-						<video ref={ctx.props().video_ref.clone()} controls=true autoplay=true loop=true muted=true onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}>
-							<source src={m.src.clone()} type="video/mp4"/>
-						</video>
-					},
+				{ for actual_article.media().iter().zip(ctx.props().media_load_states.iter()).map(|(m, load_state)| {
+					if m.queue_load_info.is_some() && *load_state == MediaLoadState::NotLoaded {
+						if let Some((src, _)) = &m.queue_load_info.as_ref().unwrap().thumbnail {
+							html! {
+								<img src={src.clone()} onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}/>
+							}
+						}else {
+							html! {
+								<div style="background-color: green"/>
+							}
+						}
+					}else {
+						match (&ctx.props().animated_as_gifs, m.media_type) {
+							(_, MediaType::Image | MediaType::Gif) => html! {
+								<img src={m.src.clone()} onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}/>
+							},
+							(false, MediaType::Video) => html! {
+								<video ref={ctx.props().video_ref.clone()} controls=true onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}>
+									<source src={m.src.clone()} type="video/mp4"/>
+								</video>
+							},
+							(_, MediaType::VideoGif) | (true, MediaType::Video) => html! {
+								<video ref={ctx.props().video_ref.clone()} controls=true autoplay=true loop=true muted=true onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}>
+									<source src={m.src.clone()} type="video/mp4"/>
+								</video>
+							},
+						}
+					}
 				}) }
 			</>
 		}
@@ -134,6 +148,13 @@ impl GalleryArticle {
 					<Dropdown on_expanded_change={ctx.link().callback(Msg::SetDrawOnTop)} is_right=true current_label={DropdownLabel::Icon("fas fa-ellipsis-h".to_owned())} label_classes={classes!("articleButton")}>
 						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleMarkAsRead))}> {"Mark as read"} </a>
 						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleHide))}> {"Hide"} </a>
+						{ if let Some(index) = ctx.props().media_load_states.iter().enumerate().find_map(|(i, m)| if *m == MediaLoadState::NotLoaded { Some(i) } else { None }) {
+							html! {
+								<a class="dropdown-item" onclick={ctx.link().callback(move |_| Msg::ParentCallback(ParentMsg::LoadMedia(index)))}>{"Load Media"}</a>
+							}
+						}else {
+							html! {}
+						} }
 						<a
 							class="dropdown-item"
 							href={ actual_article.url() }

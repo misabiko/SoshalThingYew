@@ -276,6 +276,7 @@ impl SocialArticle {
 	}
 
 	fn view_media(&self, ctx: &Context<Self>, actual_borrow: &Ref<dyn ArticleData>) -> Html {
+		//TODO Show thumbnail if queue_load_info
 		let type_src_tuples: Vec<(MediaType, String)> = actual_borrow.media().iter().map(|m| (m.media_type, m.src.clone())).collect();
 		match (&ctx.props().animated_as_gifs, &type_src_tuples[..]) {
 			(_, [(MediaType::Image, _), ..]) => {
