@@ -159,7 +159,6 @@ impl Component for Timeline {
 	type Properties = Props;
 
 	fn create(ctx: &Context<Self>) -> Self {
-		log::debug!("Creating timeline!");
 		let endpoints = match ctx.props().endpoints.clone() {
 			Some(endpoints) => Rc::new(RefCell::new(endpoints)),
 			None => Rc::new(RefCell::new(TimelineEndpoints::default()))

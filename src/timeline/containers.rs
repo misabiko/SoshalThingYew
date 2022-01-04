@@ -86,7 +86,7 @@ impl PartialEq for Props {
 pub fn column_container(props: &Props) -> Html {
 	html! {
 		<div class="articlesContainer columnContainer" ref={props.container_ref.clone()}>
-			{ for props.articles.iter().map(|(weak_ref, article)| html! {
+			{ for props.articles.iter().enumerate().map(|(load_priority, (weak_ref, article))| html! {
 				<ArticleComponent
 					key={article.id()}
 					weak_ref={weak_ref.clone()}
@@ -96,6 +96,7 @@ pub fn column_container(props: &Props) -> Html {
 					animated_as_gifs={props.animated_as_gifs}
 					hide_text={props.hide_text}
 					lazy_loading={props.lazy_loading}
+					load_priority={load_priority as u32}
 				/>
 			}) }
 		</div>
@@ -110,7 +111,7 @@ pub fn row_container(props: &Props) -> Html {
 	};
 	html! {
 		<div class="articlesContainer rowContainer" ref={props.container_ref.clone()} {style}>
-			{ for props.articles.iter().map(|(weak_ref, article)| { html! {
+			{ for props.articles.iter().enumerate().map(|(load_priority, (weak_ref, article))| { html! {
 				<ArticleComponent
 					key={article.id()}
 					weak_ref={weak_ref.clone()}
@@ -121,6 +122,7 @@ pub fn row_container(props: &Props) -> Html {
 					hide_text={props.hide_text}
 					lazy_loading={props.lazy_loading}
 					style={format!("width: {}%", 100.0 / (props.column_count as f64))}
+					load_priority={load_priority as u32}
 				/>
 			}}) }
 		</div>
@@ -180,7 +182,7 @@ pub fn masonry_container(props: &Props) -> Html {
 		<div class="articlesContainer masonryContainer" ref={props.container_ref.clone()}>
 			{ for columns.enumerate().map(|(column_index, column)| html! {
 				<div class="masonryColumn" key={column_index}>
-					{ for column.map(|(strong_ref, article)| html! {
+					{ for column.enumerate().map(|(load_priority, (strong_ref, article))| html! {
 						<ArticleComponent
 							key={article.id()}
 							weak_ref={Rc::downgrade(strong_ref)}
@@ -190,6 +192,7 @@ pub fn masonry_container(props: &Props) -> Html {
 							animated_as_gifs={props.animated_as_gifs}
 							hide_text={props.hide_text}
 							lazy_loading={props.lazy_loading}
+							load_priority={load_priority as u32 + column_index as u32 * props.column_count as u32}
 						/>
 					}) }
 				</div>
