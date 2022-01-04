@@ -3,7 +3,7 @@ use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 
 use crate::error::Result;
-use crate::articles::{ArticleData, ArticleComponent, ArticleMedia, ArticleView};
+use crate::articles::{ArticleData, ArticleComponent, ArticleView};
 
 /*Make containers dynamic?
 	Would require to dynamically list container names without an enum/vec
@@ -130,9 +130,7 @@ type Column<'a> = (u8, Vec<RatioedArticle<'a>>);
 fn relative_height(article: &Box<dyn ArticleData>) -> f32 {
 	(1.0 as f32) + article
 		.media().iter()
-		.map(|m| match m {
-			ArticleMedia::Image(_, ratio) | ArticleMedia::Video(_, ratio) | ArticleMedia::VideoGif(_, ratio) | ArticleMedia::Gif(_, ratio) => ratio
-		})
+		.map(|m| m.ratio)
 		.sum::<f32>()
 }
 

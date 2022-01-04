@@ -4,7 +4,7 @@ use std::cell::Ref;
 use wasm_bindgen::closure::Closure;
 use yew_agent::{Dispatcher, Dispatched};
 
-use crate::articles::{ArticleData, ArticleRefType, ArticleMedia};
+use crate::articles::{ArticleData, ArticleRefType, MediaType};
 use crate::articles::component::{ViewProps, Msg as ParentMsg};
 use crate::dropdown::{Dropdown, DropdownLabel};
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest};
@@ -226,8 +226,8 @@ impl SocialArticle {
 									}}
 								</a>
 								{
-									match &actual_borrow.media()[..] {
-										[ArticleMedia::Image(_, _), ..] => html! {
+									match &actual_borrow.media().iter().map(|m| m.media_type).collect::<Vec<MediaType>>()[..] {
+										[MediaType::Image, ..] => html! {
 											<a class="level-item articleButton" onclick={&ontoggle_compact}>
 												<span class="icon">
 													<i class={classes!("fas", if self.is_compact(ctx) { "fa-compress" } else { "fa-expand" })}/>
@@ -276,8 +276,9 @@ impl SocialArticle {
 	}
 
 	fn view_media(&self, ctx: &Context<Self>, actual_borrow: &Ref<dyn ArticleData>) -> Html {
-		match (&ctx.props().animated_as_gifs, &actual_borrow.media()[..]) {
-			(_, [ArticleMedia::Image(_, _), ..]) => {
+		let type_src_tuples: Vec<(MediaType, String)> = actual_borrow.media().iter().map(|m| (m.media_type, m.src.clone())).collect();
+		match (&ctx.props().animated_as_gifs, &type_src_tuples[..]) {
+			(_, [(MediaType::Image, _), ..]) => {
 				let images_classes = classes!(
 						"postMedia",
 						"postImages",
@@ -286,27 +287,27 @@ impl SocialArticle {
 
 				html! {
 					<div class={images_classes.clone()}> {
-						match &actual_borrow.media()[..] {
-							[ArticleMedia::Image(image, _)] => self.view_image(ctx, actual_borrow, image.clone(), false),
-							[ArticleMedia::Image(i1, _), ArticleMedia::Image(i2, _)] => html! {
+						match &type_src_tuples[..] {
+							[(MediaType::Image, src)] => self.view_image(ctx, actual_borrow, src.clone(), false),
+							[(MediaType::Image, src_1), (MediaType::Image, src_2)] => html! {
 								<>
-									{ self.view_image(ctx, actual_borrow, i1.clone(), false) }
-									{ self.view_image(ctx, actual_borrow, i2.clone(), false) }
+									{ self.view_image(ctx, actual_borrow, src_1.clone(), false) }
+									{ self.view_image(ctx, actual_borrow, src_2.clone(), false) }
 								</>
 							},
-							[ArticleMedia::Image(i1, _), ArticleMedia::Image(i2, _), ArticleMedia::Image(i3, _)] => html! {
+							[(MediaType::Image, src_1), (MediaType::Image, src_2), (MediaType::Image, src_3)] => html! {
 								<>
-									{ self.view_image(ctx, actual_borrow, i1.clone(), false) }
-									{ self.view_image(ctx, actual_borrow, i2.clone(), false) }
-									{ self.view_image(ctx, actual_borrow, i3.clone(), true) }
+									{ self.view_image(ctx, actual_borrow, src_1.clone(), false) }
+									{ self.view_image(ctx, actual_borrow, src_2.clone(), false) }
+									{ self.view_image(ctx, actual_borrow, src_3.clone(), true) }
 								</>
 							},
-							[ArticleMedia::Image(i1, _), ArticleMedia::Image(i2, _), ArticleMedia::Image(i3, _), ArticleMedia::Image(i4, _), ..] => html! {
+							[(MediaType::Image, src_1), (MediaType::Image, src_2), (MediaType::Image, src_3), (MediaType::Image, src_4), ..] => html! {
 								<>
-									{ self.view_image(ctx, actual_borrow, i1.clone(), false) }
-									{ self.view_image(ctx, actual_borrow, i2.clone(), false) }
-									{ self.view_image(ctx, actual_borrow, i3.clone(), false) }
-									{ self.view_image(ctx, actual_borrow, i4.clone(), false) }
+									{ self.view_image(ctx, actual_borrow, src_1.clone(), false) }
+									{ self.view_image(ctx, actual_borrow, src_2.clone(), false) }
+									{ self.view_image(ctx, actual_borrow, src_3.clone(), false) }
+									{ self.view_image(ctx, actual_borrow, src_4.clone(), false) }
 								</>
 							},
 							_ => html! {{"unexpected media format"}}
@@ -314,14 +315,14 @@ impl SocialArticle {
 					} </div>
 				}
 			}
-			(false, [ArticleMedia::Video(video_src, _)]) => html! {
+			(false, [(MediaType::Video, video_src)]) => html! {
 				<div class="postMedia postVideo">
 					<video ref={ctx.props().video_ref.clone()} controls=true onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}>
 						<source src={video_src.clone()} type="video/mp4"/>
 					</video>
 				</div>
 			},
-			(_, [ArticleMedia::VideoGif(gif_src, _)]) | (true, [ArticleMedia::Video(gif_src, _)]) => html! {
+			(_, [(MediaType::VideoGif, gif_src)]) | (true, [(MediaType::Video, gif_src)]) => html! {
 				<div class="postMedia postVideo">
 					<video ref={ctx.props().video_ref.clone()} controls=true autoplay=true loop=true muted=true onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}>
 						<source src={gif_src.clone()} type="video/mp4"/>

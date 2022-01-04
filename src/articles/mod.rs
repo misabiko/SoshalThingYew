@@ -2,6 +2,7 @@ use std::rc::Weak;
 use std::cell::RefCell;
 use std::fmt::Debug;
 use js_sys::Date;
+use serde::{Serialize, Deserialize};
 
 pub mod component;
 pub mod fetch_agent;
@@ -20,12 +21,25 @@ pub enum ArticleRefType<Pointer = Weak<RefCell<dyn ArticleData>>> {
 	QuoteRepost(Pointer, Pointer),
 }
 
-#[derive(Clone, PartialEq, Debug, serde::Serialize, serde::Deserialize)]
-pub enum ArticleMedia {
-	Image(String, f32),
-	Video(String, f32),
-	VideoGif(String, f32),
-	Gif(String, f32),
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct ArticleMedia {
+	pub src: String,
+	pub ratio: f32,
+	pub queue_load_info: Option<MediaQueueInfo>,
+	pub media_type: MediaType,
+}
+
+#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
+pub enum MediaType {
+	Image,
+	Video,
+	VideoGif,
+	Gif,
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct MediaQueueInfo {
+	pub thumbnail: Option<(String, f32)>,
 }
 
 pub trait ArticleData : Debug {

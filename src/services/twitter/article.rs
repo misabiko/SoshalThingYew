@@ -4,7 +4,7 @@ use js_sys::Date;
 use wasm_bindgen::JsValue;
 use std::collections::HashSet;
 
-use crate::articles::{ArticleData, ArticleMedia, ArticleRefType};
+use crate::articles::{ArticleData, ArticleMedia, MediaType, ArticleRefType};
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct TwitterUser {
@@ -188,13 +188,28 @@ impl TweetArticleData {
 														)
 														.map(|(w, h)| h as f32 / w as f32)
 												))
-											.map(|(url, ratio)| ArticleMedia::Image(url.to_owned(), ratio)),
+											.map(|(url, ratio)| ArticleMedia {
+												media_type: MediaType::Image,
+												src: url.to_owned(),
+												ratio,
+												queue_load_info: None,
+											}),
 									"animated_gif" => m.get("video_info")
 										.and_then(|v| get_mp4(v))
-										.map(|(url, ratio)| ArticleMedia::VideoGif(url.to_owned(), ratio)),
+										.map(|(url, ratio)| ArticleMedia {
+											media_type: MediaType::VideoGif,
+											src: url.to_owned(),
+											ratio,
+											queue_load_info: None,
+										}),
 									"video" => m.get("video_info")
 										.and_then(|v| get_mp4(v))
-										.map(|(url, ratio)| ArticleMedia::Video(url.to_owned(), ratio)),
+										.map(|(url, ratio)| ArticleMedia {
+											media_type: MediaType::Video,
+											src: url.to_owned(),
+											ratio,
+											queue_load_info: None,
+										}),
 									other_type => {
 										log::warn!("Unexpected media type \"{}\"", &other_type);
 										None

@@ -8,7 +8,7 @@ use crate::articles::{ArticleData, ArticleMedia};
 pub struct PixivArticleData {
 	pub id: u32,
 	pub creation_time: Date,
-	pub src: String,
+	pub media: ArticleMedia,
 	pub title: String,
 	pub author_name: String,
 	pub author_id: u32,
@@ -61,8 +61,7 @@ impl ArticleData for PixivArticleData {
 	}
 
 	fn media(&self) -> Vec<ArticleMedia> {
-		//TODO Pixiv image ratio
-		vec![ArticleMedia::Image(self.src.clone(), 1.0)]
+		vec![self.media.clone()]
 	}
 
 	fn json(&self) -> serde_json::Value {
@@ -114,7 +113,7 @@ impl ArticleData for PixivArticleData {
 
 impl PixivArticleData {
 	pub fn update(&mut self, new: &Ref<PixivArticleData>) {
-		self.src = new.src.clone();
+		self.media = new.media.clone();
 		self.title = new.title.clone();
 		self.is_fully_fetched = self.is_fully_fetched || *new.is_fully_fetched();
 		match &new.raw_json {
@@ -132,7 +131,7 @@ impl PixivArticleData {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PixivArticleCached {
 	pub id: u32,
-	pub src: String,
+	pub media: ArticleMedia,
 	pub author_avatar_url: String,
 }
 
@@ -140,7 +139,7 @@ impl From<&Ref<'_, PixivArticleData>> for PixivArticleCached {
 	fn from(article: &Ref<'_, PixivArticleData>) -> Self {
 		Self {
 			id: article.id.clone(),
-			src: article.src.clone(),
+			media: article.media.clone(),
 			author_avatar_url: article.author_avatar_url.clone(),
 		}
 	}

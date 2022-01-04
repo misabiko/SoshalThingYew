@@ -1,7 +1,7 @@
 use std::rc::Weak;
 use std::cell::RefCell;
 
-use crate::articles::{ArticleData, ArticleMedia, ArticleRefType};
+use crate::articles::{ArticleData, ArticleMedia, ArticleRefType, MediaType};
 
 pub type FilterPredicate = fn(&Weak<RefCell<dyn ArticleData>>, inverted: &bool) -> bool;
 
@@ -41,9 +41,9 @@ impl Filter {
 }
 
 fn is_animated(media: &ArticleMedia) -> bool {
-	match media {
-		ArticleMedia::Video(_, _) | ArticleMedia::VideoGif(_, _) | ArticleMedia::Gif(_, _) => true,
-		ArticleMedia::Image(_, _) => false,
+	match media.media_type {
+		MediaType::Video | MediaType::VideoGif | MediaType::Gif => true,
+		MediaType::Image => false,
 	}
 }
 

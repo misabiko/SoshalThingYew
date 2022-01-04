@@ -8,7 +8,7 @@ use wasm_bindgen::JsValue;
 
 use super::{PixivAgent, Request};
 use super::article::{PixivArticleData, PixivArticleCached};
-use crate::articles::ArticleData;
+use crate::articles::{ArticleData, ArticleMedia, MediaType};
 use crate::services::{Endpoint, EndpointSerialized};
 use crate::services::endpoint_agent::{EndpointId, RefreshTime};
 use crate::services::storages::{SessionStorageService, get_service_session};
@@ -99,7 +99,12 @@ impl From<(serde_json::Value, &FullPostAPI, &SessionStorageService)> for PixivAr
 			id: data.id.parse::<u32>().unwrap(),
 			creation_time: Date::new(&JsValue::from_str(&data.create_date)),
 			title: data.title.clone(),
-			src: data.urls.original.clone(),
+			media: ArticleMedia {
+				media_type: MediaType::Image,
+				src: data.urls.original.clone(),
+				ratio: 1.0, //TODO Pixiv image ratio
+				queue_load_info: None,
+			},
 			author_name: data.user_name.clone(),
 			author_id: data.user_id.parse::<u32>().unwrap(),
 			author_avatar_url,
@@ -125,16 +130,21 @@ impl From<(serde_json::Value, &FollowAPIIllust, &SessionStorageService)> for Pix
 	fn from((raw_json, data, storage): (serde_json::Value, &FollowAPIIllust, &SessionStorageService)) -> Self {
 		let cached: Option<PixivArticleCached> = storage.cached_articles.get(&data.id)
 			.and_then(|json| serde_json::from_value(json.clone()).ok());
-		let (src, is_fully_fetched) = match cached {
-			Some(PixivArticleCached { src, .. }) => (src, true),
-			None => (data.url.clone(), false)
+		let (media, is_fully_fetched) = match cached {
+			Some(PixivArticleCached { media, .. }) => (media, true),
+			None => (ArticleMedia {
+				media_type: MediaType::Image,
+				src: data.url.clone(),
+				ratio: 1.0,
+				queue_load_info: None,
+			}, false)
 		};
 
 		PixivArticleData {
 			id: data.id.parse::<u32>().unwrap(),
 			creation_time: Date::new(&JsValue::from_str(&data.create_date)),
 			title: data.title.clone(),
-			src,
+			media,
 			author_name: data.user_name.clone(),
 			author_id: data.user_id.parse::<u32>().unwrap(),
 			author_avatar_url: data.profile_image_url.clone(),
@@ -195,34 +205,44 @@ fn parse_article(element: web_sys::Element, storage: &SessionStorageService) -> 
 
 	let cached: Option<serde_json::Result<PixivArticleCached>> = storage.cached_articles.get(&id_str)
 		.map(|json| serde_json::from_value(json.clone()));
-	let (src, is_fully_fetched) = match cached {
-		Some(Ok(PixivArticleCached { src, .. })) => (src, true),
+	let (media, is_fully_fetched) = match cached {
+		Some(Ok(PixivArticleCached { media, .. })) => (media, true),
 		Some(Err(_err)) => {
-			let src = match imgs.get_with_index(0) {
+			let media = match imgs.get_with_index(0) {
 				Some(img) => match img.get_attribute("src") {
-					Some(src) => src,
+					Some(src) => ArticleMedia {
+						media_type: MediaType::Image,
+						src,
+						ratio: 1.0,
+						queue_load_info: None,
+					},
 					None => return None,
 				}
 				None => return None,
 			};
-			(src, false)
+			(media, false)
 		}
 		None => {
-			let src = match imgs.get_with_index(0) {
+			let media = match imgs.get_with_index(0) {
 				Some(img) => match img.get_attribute("src") {
-					Some(src) => src,
+					Some(src) => ArticleMedia {
+						media_type: MediaType::Image,
+						src,
+						ratio: 1.0,
+						queue_load_info: None,
+					},
 					None => return None,
 				}
 				None => return None,
 			};
-			(src, false)
+			(media, false)
 		}
 	};
 
 	Some(Rc::new(RefCell::new(PixivArticleData {
 		id,
 		creation_time: js_sys::Date::new_0(),
-		src,
+		media,
 		author_avatar_url,
 		title,
 		author_id,
