@@ -7,7 +7,7 @@ use wasm_bindgen::JsValue;
 use std::convert::identity;
 
 use super::{ArticleView, SocialArticle, GalleryArticle};
-use crate::articles::{ArticleData, ArticleRefType};
+use crate::articles::{ArticleData, ArticleRefType, MediaQueueInfo};
 use crate::articles::media_load_queue::{MediaLoadAgent, Request as MediaLoadRequest, Response as MediaLoadResponse, MediaLoadState};
 use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest};
 use crate::modals::Modal;
@@ -50,6 +50,7 @@ pub struct Props {
 	pub style: Option<String>,
 	#[prop_or_default]
 	pub lazy_loading: bool,
+	pub column_count: u8,
 }
 
 impl PartialEq for Props {
@@ -62,6 +63,7 @@ impl PartialEq for Props {
 			self.style == other.style &&
 			self.lazy_loading == other.lazy_loading &&
 			self.load_priority == other.load_priority &&
+			self.column_count == other.column_count &&
 			&self.article == &other.article
 	}
 }
@@ -78,6 +80,7 @@ impl Clone for Props {
 			style: self.style.clone(),
 			lazy_loading: self.lazy_loading,
 			load_priority: self.load_priority,
+			column_count: self.column_count,
 		}
 	}
 }
@@ -94,6 +97,7 @@ pub struct ViewProps {
 	//Maybe use ctx.link().get_parent()?
 	pub parent_callback: Callback<Msg>,
 	pub media_load_states: Vec<MediaLoadState>,
+	pub column_count: u8,
 }
 
 impl PartialEq<ViewProps> for ViewProps {
@@ -103,6 +107,7 @@ impl PartialEq<ViewProps> for ViewProps {
 			self.hide_text == other.hide_text &&
 			self.in_modal == other.in_modal &&
 			self.media_load_states == other.media_load_states &&
+			self.column_count == other.column_count &&
 			Weak::ptr_eq(&self.weak_ref, &other.weak_ref) &&
 			&self.article == &other.article
 	}
@@ -113,13 +118,14 @@ impl Clone for ViewProps {
 		Self {
 			weak_ref: self.weak_ref.clone(),
 			article: self.article.clone_data(),
-			compact: self.compact.clone(),
-			animated_as_gifs: self.animated_as_gifs.clone(),
-			hide_text: self.hide_text.clone(),
-			in_modal: self.in_modal.clone(),
+			compact: self.compact,
+			animated_as_gifs: self.animated_as_gifs,
+			hide_text: self.hide_text,
+			in_modal: self.in_modal,
 			video_ref: self.video_ref.clone(),
 			parent_callback: self.parent_callback.clone(),
 			media_load_states: self.media_load_states.clone(),
+			column_count: self.column_count,
 		}
 	}
 }
@@ -131,14 +137,14 @@ impl Component for ArticleComponent {
 	fn create(ctx: &Context<Self>) -> Self {
 		let mut media_load_queue = MediaLoadAgent::bridge(ctx.link().callback(Msg::MediaLoadResponse));
 
-		//TODO Avoir first-come-first-serve on initial load
+		//TODO Avoid first-come-first-serve on initial load
 		if ctx.props().lazy_loading {
 			let id = ctx.props().article.id();
 			let media = ctx.props().article.media();
 			let media_to_queue = media.iter()
 				.enumerate()
 				.filter_map(|(i, m)|
-					if m.queue_load_info.is_some() {Some(i) } else { None }
+					if let MediaQueueInfo::LazyLoad {..} = m.queue_load_info { Some(i) } else { None }
 				);
 
 			for i in media_to_queue {
@@ -151,10 +157,13 @@ impl Component for ArticleComponent {
 			article_actions: ArticleActionsAgent::dispatcher(),
 			video_ref: NodeRef::default(),
 			media_load_states: ctx.props().article.media().iter().map(|m|
-				if ctx.props().lazy_loading && m.queue_load_info.as_ref().map(|q| !q.loaded).unwrap_or(false) {
-					MediaLoadState::NotLoaded
+				if !ctx.props().lazy_loading {
+					MediaLoadState::Loaded
 				}else {
-					MediaLoadState::Loaded	//Consider still setting it as loading?
+					match m.queue_load_info {
+						MediaQueueInfo::LazyLoad { loaded, .. } if loaded => MediaLoadState::Loaded,
+						_ => MediaLoadState::NotLoaded,
+					}
 				}
 			).collect(),
 			media_load_queue,
@@ -310,6 +319,7 @@ impl Component for ArticleComponent {
 					video_ref={self.video_ref.clone()}
 					parent_callback={ctx.link().callback(identity)}
 					media_load_states={self.media_load_states.clone()}
+					column_count={ctx.props().column_count}
 				/>
 			},
 			ArticleView::Gallery => html! {
@@ -324,6 +334,7 @@ impl Component for ArticleComponent {
 					video_ref={self.video_ref.clone()}
 					parent_callback={ctx.link().callback(identity)}
 					media_load_states={self.media_load_states.clone()}
+					column_count={ctx.props().column_count}
 				/>
 			},
 		};

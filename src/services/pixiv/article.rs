@@ -2,7 +2,7 @@ use std::cell::Ref;
 use js_sys::Date;
 use serde::{Serialize, Deserialize};
 
-use crate::articles::{ArticleData, ArticleMedia};
+use crate::articles::{ArticleData, ArticleMedia, MediaQueueInfo};
 
 #[derive(Clone, Debug)]
 pub struct PixivArticleData {
@@ -111,8 +111,8 @@ impl ArticleData for PixivArticleData {
 	}
 
 	fn media_loaded(&mut self, _index: usize) {
-		if let Some(queue_info) = &mut self.media.queue_load_info {
-			queue_info.loaded = true;
+		if let MediaQueueInfo::LazyLoad { loaded, .. } = &mut self.media.queue_load_info {
+			*loaded = true;
 		}
 	}
 }

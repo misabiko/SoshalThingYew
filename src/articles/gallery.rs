@@ -2,7 +2,7 @@ use std::cell::Ref;
 use yew::prelude::*;
 use wasm_bindgen::closure::Closure;
 
-use crate::articles::{ArticleRefType, MediaType, ArticleData, media_load_queue::MediaLoadState};
+use crate::articles::{ArticleRefType, MediaType, MediaQueueInfo, ArticleData, media_load_queue::MediaLoadState};
 use crate::articles::component::{ViewProps, Msg as ParentMsg};
 use crate::dropdown::{Dropdown, DropdownLabel};
 use crate::error::log_warn;
@@ -91,33 +91,48 @@ impl GalleryArticle {
 		html! {
 			<>
 				{ for actual_article.media().iter().enumerate().zip(ctx.props().media_load_states.iter()).map(|((i, m), load_state)| {
-					if m.queue_load_info.is_some() && *load_state == MediaLoadState::NotLoaded {
-						if let Some((src, _)) = &m.queue_load_info.as_ref().unwrap().thumbnail {
-							html! {
-								<img src={src.clone()} onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}/>
-							}
-						}else {
-							html! {
-								<div style="background-color: green"/>
-							}
-						}
+					let thumb = match &m.queue_load_info {
+						MediaQueueInfo::LazyLoad { thumbnail, .. } => match thumbnail {
+							Some((src, _)) => Some(html! {
+								<img class="articleThumb" src={src.clone()} onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}/>
+							}),
+							None => Some(html! {
+								<img class="articleThumb" style={format!("background-color: grey; height: calc({} * 100vw / {})", &m.ratio, &ctx.props().column_count)}/>
+							}),
+						},
+						_ => None,
+					};
+
+					if thumb.is_some() && *load_state == MediaLoadState::NotLoaded {
+						thumb.unwrap()
 					}else {
 						let onloaded = ctx.link().callback(move |_| Msg::ParentCallback(ParentMsg::MediaLoaded(i)));
+						let is_loading = *load_state == MediaLoadState::Loading;
 						match (&ctx.props().animated_as_gifs, m.media_type) {
 							(_, MediaType::Image | MediaType::Gif) => html! {
-								<img
-									src={m.src.clone()}
-									onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}
-									onload={onloaded.clone()}
-								/>
+								<>
+									<img
+										src={m.src.clone()}
+										onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}
+										onload={if is_loading { Some(onloaded.clone()) } else { None }}
+										class={if is_loading { Some("articleMediaLoading") } else { None }}
+									/>
+									{
+										if *load_state == MediaLoadState::Loading {
+											thumb.unwrap_or_default()
+										}else {
+											html! {}
+										}
+									}
+								</>
 							},
 							(false, MediaType::Video) => html! {
 								<video
 									ref={ctx.props().video_ref.clone()}
 									controls=true
 									onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}
-									onloadeddata={onloaded.clone()}
-									onload={onloaded.clone()}
+									onloadeddata={if is_loading { Some(onloaded.clone()) } else { None }}
+									onload={if is_loading { Some(onloaded.clone()) } else { None }}
 								>
 									<source src={m.src.clone()} type="video/mp4"/>
 								</video>
@@ -130,8 +145,8 @@ impl GalleryArticle {
 									loop=true
 									muted=true
 									onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}
-									onloadeddata={onloaded.clone()}
-									onload={onloaded.clone()}
+									onloadeddata={if is_loading { Some(onloaded.clone()) } else { None }}
+									onload={if is_loading { Some(onloaded.clone()) } else { None }}
 								>
 									<source src={m.src.clone()} type="video/mp4"/>
 								</video>

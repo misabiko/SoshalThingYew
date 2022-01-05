@@ -1,6 +1,7 @@
 use yew::prelude::*;
 use std::rc::{Rc, Weak};
 use std::cell::RefCell;
+use std::cmp::Ordering;
 
 use crate::error::Result;
 use crate::articles::{ArticleData, ArticleComponent, ArticleView};
@@ -97,6 +98,7 @@ pub fn column_container(props: &Props) -> Html {
 					hide_text={props.hide_text}
 					lazy_loading={props.lazy_loading}
 					load_priority={load_priority as u32}
+					column_count={props.column_count}
 				/>
 			}) }
 		</div>
@@ -121,8 +123,9 @@ pub fn row_container(props: &Props) -> Html {
 					animated_as_gifs={props.animated_as_gifs}
 					hide_text={props.hide_text}
 					lazy_loading={props.lazy_loading}
-					style={format!("width: {}%", 100.0 / (props.column_count as f64))}
+					style={format!("width: calc(100% / {})", props.column_count)}
 					load_priority={load_priority as u32}
+					column_count={props.column_count}
 				/>
 			}}) }
 		</div>
@@ -158,7 +161,7 @@ fn to_columns<'a>(articles: impl Iterator<Item = &'a ArticleTuple>, column_count
 			.map(|i| (i, Vec::new()))
 			.collect::<Vec::<Column>>(),
 		|mut cols, article| {
-			cols.sort_by(|a, b| height(a).partial_cmp(&height(b)).unwrap());
+			cols.sort_by(|a, b| height(a).partial_cmp(&height(b)).unwrap_or(Ordering::Equal));
 			cols[0].1.push(article);
 			cols
 		}
@@ -193,6 +196,7 @@ pub fn masonry_container(props: &Props) -> Html {
 							hide_text={props.hide_text}
 							lazy_loading={props.lazy_loading}
 							load_priority={load_priority as u32 + column_index as u32 * props.column_count as u32}
+							column_count={props.column_count}
 						/>
 					}) }
 				</div>

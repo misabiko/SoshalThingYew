@@ -26,7 +26,7 @@ pub enum ArticleRefType<Pointer = Weak<RefCell<dyn ArticleData>>> {
 pub struct ArticleMedia {
 	pub src: String,
 	pub ratio: f32,
-	pub queue_load_info: Option<MediaQueueInfo>,
+	pub queue_load_info: MediaQueueInfo,
 	pub media_type: MediaType,
 }
 
@@ -38,10 +38,14 @@ pub enum MediaType {
 	Gif,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Default)]
-pub struct MediaQueueInfo {
-	pub thumbnail: Option<(String, f32)>,
-	pub loaded: bool,
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub enum MediaQueueInfo {
+	DirectLoad,
+	Thumbnail,
+	LazyLoad  {
+		thumbnail: Option<(String, f32)>,
+		loaded: bool,
+	}
 }
 
 pub trait ArticleData : Debug {
