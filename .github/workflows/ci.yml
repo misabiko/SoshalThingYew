@@ -21,7 +21,6 @@ jobs:
         # Optional version of trunk to install(eg. 'v0.8.1', 'latest')
         version: 'latest'
     - name: Build
-      run: trunk build --verbose
-      #run: cargo build --verbose
+      run: trunk build
     - name: Run tests
       run: cargo test --verbose
