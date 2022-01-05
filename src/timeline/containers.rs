@@ -1,7 +1,6 @@
 use yew::prelude::*;
 use std::rc::{Rc, Weak};
 use std::cell::RefCell;
-use std::cmp::Ordering;
 
 use crate::error::Result;
 use crate::articles::{ArticleData, ArticleComponent, ArticleView};
@@ -161,7 +160,11 @@ fn to_columns<'a>(articles: impl Iterator<Item = &'a ArticleTuple>, column_count
 			.map(|i| (i, Vec::new()))
 			.collect::<Vec::<Column>>(),
 		|mut cols, article| {
-			cols.sort_by(|a, b| height(a).partial_cmp(&height(b)).unwrap_or(Ordering::Equal));
+			cols.sort_by(|a, b| {
+				let h_a = height(a);
+				let h_b = height(b);
+				h_a.partial_cmp(&h_b).expect(&format!("comparing {} and {}\n{:#?}\n{:#?}", h_a, h_b, a, b))
+			});
 			cols[0].1.push(article);
 			cols
 		}
