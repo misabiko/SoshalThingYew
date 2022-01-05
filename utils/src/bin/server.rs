@@ -1,9 +1,8 @@
-use actix_web::{get, web, App, HttpResponse, HttpServer, middleware::Logger, web::Path, Responder, http::header};
+use actix_web::{get, web, App, HttpResponse, HttpServer, middleware::Logger, web::Path, http::header};
 use actix_identity::{Identity, CookieIdentityPolicy, IdentityService};
 use egg_mode::list::ListID;
 use serde::Deserialize;
 use std::sync::Mutex;
-use actix_files::NamedFile;
 use std::collections::HashMap;
 
 #[derive(serde::Deserialize)]
@@ -267,61 +266,6 @@ async fn twitter_login_callback(id: Identity, query: web::Query<LoginCallbackQue
 		.finish()
 }
 
-#[get("/{filename}")]
-async fn favviewer(path: web::Path<String>) -> impl Responder {
-	let path = path.into_inner();
-	match path.as_str() {
-		"init" => {
-			let js_file = std::fs::read_dir("./dist")
-				.unwrap()
-				.find_map(|f| {
-					f.ok()
-						.map(|entry| entry.path())
-						.and_then(|path| {
-							match path
-								.clone()
-								.extension()
-								.and_then(|ext| ext.to_str())
-								.map(|ext| ext == "js") {
-								Some(true) => Some(path.clone()),
-								_ => None
-							}
-						})
-				});
-
-			match js_file.as_ref().and_then(|f| f.to_str()) {
-				Some(file) => actix_files::NamedFile::open(&file),
-				None => Err(std::io::Error::from(std::io::ErrorKind::NotFound))
-			}
-		},
-		_ => actix_files::NamedFile::open(format!("dist/{}", &path)),
-	}
-}
-
-#[get("/index")]
-async fn index() -> NamedFile {
-	NamedFile::open("dist/index.html").unwrap()
-}
-
-/*async fn static_files(req: HttpRequest) -> actix_web::Result<NamedFile> {
-	let path: PathBuf = req.match_info().query("filename").parse().unwrap();
-
-	println!("Path: {:?}", &path);
-	if path.extension() == Some(std::ffi::OsStr::new("wasm")) {
-		println!("{:?} ends with .wasm", &path);
-		//Ok(NamedFile::open("dist/index.html")?)
-		Ok(NamedFile::open(std::path::Path::new("dist").join(path))?
-			.set_content_type("application/wasm".parse().unwrap()))
-	}else if path.extension() == Some(std::ffi::OsStr::new("js")) {
-		println!("{:?} ends with .js", &path);
-		//Ok(NamedFile::open("dist/index.html")?)
-		Ok(NamedFile::open(std::path::Path::new("dist").join(path))?
-			.set_content_type(mime::APPLICATION_JAVASCRIPT))
-	}else {
-		Ok(NamedFile::open(std::path::Path::new("dist").join(path))?)
-	}
-}*/
-
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
 	let credentials = match (std::env::var("consumer_key"), std::env::var("consumer_secret")) {
@@ -337,6 +281,7 @@ async fn main() -> std::io::Result<()> {
 		(Err(_), Err(_)) => None,
 	};
 
+	//TODO Cleaner "Please add credentials.json or set environement variable" message then exit
 	let credentials = credentials.unwrap_or_else(|| {
 		let c = std::fs::read_to_string("credentials.json").expect("Couldn't find credentials.json");
 		serde_json::from_str(&c).expect("Couldn't parse credentials.json")
@@ -374,8 +319,9 @@ async fn main() -> std::io::Result<()> {
 					.service(twitter_login)
 					.service(twitter_login_callback)
 			)
+			.service(actix_files::Files::new("/", "./dist").index_file("index.html"))
 	})
-	.bind("127.0.0.1:3000")?
+	.bind(format!("127.0.0.1:{}", if cfg!(debug_assertions) { 3000 } else { 8080 }))?
 	.run()
 	.await
 }
