@@ -1,9 +1,6 @@
 target/
 node_modules/
 dist/
-!dist/index-*.js
-!dist/index-*.wasm
-!dist/partial-index.css
 
 credentials.json
 generated_files.json
