@@ -3,6 +3,7 @@ use yew::prelude::*;
 pub mod add_timeline;
 
 pub use add_timeline::AddTimelineModal;
+use crate::components::FA;
 
 #[derive(Properties, PartialEq, Clone)]
 pub struct ModalCardProps {
@@ -25,9 +26,7 @@ pub fn modal_card(props: &ModalCardProps) -> Html {
 					<header class="card-header">
 						<p class="card-header-title">{"Choose Endpoint"}</p>
 						<button class="card-header-icon" onclick={props.close_modal_callback.clone()}>
-							<span class="icon">
-								<i class="fas fa-times"/>
-							</span>
+							<FA icon="times"/>
 						</button>
 					</header>
 					<div class="card-content">
@@ -62,9 +61,7 @@ pub fn modal(props: &Props) -> Html {
 				{ for props.children.iter() }
 			</div>
 			<button class="modal-close is-large" aria-label="close" onclick={props.close_modal_callback.clone()}>
-				<span class="icon">
-					<i class="fas fa-times"/>
-				</span>
+				<FA icon="times"/>
 			</button>
 		</div>
 	}

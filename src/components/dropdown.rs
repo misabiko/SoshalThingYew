@@ -1,6 +1,8 @@
 use yew::prelude::*;
 use wasm_bindgen::JsCast;
 
+use super::font_awesome::{FA, Props as FontAwesomeProps};
+
 pub struct Dropdown {
 	expanded: bool,
 }
@@ -12,7 +14,7 @@ pub enum Msg {
 #[derive(Clone, PartialEq)]
 pub enum DropdownLabel {
 	Text(String),
-	Icon(String),
+	Icon(FontAwesomeProps),
 }
 
 #[derive(Properties, Clone, PartialEq)]
@@ -67,15 +69,11 @@ impl Component for Dropdown {
 							DropdownLabel::Text(text) => html! {
 								<>
 									<span>{ text.clone() }</span>
-									<span class="icon is-small">
-										<i class="fas fa-angle-down"/>
-									</span>
+									<FA icon="angle_down" span_classes={classes!("is-small")}/>
 								</>
 							},
-							DropdownLabel::Icon(classes) => html! {
-								<span class="icon is-small">
-									<i class={classes.clone()}/>
-								</span>
+							DropdownLabel::Icon(props) => html! {
+								<FA ..props.clone()/>
 							},
 						} }
 					</button>

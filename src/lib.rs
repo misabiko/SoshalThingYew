@@ -1,29 +1,29 @@
 use yew::prelude::*;
 use yew_agent::{Bridge, Bridged, Dispatched, Dispatcher};
 
-pub mod error;
-pub mod timeline;
 pub mod articles;
-pub mod services;
-pub mod modals;
-pub mod dropdown;
-mod sidebar;
-pub mod favviewer;
 pub mod choose_endpoints;
+pub mod components;
+pub mod error;
+pub mod favviewer;
+pub mod modals;
+pub mod services;
+pub mod timeline;
+mod sidebar;
 
-use crate::sidebar::Sidebar;
-use crate::timeline::{Props as TimelineProps, Timeline, TimelineId, Container};
-use crate::services::{
+use components::{FA, IconSize};
+use error::log_error;
+use favviewer::PageInfo;
+use modals::AddTimelineModal;
+use services::{
 	Endpoint,
-	endpoint_agent::{EndpointId, EndpointAgent, Request as EndpointRequest, Response as EndpointResponse, TimelineEndpoints},
+	endpoint_agent::{EndpointId, EndpointAgent, Request as EndpointRequest, Response as EndpointResponse, TimelineEndpoints, TimelineCreationRequest},
 	pixiv::PixivAgent,
 	twitter::{endpoints::*, TwitterAgent},
 };
-use crate::favviewer::PageInfo;
-use crate::modals::AddTimelineModal;
-use crate::services::endpoint_agent::TimelineCreationRequest;
-use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse};
-use crate::error::log_error;
+use sidebar::Sidebar;
+use timeline::{Props as TimelineProps, Timeline, TimelineId, Container};
+use timeline::agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse};
 
 #[derive(PartialEq, Clone)]
 pub enum DisplayMode {
@@ -255,14 +255,12 @@ impl Component for Model {
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
 		let (dm_title, dm_icon) = match self.display_mode {
-			DisplayMode::Default => ("Single Timeline", "fa-expand-alt"),
-			DisplayMode::Single { .. } => ("Multiple Timeline", "fa-columns"),
+			DisplayMode::Default => ("Single Timeline", "expand-alt"),
+			DisplayMode::Single { .. } => ("Multiple Timeline", "columns"),
 		};
 		let display_mode_toggle = html! {
 			<button onclick={ctx.link().callback(|_| Msg::ToggleDisplayMode)} title={dm_title}>
-				<span class="icon">
-					<i class={classes!("fas", "fa-2x", dm_icon)}/>
-				</span>
+				<FA icon={dm_icon} size={IconSize::X2}/>
 			</button>
 		};
 
@@ -296,9 +294,7 @@ impl Component for Model {
 												match ctx.props().favviewer {
 													true => html! {
 														<button title="Toggle FavViewer" onclick={ctx.link().callback(|_| Msg::ToggleFavViewer)}>
-															<span class="icon">
-																<i class="fas fa-eye-slash fa-lg"/>
-															</span>
+															<FA icon="eye-slash" size={IconSize::Large}/>
 														</button>
 													},
 													false => html! {}

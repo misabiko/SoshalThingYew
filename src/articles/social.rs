@@ -6,7 +6,7 @@ use yew_agent::{Dispatcher, Dispatched};
 
 use crate::articles::{ArticleData, ArticleRefType, MediaType};
 use crate::articles::component::{ViewProps, Msg as ParentMsg};
-use crate::dropdown::{Dropdown, DropdownLabel};
+use crate::components::{Dropdown, DropdownLabel, FA, IconType, font_awesome::Props as FAProps};
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest};
 use crate::error::log_warn;
 
@@ -201,9 +201,7 @@ impl SocialArticle {
 									class={classes!("level-item", "articleButton", "repostButton", if actual_borrow.reposted() { Some("repostedPostButton") } else { None })}
 									onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::Repost))}
 								>
-									<span class="icon">
-										<i class="fas fa-retweet"/>
-									</span>
+									<FA icon="retweet"/>
 									{match actual_borrow.repost_count() {
 										0 => html! {},
 										count => html! {
@@ -215,9 +213,7 @@ impl SocialArticle {
 									class={classes!("level-item", "articleButton", "likeButton", if actual_borrow.liked() { Some("likedPostButton") } else { None })}
 									onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::Like))}
 								>
-									<span class="icon">
-										<i class={classes!("fa-heart", if actual_borrow.liked() { "fas" } else { "far" })}/>
-									</span>
+									<FA icon="heart" icon_type={if actual_borrow.liked() { IconType::Solid } else { IconType::Regular }}/>
 									{match actual_borrow.like_count() {
 										0 => html! {},
 										count => html! {
@@ -229,9 +225,7 @@ impl SocialArticle {
 									match &actual_borrow.media().iter().map(|m| m.media_type).collect::<Vec<MediaType>>()[..] {
 										[MediaType::Image, ..] => html! {
 											<a class="level-item articleButton" onclick={&ontoggle_compact}>
-												<span class="icon">
-													<i class={classes!("fas", if self.is_compact(ctx) { "fa-compress" } else { "fa-expand" })}/>
-												</span>
+												<FA icon={if self.is_compact(ctx) { "compress" } else { "expand" }}/>
 											</a>
 										},
 										_ => html! {},
@@ -241,9 +235,7 @@ impl SocialArticle {
 									match ctx.props().in_modal {
 										false => html! {
 											<a class="level-item articleButton" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleInModal))}>
-												<span class="icon">
-													<i class="fas fa-expand-alt"/>
-												</span>
+												<FA icon="expand-alt"/>
 											</a>
 										},
 										true => html! {},
@@ -254,7 +246,7 @@ impl SocialArticle {
 						},
 						true => html! {},
 					} }
-					<Dropdown current_label={DropdownLabel::Icon("fas fa-ellipsis-h".to_owned())} trigger_classes={classes!("level-item")} label_classes={classes!("articleButton")}>
+					<Dropdown current_label={DropdownLabel::Icon(yew::props! { FAProps {icon: "ellipsis-h".to_owned()}})} trigger_classes={classes!("level-item")} label_classes={classes!("articleButton")}>
 						<div class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleMarkAsRead))}> {"Mark as read"} </div>
 						<div class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleHide))}> {"Hide"} </div>
 						<div class="dropdown-item" onclick={&ontoggle_compact}> { if self.is_compact(ctx) { "Show expanded" } else { "Show compact" } } </div>

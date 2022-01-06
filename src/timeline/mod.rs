@@ -21,7 +21,7 @@ use crate::articles::{ArticleView, ArticleData};
 use crate::services::endpoint_agent::{EndpointAgent, Request as EndpointRequest, TimelineEndpoints};
 use crate::modals::ModalCard;
 use crate::choose_endpoints::ChooseEndpoints;
-use crate::dropdown::{Dropdown, DropdownLabel};
+use crate::components::{Dropdown, DropdownLabel, FA, IconSize};
 use crate::services::article_actions::{ArticleActionsAgent, Response as ArticleActionsResponse};
 
 pub type TimelineId = i8;
@@ -481,34 +481,22 @@ impl Component for Timeline {
 					</div>
 					<div class="timelineButtons">
 						<button onclick={ctx.link().callback(|_| Msg::Shuffle)} title="Shuffle">
-							<span class="icon">
-								<i class="fas fa-random fa-lg"/>
-							</span>
+							<FA icon="random" size={IconSize::Large}/>
 						</button>
 						<button onclick={ctx.link().callback(|_| Msg::Autoscroll)} title="Autoscroll">
-							<span class="icon">
-								<i class="fas fa-scroll fa-lg"/>
-							</span>
+							<FA icon="scroll" size={IconSize::Large}/>
 						</button>
 						<button onclick={ctx.link().callback(|_| Msg::Refresh)} title="Refresh">
-							<span class="icon">
-								<i class="fas fa-sync-alt fa-lg"/>
-							</span>
+							<FA icon="sync-alt" size={IconSize::Large}/>
 						</button>
 						<button onclick={ctx.link().callback(|_| Msg::LoadBottom)} title="Load Bottom">
-							<span class="icon">
-								<i class="fas fa-arrow-down fa-lg"/>
-							</span>
+							<FA icon="arrow-down" size={IconSize::Large}/>
 						</button>
 						<button onclick={ctx.link().callback(|_| Msg::LoadTop)} title="Load Top">
-							<span class="icon">
-								<i class="fas fa-arrow-up fa-lg"/>
-							</span>
+							<FA icon="arrow-up" size={IconSize::Large}/>
 						</button>
 						<button onclick={ctx.link().callback(|_| Msg::ToggleOptions)} title="Expand options">
-							<span class="icon">
-								<i class="fas fa-ellipsis-v fa-lg"/>
-							</span>
+							<FA icon="ellipsis-v" size={IconSize::Large}/>
 						</button>
 					</div>
 				</div>

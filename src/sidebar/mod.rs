@@ -5,6 +5,7 @@ mod endpoint_options;
 
 use endpoint_options::EndpointOptions;
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest};
+use crate::components::{FA, IconSize};
 
 pub struct Sidebar {
 	expanded: bool,
@@ -67,23 +68,17 @@ impl Component for Sidebar {
 				<div id="sidebarButtons">
 					<div>
 						<button title="Expand sidebar" onclick={ctx.link().callback(|_| Msg::ToggleExpanded)}>
-							<span class="icon">
-								<i class={classes!("fas", "fa-2x", if self.expanded { "fa-angle-double-left" } else { "fa-angle-double-right" })}/>
-							</span>
+							<FA icon={if self.expanded { "angle-double-left" } else { "angle-double-right" }} size={IconSize::X2}/>
 						</button>
 						<button onclick={ctx.link().callback(|_| Msg::AddTimeline)} title="Add new timeline">
-							<span class="icon">
-								<i class="fas fa-plus fa-2x"/>
-							</span>
+							<FA icon="plus" size={IconSize::X2}/>
 						</button>
 						{ for ctx.props().children.iter() }
 					</div>
 					<div title="Github">
 						<a href="https://github.com/misabiko/SoshalThingYew">
 							<button>
-								<span class="icon">
-									<i class="fab fa-github fa-2x"/>
-								</span>
+								<FA icon="github" size={IconSize::X2}/>
 							</button>
 						</a>
 					</div>

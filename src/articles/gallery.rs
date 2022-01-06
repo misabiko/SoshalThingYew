@@ -4,7 +4,8 @@ use wasm_bindgen::closure::Closure;
 
 use crate::articles::{ArticleRefType, MediaType, MediaQueueInfo, ArticleData, media_load_queue::MediaLoadState};
 use crate::articles::component::{ViewProps, Msg as ParentMsg};
-use crate::dropdown::{Dropdown, DropdownLabel};
+use crate::components::{Dropdown, DropdownLabel};
+use crate::components::{FA, font_awesome::Props as FAProps};
 use crate::error::log_warn;
 
 pub struct GalleryArticle {
@@ -163,24 +164,20 @@ impl GalleryArticle {
 			<>
 				<div class="holderBox holderBoxTop">
 					<a class="button" title="External Link" href={actual_article.url()} target="_blank">
-						<span class="icon darkIcon is-small">
-							<i class="fas fa-external-link-alt"/>
-						</span>
+						<FA icon="external-link-alt" span_classes={classes!("darkIcon", "is-small")}/>
 					</a>
 					{
 						if !ctx.props().in_modal {
 							html! {
 								<button class="button" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleInModal))}>
-									<span class="icon darkIcon is-small">
-										<i class="fas fa-expand-arrows-alt"/>
-									</span>
+									<FA icon="expand-arrows-alt" span_classes={classes!("darkIcon", "is-small")}/>
 								</button>
 							}
 						}else {
 							html! {}
 						}
 					}
-					<Dropdown on_expanded_change={ctx.link().callback(Msg::SetDrawOnTop)} is_right=true current_label={DropdownLabel::Icon("fas fa-ellipsis-h".to_owned())} label_classes={classes!("articleButton")}>
+					<Dropdown on_expanded_change={ctx.link().callback(Msg::SetDrawOnTop)} is_right=true current_label={DropdownLabel::Icon(yew::props! { FAProps {icon: "ellipsis-h".to_owned()}})} label_classes={classes!("articleButton")}>
 						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleMarkAsRead))}> {"Mark as read"} </a>
 						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleHide))}> {"Hide"} </a>
 						{ if let Some(index) = ctx.props().media_load_states.iter().enumerate().find_map(|(i, m)| if *m == MediaLoadState::NotLoaded { Some(i) } else { None }) {
@@ -204,14 +201,10 @@ impl GalleryArticle {
 				</div>
 				<div class="holderBox holderBoxBottom">
 					<button class="button" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::Like))}>
-						<span class="icon darkIcon is-small">
-							<i class="fas fa-heart"/>
-						</span>
+						<FA icon="heart" span_classes={classes!("darkIcon", "is-small")}/>
 					</button>
 					<button class="button" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::Repost))}>
-						<span class="icon darkIcon is-small">
-							<i class="fas fa-retweet"/>
-						</span>
+						<FA icon="retweet" span_classes={classes!("darkIcon", "is-small")}/>
 					</button>
 				</div>
 			</>

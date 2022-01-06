@@ -9,7 +9,7 @@ use web_sys::HtmlInputElement;
 use serde_json::Value;
 
 use crate::services::endpoint_agent::{Request as EndpointRequest, EndpointAgent, TimelineEndpoints, EndpointId, RefreshTime, EndpointConstructors, Response as EndpointResponse, EndpointView};
-use crate::dropdown::{Dropdown, DropdownLabel};
+use crate::components::{Dropdown, DropdownLabel};
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse};
 
 struct EndpointForm {
