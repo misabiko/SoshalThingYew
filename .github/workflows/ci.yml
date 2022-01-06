@@ -28,8 +28,6 @@ jobs:
       with:
         # Optional version of trunk to install(eg. 'v0.8.1', 'latest')
         version: 'latest'
-    - name: Run cargo tests
-      run: cargo test --verbose
     - name: Cypress run
       uses: cypress-io/github-action@v2
       with:
