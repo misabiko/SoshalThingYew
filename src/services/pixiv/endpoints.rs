@@ -8,7 +8,7 @@ use wasm_bindgen::JsValue;
 
 use super::{PixivAgent, Request};
 use super::article::{PixivArticleData, PixivArticleCached};
-use crate::articles::{ArticleData, ArticleMedia, MediaQueueInfo, MediaType};
+use crate::articles::{ArticleData, ArticleMedia, MediaQueueInfo, MediaType, ValidRatio};
 use crate::services::{Endpoint, EndpointSerialized};
 use crate::services::endpoint_agent::{EndpointId, RefreshTime};
 use crate::services::storages::{SessionStorageService, get_service_session};
@@ -102,7 +102,7 @@ impl From<(serde_json::Value, &FullPostAPI, &SessionStorageService)> for PixivAr
 			media: ArticleMedia {
 				media_type: MediaType::Image,
 				src: data.urls.original.clone(),
-				ratio: 1.0, //TODO Pixiv image ratio
+				ratio: ValidRatio::one(), //TODO Pixiv image ratio
 				queue_load_info: MediaQueueInfo::Thumbnail,
 			},
 			author_name: data.user_name.clone(),
@@ -135,7 +135,7 @@ impl From<(serde_json::Value, &FollowAPIIllust, &SessionStorageService)> for Pix
 			None => (ArticleMedia {
 				media_type: MediaType::Image,
 				src: data.url.clone(),
-				ratio: 1.0,
+				ratio: ValidRatio::one(),
 				queue_load_info: MediaQueueInfo::Thumbnail,
 			}, false)
 		};
@@ -213,7 +213,7 @@ fn parse_article(element: web_sys::Element, storage: &SessionStorageService) -> 
 					Some(src) => ArticleMedia {
 						media_type: MediaType::Image,
 						src,
-						ratio: 1.0,
+						ratio: ValidRatio::one(),
 						queue_load_info: MediaQueueInfo::Thumbnail,
 					},
 					None => return None,
@@ -228,7 +228,7 @@ fn parse_article(element: web_sys::Element, storage: &SessionStorageService) -> 
 					Some(src) => ArticleMedia {
 						media_type: MediaType::Image,
 						src,
-						ratio: 1.0,
+						ratio: ValidRatio::one(),
 						queue_load_info: MediaQueueInfo::Thumbnail,
 					},
 					None => return None,

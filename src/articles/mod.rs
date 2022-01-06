@@ -1,6 +1,7 @@
 use std::rc::Weak;
 use std::cell::RefCell;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display, Formatter};
+use std::num::{NonZeroU32, NonZeroU64};
 use js_sys::Date;
 use serde::{Serialize, Deserialize};
 
@@ -22,10 +23,43 @@ pub enum ArticleRefType<Pointer = Weak<RefCell<dyn ArticleData>>> {
 	QuoteRepost(Pointer, Pointer),
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ValidRatio(f32);
+
+impl ValidRatio {
+	pub fn new_u32(width: NonZeroU32, height: NonZeroU32) -> Self {
+		Self(height.get() as f32 / width.get() as f32)
+	}
+
+	pub fn new_u64(width: NonZeroU64, height: NonZeroU64) -> Self {
+		Self(height.get() as f32 / width.get() as f32)
+	}
+
+	pub fn one() -> Self {
+		ValidRatio(1.0)
+	}
+
+	pub fn get(&self) -> &f32 {
+		&self.0
+	}
+}
+
+impl Into<f32> for ValidRatio {
+	fn into(self) -> f32 {
+		self.0
+	}
+}
+
+impl Display for ValidRatio {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		f.write_fmt(format_args!("{}", self.0))
+	}
+}
+
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct ArticleMedia {
 	pub src: String,
-	pub ratio: f32,
+	pub ratio: ValidRatio,
 	pub queue_load_info: MediaQueueInfo,
 	pub media_type: MediaType,
 }

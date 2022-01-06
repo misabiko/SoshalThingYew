@@ -138,7 +138,7 @@ type Column<'a> = (u8, Vec<RatioedArticle<'a>>);
 fn relative_height(article: &Box<dyn ArticleData>) -> f32 {
 	(1.0 as f32) + article
 		.media().iter()
-		.map(|m| m.ratio)
+		.map(|m| m.ratio.get())
 		.sum::<f32>()
 }
 

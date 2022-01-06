@@ -3,8 +3,9 @@ use std::cell::{RefCell, Ref};
 use js_sys::Date;
 use wasm_bindgen::JsValue;
 use std::collections::HashSet;
+use std::num::NonZeroU64;
 
-use crate::articles::{ArticleData, ArticleMedia, MediaType, MediaQueueInfo, ArticleRefType};
+use crate::articles::{ArticleData, ArticleMedia, MediaType, MediaQueueInfo, ArticleRefType, ValidRatio};
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct TwitterUser {
@@ -189,7 +190,10 @@ impl TweetArticleData {
 														.zip(s.get("h")
 															.and_then(|h| h.as_u64())
 														)
-														.map(|(w, h)| h as f32 / w as f32)
+														.map(|(w, h)| ValidRatio::new_u64(
+															NonZeroU64::new(w).expect("non-zero width"),
+															NonZeroU64::new(h).expect("non-zero height"),
+														))
 												))
 											.map(|(url, ratio)| ArticleMedia {
 												media_type: MediaType::Image,
@@ -258,7 +262,7 @@ fn first_mp4(variants: &Vec<serde_json::Value>) -> Option<&serde_json::Value> {
 	)
 }
 
-fn get_mp4(video_info: &serde_json::Value) -> Option<(&str, f32)> {
+fn get_mp4(video_info: &serde_json::Value) -> Option<(&str, ValidRatio)> {
 	video_info.get("variants")
 		.and_then(|v| v.as_array())
 		.and_then(|v| first_mp4(v))
@@ -270,7 +274,10 @@ fn get_mp4(video_info: &serde_json::Value) -> Option<(&str, f32)> {
 				.and_then(|r| r.get(0)
 					.and_then(|w| w.as_u64())
 					.zip(r.get(1).and_then(|w| w.as_u64())))
-				.map(|(w, h)| h as f32 / w as f32)
+				.map(|(w, h)| ValidRatio::new_u64(
+					NonZeroU64::new(w).expect("non-zero width"),
+					NonZeroU64::new(h).expect("non-zero height"),
+				))
 		)
 }
 
