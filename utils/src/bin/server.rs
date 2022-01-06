@@ -23,21 +23,21 @@ fn get_token<'a>(id: &'a Identity, tokens: &'a HashMap<u64, egg_mode::Token>, be
 		Some(user_id_str) => match user_id_str.parse::<u64>() {
 			Ok(user_id) => match &tokens.get(&user_id) {
 				Some(access_token) => {
-					println!("Welcome! {}", &user_id);
+					log::info!("Welcome! {}", &user_id);
 					*access_token
 				}
 				None => {
-					println!("Couldn't find token for {}", &user_id);
+					log::info!("Couldn't find token for {}", &user_id);
 					bearer_token
 				}
 			}
 			Err(err) => {
-				println!("{}", err);
+				log::info!("{}", err);
 				bearer_token
 			}
 		}
 		None => {
-			println!("Welcome Anonymous!");
+			log::info!("Welcome Anonymous!");
 			bearer_token
 		}
 	}
@@ -48,21 +48,21 @@ fn get_access_token<'a>(id: &'a Identity, tokens: &'a HashMap<u64, egg_mode::Tok
 		Some(user_id_str) => match user_id_str.parse::<u64>() {
 			Ok(user_id) => match &tokens.get(&user_id) {
 				Some(access_token) => {
-					println!("Welcome! {}", &user_id);
+					log::info!("Welcome! {}", &user_id);
 					Some(*access_token)
 				}
 				None => {
-					println!("Couldn't find token for {}", &user_id);
+					log::info!("Couldn't find token for {}", &user_id);
 					None
 				}
 			}
 			Err(err) => {
-				println!("{}", err);
+				log::info!("{}", err);
 				None
 			}
 		}
 		None => {
-			println!("Welcome Anonymous!");
+			log::info!("Welcome Anonymous!");
 			None
 		}
 	}
@@ -235,7 +235,7 @@ async fn twitter_login(data: web::Data<State>) -> HttpResponse {
 	*data.req_token.lock().unwrap() = Some(new_req_token.clone());
 
 	let authorize_url = egg_mode::auth::authorize_url(&new_req_token);
-	println!("Redirecting to {}", &authorize_url);
+	log::info!("Redirecting to {}", &authorize_url);
 	HttpResponse::TemporaryRedirect()
 		.append_header((header::LOCATION, authorize_url))
 		.finish()
@@ -257,7 +257,7 @@ async fn twitter_login_callback(id: Identity, query: web::Query<LoginCallbackQue
 		).await.unwrap();
 
 		data.tokens.lock().unwrap().insert(user_id.clone(), access_token);
-		println!("Remembering id {}", &user_id);
+		log::info!("Remembering id {}", &user_id);
 		id.remember(user_id.to_string());
 	}
 
@@ -270,11 +270,11 @@ async fn twitter_login_callback(id: Identity, query: web::Query<LoginCallbackQue
 async fn main() -> std::io::Result<()> {
 	let credentials = match (std::env::var("consumer_key"), std::env::var("consumer_secret")) {
 		(Ok(_), Err(err)) => {
-			println!("Found consumer_key environment variable, but no secret.\n{:?}", err);
+			log::info!("Found consumer_key environment variable, but no secret.\n{:?}", err);
 			None
 		}
 		(Err(err), Ok(_)) => {
-			println!("Found consumer_secret environment variable, but no key.\n{:?}", err);
+			log::info!("Found consumer_secret environment variable, but no key.\n{:?}", err);
 			None
 		}
 		(Ok(consumer_key), Ok(consumer_secret)) => Some(Credentials { consumer_key, consumer_secret }),
