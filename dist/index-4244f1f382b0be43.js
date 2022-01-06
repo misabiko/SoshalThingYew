@@ -1017,5 +1017,7 @@ async function init(input) {
     return wasm;
 }
 
+console.log("Test!");
+
 export default init;
 
