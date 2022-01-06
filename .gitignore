@@ -3,6 +3,7 @@ node_modules/
 dist/
 
 credentials.json
-/generated_files.json
-change_hashes
-change_hashes.exe
+generated_files.json
+
+/cypress/videos/
+/cypress/screenshots/

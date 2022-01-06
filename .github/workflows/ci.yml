@@ -19,7 +19,7 @@ jobs:
     - uses: actions/setup-node@v2
       with:
         node-version: '16'
-    - run: npm install
+    - run: npm ci
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
@@ -28,7 +28,9 @@ jobs:
       with:
         # Optional version of trunk to install(eg. 'v0.8.1', 'latest')
         version: 'latest'
-    - name: Build
-      run: trunk build
-    - name: Run tests
+    - name: Run cargo tests
       run: cargo test --verbose
+    - name: Cypress run
+      uses: cypress-io/github-action@v2
+      with:
+        start: trunk serve
