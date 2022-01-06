@@ -41,3 +41,4 @@ jobs:
         build: trunk build
         start: trunk serve
         wait-on: "http://localhost:8080"
+        wait-on-timeout: 120
