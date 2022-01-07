@@ -191,5 +191,5 @@ fn default_1() -> u8 {
 }
 
 fn default_sort_method() -> Option<(SortMethod, bool)> {
-	Some((SortMethod::default(), false))
+	Some((SortMethod::default(), true))
 }

@@ -6,7 +6,7 @@ use serde::{Serialize, Deserialize};
 use crate::articles::{actual_article, ArticleData};
 
 //TODO Check for cases where Copy is derivable
-#[derive(Clone, Copy, Serialize, Deserialize)]
+#[derive(Clone, Copy, Serialize, Deserialize, Debug)]
 pub enum SortMethod {
 	Id,
 	Index,
@@ -30,7 +30,7 @@ impl SortMethod {
 		match self {
 			SortMethod::Date => if reversed { "Reverse chronological" } else { "Chronological" },
 			SortMethod::Likes | SortMethod::Reposts => if reversed { "Descending" } else { "Ascending" },
-			_ => if reversed { "Ascending" } else { "Descending" },
+			_ => if reversed { "Descending" } else { "Ascending" },
 		}
 	}
 }
@@ -53,12 +53,13 @@ impl Default for SortMethod {
 	}
 }
 
+//TODO Unit test sort methods
 pub fn compare(method: &SortMethod, a: &Weak<RefCell<dyn ArticleData>>, b: &Weak<RefCell<dyn ArticleData>>) -> std::cmp::Ordering {
 	match method {
 		SortMethod::Id => {
 			let a = a.upgrade().map(|s| s.borrow().sortable_id()).unwrap_or_default();
 			let b = b.upgrade().map(|s| s.borrow().sortable_id()).unwrap_or_default();
-			b.partial_cmp(&a).unwrap()
+			a.partial_cmp(&b).unwrap()
 		},
 		SortMethod::Index => {
 			let a = a.upgrade().map(|s| s.borrow().index()).unwrap_or_default();
@@ -68,23 +69,24 @@ pub fn compare(method: &SortMethod, a: &Weak<RefCell<dyn ArticleData>>, b: &Weak
 		SortMethod::Date => {
 			let a = a.upgrade().map(|s| s.borrow().creation_time()).map(|d| d.get_time()).unwrap_or(0.0);
 			let b = b.upgrade().map(|s| s.borrow().creation_time()).map(|d| d.get_time()).unwrap_or(0.0);
-			b.partial_cmp(&a).unwrap()
+			a.partial_cmp(&b).unwrap()
 		}
 		SortMethod::Likes => {
 			let (a, b) = (actual_article(&a), actual_article(&b));
 			let a = a.upgrade().map(|s| s.borrow().like_count()).unwrap_or_default();
 			let b = b.upgrade().map(|s| s.borrow().like_count()).unwrap_or_default();
-			b.partial_cmp(&a).unwrap()
+			a.partial_cmp(&b).unwrap()
 		}
 		SortMethod::Reposts => {
 			let (a, b) = (actual_article(&a), actual_article(&b));
 			let a = a.upgrade().map(|s| s.borrow().repost_count()).unwrap_or_default();
 			let b = b.upgrade().map(|s| s.borrow().repost_count()).unwrap_or_default();
-			b.partial_cmp(&a).unwrap()
+			a.partial_cmp(&b).unwrap()
 		}
 	}
 }
 
+//TODO use sort method
 pub fn sort_by_id(a: &Weak<RefCell<dyn ArticleData>>, b: &Weak<RefCell<dyn ArticleData>>) -> std::cmp::Ordering {
 	let a_id = a.upgrade().map(|s| s.borrow().id()).unwrap_or("0".to_owned());
 	let b_id = b.upgrade().map(|s| s.borrow().id()).unwrap_or("0".to_owned());
