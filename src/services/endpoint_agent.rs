@@ -175,7 +175,7 @@ impl Agent for EndpointAgent {
 	fn update(&mut self, msg: Self::Message) {
 		match msg {
 			Msg::Refreshed(refresh_time, endpoint_id, response) => {
-				log::debug!("{} articles for {}", &response.0.len(), self.endpoints[&endpoint_id].endpoint.name());
+				log::trace!("{} articles for {}", &response.0.len(), self.endpoints[&endpoint_id].endpoint.name());
 				let info = self.endpoints.get_mut(&endpoint_id).unwrap();
 				info.endpoint.add_articles(response.0.iter().map(|article| Rc::downgrade(&article)).collect());
 				if let Some(ratelimit) = response.1 {
