@@ -12,7 +12,7 @@ use crate::articles::{ArticleData, ArticleMedia, MediaQueueInfo, MediaType, Vali
 use crate::services::{Endpoint, EndpointSerialized};
 use crate::services::endpoint_agent::{EndpointId, RefreshTime};
 use crate::services::storages::{SessionStorageService, get_service_session};
-use crate::error::log_error;
+use crate::log_error;
 
 #[derive(Deserialize)]
 pub struct APIPayload<T> {
@@ -316,7 +316,7 @@ impl Endpoint for FollowPageEndpoint {
 				self.agent.send(Request::AddArticles(refresh_time, id, articles));
 				self.timeout = None;
 			}
-			Err(err) => log_error(Some("Failed to use query_selector"), err),
+			Err(err) => log_error!("Failed to use query_selector", err),
 		};
 	}
 

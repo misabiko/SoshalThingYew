@@ -2,13 +2,14 @@ use yew::prelude::*;
 use js_sys::Date;
 use std::cell::Ref;
 use wasm_bindgen::closure::Closure;
+use wasm_bindgen::JsValue;
 use yew_agent::{Dispatcher, Dispatched};
 
 use crate::articles::{ArticleData, ArticleRefType, MediaType};
 use crate::articles::component::{ViewProps, Msg as ParentMsg};
 use crate::components::{Dropdown, DropdownLabel, FA, IconType, font_awesome::Props as FAProps};
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest};
-use crate::error::log_warn;
+use crate::log_warn;
 
 pub struct SocialArticle {
 	compact: Option<bool>,
@@ -133,15 +134,15 @@ impl Component for SocialArticle {
 					video.set_muted(true);
 					match video.play() {
 						Ok(promise) => {
-							let _ = promise.catch(&Closure::once(Box::new(|err| log_warn(Some("Failed to play video"), err))));
+							let _ = promise.catch(&Closure::once(Box::new(|err: JsValue| log_warn!("Failed to play video", err))));
 						}
-						Err(err) => log_warn(Some("Failed to try and play the video"), err)
+						Err(err) => log_warn!("Failed to try and play the video", err)
 					}
 				},
 				false => {
 					video.set_muted(false);
 					match video.pause() {
-						Err(err) => log_warn(Some("Failed to try and pause the video"), err),
+						Err(err) => log_warn!("Failed to try and pause the video", err),
 						Ok(_) => {}
 					}
 				},

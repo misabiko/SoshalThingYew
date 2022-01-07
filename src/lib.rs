@@ -12,7 +12,6 @@ pub mod timeline;
 mod sidebar;
 
 use components::{FA, IconSize};
-use error::log_error;
 use favviewer::PageInfo;
 use modals::AddTimelineModal;
 use services::{
@@ -321,13 +320,13 @@ pub fn parse_url() -> (Option<String>, Option<web_sys::UrlSearchParams>) {
 		Some(location) => (match location.pathname() {
 			Ok(pathname_opt) => Some(pathname_opt),
 			Err(err) => {
-				log_error(Some("Failed to get location.pathname"), err);
+				log_error!("Failed to get location.pathname", err);
 				None
 			}
 		}, match location.search().and_then(|s| web_sys::UrlSearchParams::new_with_str(&s)) {
 			Ok(search_opt) => Some(search_opt),
 			Err(err) => {
-				log_error(Some("Failed to get location.search"), err);
+				log_error!("Failed to get location.search", err);
 				None
 			}
 		}),

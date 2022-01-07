@@ -7,7 +7,7 @@ use super::{TimelineId, Props as TimelineProps, Container};
 use crate::services::EndpointSerialized;
 use crate::services::endpoint_agent::{TimelineEndpoints, Request as EndpointRequest, EndpointAgent};
 use crate::{TimelinePropsClosure, TimelinePropsEndpointsClosure};
-use crate::error::log_warn;
+use crate::log_warn;
 use crate::timeline::filters::{FilterSerialized, deserialize_filters};
 use crate::timeline::sort_methods::SortMethod;
 
@@ -124,7 +124,7 @@ impl Agent for TimelineAgent {
 						Ok(storage) => storage,
 						Err(err) => {
 							if let StorageError::SerdeError(_) | StorageError::JsError(_) =  err {
-								log_warn(Some("Failed to parse timeline storage"), err);
+								log_warn!("Failed to parse timeline storage", err);
 							}
 
 							Vec::new()

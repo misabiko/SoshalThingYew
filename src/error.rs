@@ -9,18 +9,24 @@ use crate::services::RateLimit;
 pub type Result<T> = std::result::Result<T, Error>;
 pub type RatelimitedResult<T> = std::result::Result<(T, Option<RateLimit>), Error>;
 
-pub fn log_error(message: Option<&str>, error: impl Into<ActualError>) {
-	Error::Generic {
-		message: message.map(|s| s.to_owned()),
-		error: error.into()
-	}.log_error();
+#[macro_export]
+macro_rules! log_error {
+	($message:expr, $error:expr) => {{
+		log::error!("{}", $crate::error::Error::Generic {
+			message: Some($message.to_owned()),
+			error: $error.into()
+		});
+	}};
 }
 
-pub fn log_warn(message: Option<&str>, error: impl Into<ActualError>) {
-	Error::Generic {
-		message: message.map(|s| s.to_owned()),
-		error: error.into()
-	}.log_warn();
+#[macro_export]
+macro_rules! log_warn {
+	($message:expr, $error:expr) => {{
+		log::warn!("{}", $crate::error::Error::Generic {
+			message: Some($message.to_owned()),
+			error: $error.into()
+		});
+	}};
 }
 
 #[derive(Debug)]
@@ -50,14 +56,6 @@ impl Error {
 			Error::RatelimitedArticleFetch { error, .. }
 				=> error
 		}
-	}
-
-	pub fn log_error(&self) {
-		log::error!("{}", self);
-	}
-
-	pub fn log_warn(&self) {
-		log::warn!("{}", self);
 	}
 
 	pub fn with_message(mut self, new_message: &str) -> Self {

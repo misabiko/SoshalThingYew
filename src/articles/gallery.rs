@@ -1,12 +1,13 @@
 use std::cell::Ref;
 use yew::prelude::*;
 use wasm_bindgen::closure::Closure;
+use wasm_bindgen::JsValue;
 
 use crate::articles::{ArticleRefType, MediaType, MediaQueueInfo, ArticleData, media_load_queue::MediaLoadState};
 use crate::articles::component::{ViewProps, Msg as ParentMsg};
 use crate::components::{Dropdown, DropdownLabel};
 use crate::components::{FA, font_awesome::Props as FAProps};
-use crate::error::log_warn;
+use crate::log_warn;
 
 pub struct GalleryArticle {
 	draw_on_top: bool,
@@ -70,15 +71,15 @@ impl Component for GalleryArticle {
 					video.set_muted(true);
 					match video.play() {
 						Ok(promise) => {
-							let _ = promise.catch(&Closure::once(Box::new(|err| log_warn(Some("Failed to play video"), err))));
+							let _ = promise.catch(&Closure::once(Box::new(|err: JsValue| log_warn!("Failed to play video", err))));
 						}
-						Err(err) => log_warn(Some("Failed to try and play the video"), err)
+						Err(err) => log_warn!("Failed to try and play the video", err)
 					}
 				},
 				false => {
 					video.set_muted(false);
 					match video.pause() {
-						Err(err) => log_warn(Some("Failed to try and pause the video"), err),
+						Err(err) => log_warn!("Failed to try and pause the video", err),
 						Ok(_) => {}
 					}
 				},

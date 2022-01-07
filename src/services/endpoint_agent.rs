@@ -205,7 +205,8 @@ impl Agent for EndpointAgent {
 				self.link.send_message(Msg::UpdatedState);
 			}
 			Msg::RefreshFail(err) => {
-				err.log_error();
+				//TODO macrofy
+				log::error!("{}", err);
 			}
 			Msg::UpdatedState => {
 				for sub in &self.subscribers {
