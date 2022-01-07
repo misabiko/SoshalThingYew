@@ -1,5 +1,6 @@
 use yew::prelude::*;
 use yew_agent::{Bridge, Bridged, Dispatched, Dispatcher};
+use std::collections::HashMap;
 
 pub mod articles;
 pub mod choose_endpoints;
@@ -12,6 +13,7 @@ pub mod timeline;
 mod sidebar;
 
 use components::{FA, IconSize};
+use error::Result;
 use favviewer::PageInfo;
 use modals::AddTimelineModal;
 use services::{
@@ -47,18 +49,23 @@ pub enum TimelineCreationMode {
 	Props(TimelinePropsClosure),
 }
 
+#[derive(serde::Deserialize)]
+pub struct AuthInfo {
+	twitter: Option<String>,
+}
+
 pub struct Model {
 	endpoint_agent: Box<dyn Bridge<EndpointAgent>>,
 	_timeline_agent: Box<dyn Bridge<TimelineAgent>>,
 	display_mode: DisplayMode,
 	timelines: Vec<TimelineProps>,
 	page_info: Option<PageInfo>,
-	_twitter: Box<dyn Bridge<TwitterAgent>>,
+	twitter: Box<dyn Bridge<TwitterAgent>>,
 	_pixiv: Dispatcher<PixivAgent>,
 	timeline_counter: TimelineId,
 	main_timeline: TimelineId,
 	last_display_single: DisplayMode,
-	services_sidebar: Vec<Html>
+	services_sidebar: HashMap<String, Html>,
 }
 
 pub enum Msg {
@@ -70,6 +77,7 @@ pub enum Msg {
 	TimelineAgentResponse(TimelineAgentResponse),
 	EndpointResponse(EndpointResponse),
 	TwitterResponse(TwitterResponse),
+	FetchedAuthInfo(Result<AuthInfo>),
 }
 
 #[derive(Properties, PartialEq, Default)]
@@ -80,7 +88,7 @@ pub struct Props {
 	#[prop_or_default]
 	pub page_info: Option<PageInfo>,
 	#[prop_or_default]
-	pub services_sidebar: Vec<Html>,
+	pub services_sidebar: HashMap<String, Html>,
 }
 
 impl Component for Model {
@@ -88,8 +96,8 @@ impl Component for Model {
 	type Properties = Props;
 
 	fn create(ctx: &Context<Self>) -> Self {
-		let mut _twitter = TwitterAgent::bridge(ctx.link().callback(Msg::TwitterResponse));
-		_twitter.send(TwitterRequest::Sidebar);
+		let mut twitter = TwitterAgent::bridge(ctx.link().callback(Msg::TwitterResponse));
+		twitter.send(TwitterRequest::Sidebar);
 		let _pixiv = PixivAgent::dispatcher();
 
 		let mut _timeline_agent = TimelineAgent::bridge(ctx.link().callback(Msg::TimelineAgentResponse));
@@ -141,6 +149,10 @@ impl Component for Model {
 			DisplayMode::Default
 		};
 
+		ctx.link().send_future(async {
+			Msg::FetchedAuthInfo(fetch_auth_info().await)
+		});
+
 		Self {
 			_timeline_agent,
 			last_display_single: match display_mode {
@@ -154,7 +166,7 @@ impl Component for Model {
 			timelines: Vec::new(),
 			endpoint_agent,
 			page_info,
-			_twitter,
+			twitter,
 			_pixiv,
 			timeline_counter: TimelineId::MIN,
 			main_timeline: TimelineId::MIN,
@@ -256,9 +268,18 @@ impl Component for Model {
 			}
 			Msg::TwitterResponse(response) => {
 				match response {
-					TwitterResponse::Sidebar(html) => self.services_sidebar.push(html),
+					TwitterResponse::Sidebar(html) => self.services_sidebar.insert("Twitter".to_owned(), html),
 				};
 				true
+			}
+			Msg::FetchedAuthInfo(response) => {
+				match response {
+					Ok(auth_info) => {
+						self.twitter.send(TwitterRequest::Auth(auth_info.twitter));
+					}
+					Err(err) => log::error!("{}", err),
+				};
+				false
 			}
 		}
 	}
@@ -281,7 +302,7 @@ impl Component for Model {
 				{
 					match ctx.props().favviewer {
 						false => html! {
-							<Sidebar services={self.services_sidebar.clone()}>
+							<Sidebar services={self.services_sidebar.values().cloned().collect::<Vec<Html>>()}>
 								{ display_mode_toggle }
 							</Sidebar>
 						},
@@ -406,4 +427,11 @@ pub fn base_url() -> String {
 	let protocol = location.protocol().unwrap();
 
 	format!("{}//{}", protocol, host)
+}
+
+async fn fetch_auth_info() -> Result<AuthInfo> {
+	Ok(reqwest::Client::builder().build()?
+		.get(format!("{}/proxy/auth_info", base_url()))
+		.send().await?
+		.json::<AuthInfo>().await?)
 }

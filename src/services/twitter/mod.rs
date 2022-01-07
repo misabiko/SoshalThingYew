@@ -10,7 +10,7 @@ pub mod endpoints;
 mod article;
 
 pub use article::TweetArticleData;
-use article::{TwitterUser, StrongArticleRefType};
+use article::StrongArticleRefType;
 use crate::articles::{ArticleData, ArticleRefType};
 use crate::base_url;
 use crate::services::{
@@ -79,9 +79,10 @@ pub async fn fetch_tweet(url: &str, marked_as_read: &HashSet<u64>) -> Ratelimite
 	Ok((TweetArticleData::from(&value, &marked_as_read), Some(ratelimit)))
 }
 
+#[derive(Debug)]
 pub enum AuthState {
 	NotLoggedIn,
-	LoggedIn(TwitterUser)
+	LoggedIn(u64)
 }
 
 pub struct TwitterAgent {
@@ -91,12 +92,7 @@ pub struct TwitterAgent {
 	articles: HashMap<u64, Rc<RefCell<TweetArticleData>>>,
 	cached_marked_as_read: HashSet<u64>,
 	auth_state: AuthState,
-}
-
-pub enum Request {
-	Sidebar,
-	FetchTweets(RefreshTime, EndpointId, String),
-	FetchTweet(RefreshTime, EndpointId, String),
+	sidebar_handler: Option<HandlerId>,
 }
 
 pub enum Msg {
@@ -104,6 +100,13 @@ pub enum Msg {
 	EndpointFetchResponse(RefreshTime, EndpointId, RatelimitedResult<Vec<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)>>),
 	Like(HandlerId, Weak<RefCell<dyn ArticleData>>),
 	Retweet(HandlerId, Weak<RefCell<dyn ArticleData>>),
+}
+
+pub enum Request {
+	Auth(Option<String>),
+	Sidebar,
+	FetchTweets(RefreshTime, EndpointId, String),
+	FetchTweet(RefreshTime, EndpointId, String),
 }
 
 pub enum Response {
@@ -177,6 +180,7 @@ impl Agent for TwitterAgent {
 			articles: HashMap::new(),
 			cached_marked_as_read,
 			auth_state: AuthState::NotLoggedIn,
+			sidebar_handler: None,
 		}
 	}
 
@@ -284,16 +288,20 @@ impl Agent for TwitterAgent {
 		//TODO Use storage
 		let marked_as_read = self.cached_marked_as_read.clone();
 		match msg {
-			Request::Sidebar => self.link.respond(id, Response::Sidebar(html! {
-				<div class="box">
-					<div class="block">
-						{"Twitter"}
-					</div>
-					<div class="block">
-						<a class="button" href="/proxy/twitter/login">{"Login"}</a>
-					</div>
-				</div>
-			})),
+			Request::Auth(auth) => {
+				self.auth_state = match auth {
+					Some(auth) => AuthState::LoggedIn(auth.parse().expect("parsing twitter user id")),
+					None => AuthState::NotLoggedIn,
+				};
+				log::debug!("Twitter auth: {:?}", &self.auth_state);
+				if let Some(sidebar_handler) = self.sidebar_handler {
+					self.link.respond(sidebar_handler, Response::Sidebar(self.sidebar()));
+				}
+			},
+			Request::Sidebar => {
+				self.sidebar_handler = Some(id);
+				self.link.respond(id, Response::Sidebar(self.sidebar()));
+			},
 			Request::FetchTweets(refresh_time, id, path) =>
 				self.link.send_future(async move {
 					Msg::EndpointFetchResponse(refresh_time, id, fetch_tweets(&path, &marked_as_read).await)
@@ -302,6 +310,34 @@ impl Agent for TwitterAgent {
 				self.link.send_future(async move {
 					Msg::EndpointFetchResponse(refresh_time, id, fetch_tweet(&path, &marked_as_read).await.map(|a| (vec![a.0], a.1)))
 				})
+		}
+	}
+
+	fn disconnected(&mut self, id: HandlerId) {
+		if Some(id) == self.sidebar_handler {
+			self.sidebar_handler = None;
+		}
+	}
+}
+
+impl TwitterAgent {
+	fn sidebar(&self) -> Html {
+		html! {
+			<div class="box">
+				<div class="block">
+					{"Twitter"}
+				</div>
+				{ match self.auth_state {
+					AuthState::NotLoggedIn => html! {
+						<div class="block">
+							<a class="button" href="/proxy/twitter/login">{"Login"}</a>
+						</div>
+					},
+					AuthState::LoggedIn(id) => html! {
+						{ format!("Logged with id {}", id) }
+					},
+				} }
+			</div>
 		}
 	}
 }

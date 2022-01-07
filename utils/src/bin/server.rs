@@ -1,11 +1,11 @@
 use actix_web::{get, web, App, HttpResponse, HttpServer, middleware::Logger, web::Path, http::header};
 use actix_identity::{Identity, CookieIdentityPolicy, IdentityService};
 use egg_mode::list::ListID;
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
 use std::sync::Mutex;
 use std::collections::HashMap;
 
-#[derive(serde::Deserialize)]
+#[derive(Deserialize)]
 struct Credentials {
 	consumer_key: String,
 	consumer_secret: String,
@@ -266,6 +266,18 @@ async fn twitter_login_callback(id: Identity, query: web::Query<LoginCallbackQue
 		.finish()
 }
 
+#[derive(Serialize)]
+struct AuthInfo {
+	twitter: Option<String>,
+}
+
+#[get("/auth_info")]
+async fn auth_info(id: Identity) -> HttpResponse {
+	HttpResponse::Ok().json(AuthInfo {
+		twitter: id.identity(),
+	})
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
 	let credentials = match (std::env::var("consumer_key"), std::env::var("consumer_secret")) {
@@ -318,6 +330,7 @@ async fn main() -> std::io::Result<()> {
 					.service(list)
 					.service(twitter_login)
 					.service(twitter_login_callback)
+					.service(auth_info)
 			)
 			.service(actix_files::Files::new("/", "./dist").index_file("index.html"))
 	})

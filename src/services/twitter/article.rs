@@ -7,7 +7,7 @@ use std::num::NonZeroU64;
 
 use crate::articles::{ArticleData, ArticleMedia, MediaType, MediaQueueInfo, ArticleRefType, ValidRatio};
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, serde::Deserialize)]
 pub struct TwitterUser {
 	pub username: String,
 	pub name: String,
