@@ -148,7 +148,7 @@ impl From<(serde_json::Value, &FollowAPIIllust, &SessionStorageService)> for Pix
 			author_name: data.user_name.clone(),
 			author_id: data.user_id.parse::<u32>().unwrap(),
 			author_avatar_url: data.profile_image_url.clone(),
-			marked_as_read: false,
+			marked_as_read: storage.articles_marked_as_read.contains(data.id.as_str()),
 			hidden: false,
 			is_fully_fetched,
 			raw_json,

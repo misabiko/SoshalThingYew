@@ -2,10 +2,10 @@ use std::rc::{Rc, Weak};
 use std::cell::{RefCell, Ref};
 use js_sys::Date;
 use wasm_bindgen::JsValue;
-use std::collections::HashSet;
 use std::num::NonZeroU64;
 
 use crate::articles::{ArticleData, ArticleMedia, MediaType, MediaQueueInfo, ArticleRefType, ValidRatio};
+use crate::services::storages::SessionStorageService;
 
 #[derive(Clone, PartialEq, Debug, serde::Deserialize)]
 pub struct TwitterUser {
@@ -105,7 +105,7 @@ pub type StrongArticleRefType = ArticleRefType<Rc<RefCell<TweetArticleData>>>;
 
 impl TweetArticleData {
 	//TODO Deserialize response
-	pub fn from(json: &serde_json::Value, marked_as_read: &HashSet<u64>) -> (Rc<RefCell<Self>>, StrongArticleRefType) {
+	pub fn from(json: &serde_json::Value, storage: &SessionStorageService) -> (Rc<RefCell<Self>>, StrongArticleRefType) {
 		let id = json["id"].as_u64().unwrap();
 
 		let referenced_article: StrongArticleRefType = {
@@ -113,7 +113,7 @@ impl TweetArticleData {
 			let quoted = &json["quoted_status"];
 
 			if !referenced.is_null() {
-				let parsed = TweetArticleData::from(&referenced.clone(), &marked_as_read);
+				let parsed = TweetArticleData::from(&referenced.clone(), storage);
 				match parsed.1 {
 					ArticleRefType::NoRef => StrongArticleRefType::Repost(parsed.0),
 					ArticleRefType::Quote(parsed_ref) => StrongArticleRefType::QuoteRepost(parsed.0, parsed_ref),
@@ -127,7 +127,7 @@ impl TweetArticleData {
 					}
 				}
 			}else if !quoted.is_null() {
-				let parsed = TweetArticleData::from(&quoted.clone(), &marked_as_read);
+				let parsed = TweetArticleData::from(&quoted.clone(), storage);
 				match parsed.1 {
 					ArticleRefType::NoRef => StrongArticleRefType::Quote(parsed.0),
 					ArticleRefType::Quote(parsed_ref) => {
@@ -238,7 +238,7 @@ impl TweetArticleData {
 					Rc::downgrade(quoted) as Weak<RefCell<dyn ArticleData>>
 				),
 			},
-			marked_as_read: marked_as_read.contains(&id),
+			marked_as_read: storage.articles_marked_as_read.contains(&id.to_string()),
 			hidden: false,
 		}));
 		(data, referenced_article)

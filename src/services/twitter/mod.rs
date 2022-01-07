@@ -2,8 +2,7 @@ use yew::prelude::*;
 use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher};
-use std::collections::{HashMap, HashSet};
-use gloo_storage::Storage;
+use std::collections::HashMap;
 use reqwest::StatusCode;
 
 pub mod endpoints;
@@ -21,9 +20,9 @@ use crate::services::{
 	twitter::endpoints::{UserTimelineEndpoint, HomeTimelineEndpoint, ListEndpoint, SingleTweetEndpoint},
 };
 use crate::error::{Error, RatelimitedResult};
-use crate::services::storages::SoshalSessionStorage;
+use crate::services::storages::{get_service_session, SessionStorageService};
 
-pub async fn fetch_tweets(url: &str, marked_as_read: &HashSet<u64>) -> RatelimitedResult<Vec<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)>> {
+pub async fn fetch_tweets(url: &str, storage: &SessionStorageService) -> RatelimitedResult<Vec<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)>> {
 	let response = reqwest::Client::builder().build()?
 		.get(format!("{}{}", base_url(), url))
 		.send().await?
@@ -43,20 +42,19 @@ pub async fn fetch_tweets(url: &str, marked_as_read: &HashSet<u64>) -> Ratelimit
 
 	let json_str = response.text().await?.to_string();
 
-
 	serde_json::from_str(&json_str)
 		.map(|value: serde_json::Value|
 			(value
 			.as_array().unwrap()
 			.iter()
-			.map(|json| TweetArticleData::from(json, &marked_as_read))
+			.map(|json| TweetArticleData::from(json, storage))
 			.collect(),
 			 Some(ratelimit))
 		)
 		.map_err(|err| Error::from(err))
 }
 
-pub async fn fetch_tweet(url: &str, marked_as_read: &HashSet<u64>) -> RatelimitedResult<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)> {
+pub async fn fetch_tweet(url: &str, storage: &SessionStorageService) -> RatelimitedResult<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)> {
 	let response = reqwest::Client::builder().build()?
 		.get(format!("{}{}", base_url(), url))
 		.send().await?
@@ -77,7 +75,7 @@ pub async fn fetch_tweet(url: &str, marked_as_read: &HashSet<u64>) -> Ratelimite
 	let json_str = response.text().await?.to_string();
 
 	let value: serde_json::Value = serde_json::from_str(&json_str).unwrap();
-	Ok((TweetArticleData::from(&value, &marked_as_read), Some(ratelimit)))
+	Ok((TweetArticleData::from(&value, storage), Some(ratelimit)))
 }
 
 #[derive(Debug)]
@@ -91,7 +89,6 @@ pub struct TwitterAgent {
 	endpoint_agent: Dispatcher<EndpointAgent>,
 	actions_agent: Dispatcher<ArticleActionsAgent>,
 	articles: HashMap<u64, Rc<RefCell<TweetArticleData>>>,
-	cached_marked_as_read: HashSet<u64>,
 	auth_state: AuthState,
 	sidebar_handler: Option<HandlerId>,
 	notification_agent: Dispatcher<NotificationAgent>,
@@ -169,18 +166,11 @@ impl Agent for TwitterAgent {
 			fetch_data: None,
 		}));
 
-		let session_storage: Option<SoshalSessionStorage> = gloo_storage::SessionStorage::get("SoshalThingYew").ok();
-		let cached_marked_as_read = match &session_storage.as_ref().map(|s| &s.services).and_then(|s| s.get("Twitter")) {
-			Some(storage) => storage.articles_marked_as_read.iter().map(|id| id.parse().unwrap()).collect(),
-			None => HashSet::new(),
-		};
-
 		Self {
 			endpoint_agent,
 			link,
 			actions_agent,
 			articles: HashMap::new(),
-			cached_marked_as_read,
 			auth_state: AuthState::NotLoggedIn,
 			sidebar_handler: None,
 			notification_agent: NotificationAgent::dispatcher(),
@@ -270,10 +260,9 @@ impl Agent for TwitterAgent {
 
 				if let ArticleRefType::NoRef | ArticleRefType::Quote(_) = borrow.referenced_article() {
 					let path = format!("/proxy/twitter/{}/{}", if borrow.liked() { "unlike" } else { "like" }, borrow.id());
-					let marked_as_read = self.cached_marked_as_read.clone();
 
 					self.link.send_future(async move {
-						Msg::FetchResponse(id, fetch_tweet(&path, &marked_as_read).await.map(|(articles, ratelimit)| (vec![articles.0], ratelimit)))
+						Msg::FetchResponse(id, fetch_tweet(&path, &get_service_session("Twitter")).await.map(|(articles, ratelimit)| (vec![articles.0], ratelimit)))
 					})
 				}
 			}
@@ -283,10 +272,9 @@ impl Agent for TwitterAgent {
 
 				if let ArticleRefType::NoRef | ArticleRefType::Quote(_) = borrow.referenced_article() {
 					let path = format!("/proxy/twitter/{}/{}", if borrow.reposted() { "unretweet" } else { "retweet" }, borrow.id());
-					let marked_as_read = self.cached_marked_as_read.clone();
 
 					self.link.send_future(async move {
-						Msg::FetchResponse(id, fetch_tweet(&path, &marked_as_read).await.map(|(articles, ratelimit)| (vec![articles.0], ratelimit)))
+						Msg::FetchResponse(id, fetch_tweet(&path, &get_service_session("Twitter")).await.map(|(articles, ratelimit)| (vec![articles.0], ratelimit)))
 					})
 				}
 			}
@@ -294,8 +282,6 @@ impl Agent for TwitterAgent {
 	}
 
 	fn handle_input(&mut self, msg: Self::Input, id: HandlerId) {
-		//TODO Use storage
-		let marked_as_read = self.cached_marked_as_read.clone();
 		match msg {
 			Request::Auth(auth) => {
 				self.auth_state = match auth {
@@ -313,11 +299,11 @@ impl Agent for TwitterAgent {
 			},
 			Request::FetchTweets(refresh_time, id, path) =>
 				self.link.send_future(async move {
-					Msg::EndpointFetchResponse(refresh_time, id, fetch_tweets(&path, &marked_as_read).await)
+					Msg::EndpointFetchResponse(refresh_time, id, fetch_tweets(&path, &get_service_session("Twitter")).await)
 				}),
 			Request::FetchTweet(refresh_time, id, path) =>
 				self.link.send_future(async move {
-					Msg::EndpointFetchResponse(refresh_time, id, fetch_tweet(&path, &marked_as_read).await.map(|a| (vec![a.0], a.1)))
+					Msg::EndpointFetchResponse(refresh_time, id, fetch_tweet(&path, &get_service_session("Twitter")).await.map(|a| (vec![a.0], a.1)))
 				})
 		}
 	}
