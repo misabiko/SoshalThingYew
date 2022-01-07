@@ -302,7 +302,7 @@ impl Agent for TwitterAgent {
 					Some(auth) => AuthState::LoggedIn(auth.parse().expect("parsing twitter user id")),
 					None => AuthState::NotLoggedIn,
 				};
-				log::debug!("Twitter auth: {:?}", &self.auth_state);
+
 				if let Some(sidebar_handler) = self.sidebar_handler {
 					self.link.respond(sidebar_handler, Response::Sidebar(self.sidebar()));
 				}

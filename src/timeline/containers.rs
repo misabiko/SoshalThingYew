@@ -163,7 +163,7 @@ fn to_columns<'a>(articles: impl Iterator<Item = &'a ArticleTuple>, column_count
 			cols.sort_by(|a, b| {
 				let h_a = height(a);
 				let h_b = height(b);
-				h_a.partial_cmp(&h_b).expect(&format!("comparing {} and {}\n{:#?}\n{:#?}", h_a, h_b, a, b))
+				h_a.partial_cmp(&h_b).unwrap()//.expect(&format!("comparing {} and {}\n{:#?}\n{:#?}", h_a, h_b, a, b))
 			});
 			cols[0].1.push(article);
 			cols
