@@ -1,7 +1,7 @@
 use std::rc::{Rc, Weak};
 use std::collections::{HashMap, HashSet};
 use yew::prelude::*;
-use yew_agent::{Agent, Context as AgentContext, AgentLink, HandlerId};
+use yew_agent::{Agent, Context as AgentContext, AgentLink, HandlerId, Dispatcher, Dispatched};
 use std::cell::RefCell;
 use serde_json::json;
 use gloo_timers::callback::Interval;
@@ -12,6 +12,7 @@ use crate::articles::ArticleData;
 use crate::timeline::agent::TimelineEndpointsSerialized;
 use crate::timeline::filters::{Filter, deserialize_filters};
 use crate::{TimelineCreationMode, TimelineId, TimelinePropsEndpointsClosure};
+use crate::notifications::{NotificationAgent, Request as NotificationRequest, Notification};
 
 pub type EndpointId = i32;
 
@@ -111,7 +112,7 @@ pub enum TimelineCreationRequest {
 
 pub enum Msg {
 	Refreshed(RefreshTime, EndpointId, (Vec<Rc<RefCell<dyn ArticleData>>>, Option<RateLimit>)),
-	RefreshFail(Error),
+	RefreshFail(EndpointId, Error),
 	UpdatedState,
 	AutoRefreshEndpoint(EndpointId),
 	ResetAutoRefresh(EndpointId),
@@ -152,6 +153,7 @@ pub struct EndpointAgent {
 	pub services: HashMap<String, EndpointConstructors>,
 	subscribers: HashSet<HandlerId>,
 	timeline_container: Option<HandlerId>,
+	notification_agent: Dispatcher<NotificationAgent>,
 }
 
 impl Agent for EndpointAgent {
@@ -169,6 +171,7 @@ impl Agent for EndpointAgent {
 			services: HashMap::new(),
 			subscribers: HashSet::new(),
 			timeline_container: None,
+			notification_agent: NotificationAgent::dispatcher(),
 		}
 	}
 
@@ -204,9 +207,13 @@ impl Agent for EndpointAgent {
 
 				self.link.send_message(Msg::UpdatedState);
 			}
-			Msg::RefreshFail(err) => {
-				//TODO macrofy
-				log::error!("{}", err);
+			Msg::RefreshFail(endpoint_id, err) => {
+				//TODO macrofy → log_error(err)
+				log::error!("{}", &err);
+				self.notification_agent.send(NotificationRequest::Notify(
+					Some(format!("Endpoint{}RefreshFail", endpoint_id)),
+					Notification::Error(err),
+				));
 			}
 			Msg::UpdatedState => {
 				for sub in &self.subscribers {
@@ -303,7 +310,7 @@ impl Agent for EndpointAgent {
 			Request::EndpointFetchResponse(refresh_time, endpoint_id, response) => {
 				match response {
 					Ok(response) => self.link.send_message(Msg::Refreshed(refresh_time, endpoint_id, response)),
-					Err(err) => self.link.send_message(Msg::RefreshFail(err)),
+					Err(err) => self.link.send_message(Msg::RefreshFail(endpoint_id, err)),
 				};
 			}
 			Request::AddArticles(refresh_time, endpoint_id, articles) =>

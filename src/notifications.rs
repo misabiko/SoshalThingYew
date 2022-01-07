@@ -2,9 +2,12 @@ use std::collections::HashMap;
 use yew::prelude::*;
 use yew_agent::{Agent, Context, HandlerId, AgentLink};
 
+use crate::error::Error;
+
 pub enum Notification {
 	Generic(String),
 	Login(String, String),
+	Error(Error),
 }
 
 pub struct NotificationAgent {
@@ -89,7 +92,12 @@ impl NotificationAgent {
 						{ "Login" }
 					</a>
 				</>
-			})
+			}),
+			Notification::Error(error) => (Some("is-danger"), html! {
+				<div class="block">
+					<span>{ error.message() }</span>
+				</div>
+			}),
 		};
 
 		html! {

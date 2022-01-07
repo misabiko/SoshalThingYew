@@ -64,6 +64,17 @@ impl Error {
 		};
 		self
 	}
+
+	pub fn message(&self) -> String {
+		match self {
+			Error::UnauthorizedFetch { message, .. }
+				=> message.clone().unwrap_or("Unauthorized fetch error".to_owned()),
+			Error::Generic { message, .. } |
+			Error::ArticleFetch { message, .. } |
+			Error::RatelimitedArticleFetch { message, .. }
+				=> message.clone().unwrap_or("Generic error".to_owned()),
+		}
+	}
 }
 
 impl Display for Error {
@@ -79,10 +90,10 @@ impl Display for Error {
 			},
 		};
 		match self {
-			Error::Generic { message, error } => f.write_fmt(format_args!("{}.\n{}", message.as_ref().unwrap_or(&"Generic error".to_owned()), error)),
-			Error::UnauthorizedFetch { message, error, .. } => f.write_fmt(format_args!("{}. {}\n{}", message.as_ref().unwrap_or(&"Unauthorized fetch error".to_owned()), article_ids, error)),
-			Error::ArticleFetch { message, error, .. } => f.write_fmt(format_args!("{}. {}\n{}", message.as_ref().unwrap_or(&"Generic error".to_owned()), article_ids, error)),
-			Error::RatelimitedArticleFetch { message, error, ratelimit, .. } => f.write_fmt(format_args!("{}. {}\nWith rate limit: {:?}\n{}", message.as_ref().unwrap_or(&"Generic error".to_owned()), article_ids, ratelimit, error)),
+			Error::Generic { error, .. } => f.write_fmt(format_args!("{}.\n{}", self.message(), error)),
+			Error::UnauthorizedFetch { error, .. } => f.write_fmt(format_args!("{}. {}\n{}", self.message(), article_ids, error)),
+			Error::ArticleFetch { error, .. } => f.write_fmt(format_args!("{}. {}\n{}", self.message(), article_ids, error)),
+			Error::RatelimitedArticleFetch { error, ratelimit, .. } => f.write_fmt(format_args!("{}. {}\nWith rate limit: {:?}\n{}", self.message(), article_ids, ratelimit, error)),
 		}
 	}
 }

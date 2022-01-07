@@ -192,8 +192,8 @@ impl Agent for TwitterAgent {
 			Msg::EndpointFetchResponse(refresh_time, id, r) => {
 				let mut valid_rc = Vec::new();
 
-				match &r {
-					Ok((articles, _)) => {
+				let r = match r {
+					Ok((articles, ratelimit)) => {
 						for (article, ref_article) in articles {
 							let borrow = article.borrow();
 							let valid_a_rc = self.articles.entry(borrow.id)
@@ -223,29 +223,31 @@ impl Agent for TwitterAgent {
 
 							valid_rc.push(valid_a_rc);
 						}
-					},
-					Err(err) => {
-						if let Error::UnauthorizedFetch { .. } = err {
-							self.auth_state = AuthState::NotLoggedIn;
-							self.notification_agent.send(NotificationRequest::Notify(
-								Some("TwitterLogin".to_owned()),
-								Notification::Login("Twitter".to_owned(), "/proxy/twitter/login".to_owned())
-							));
-						}
-					}
-				}
 
-				self.endpoint_agent.send(EndpointRequest::EndpointFetchResponse(
-					refresh_time,
-					id,
-					r.map(move |(_, ratelimit)|
-						(
+						Ok((
 							valid_rc.into_iter()
 								.map(|article| article as Rc<RefCell<dyn ArticleData>>)
 								.collect(),
-						 	ratelimit
+							ratelimit
 						))
-				));
+					},
+					Err(err) => {
+						match err {
+							Error::UnauthorizedFetch { .. } => {
+								self.auth_state = AuthState::NotLoggedIn;
+								self.notification_agent.send(NotificationRequest::Notify(
+									Some("TwitterLogin".to_owned()),
+									Notification::Login("Twitter".to_owned(), "/proxy/twitter/login".to_owned())
+								));
+
+								Ok((Vec::new(), None))
+							}
+							_ => Err(err),
+						}
+					}
+				};
+
+				self.endpoint_agent.send(EndpointRequest::EndpointFetchResponse(refresh_time, id, r));
 			}
 			Msg::FetchResponse(_id, r) => {
 				if let Ok((articles, _)) = &r {
