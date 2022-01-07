@@ -14,7 +14,7 @@ pub struct NotificationAgent {
 }
 
 pub enum Msg {
-
+	Delete(String),
 }
 
 pub enum Request {
@@ -42,7 +42,10 @@ impl Agent for NotificationAgent {
 
 	fn update(&mut self, msg: Self::Message) {
 		match msg {
-
+			Msg::Delete(id) => {
+				let _ = self.notifications.remove(&id);
+				self.draw_notifications();
+			}
 		}
 	}
 
@@ -63,19 +66,19 @@ impl Agent for NotificationAgent {
 				});
 
 				self.notifications.insert(id, notif);
-				if let Some(handler) = self.timeline_container {
-					self.link.respond(handler, Response::DrawNotifications(self.notifications.values().map(|n| self.view_notification(n)).collect()))
-				}
+				self.draw_notifications();
 			}
 		}
 	}
 }
 
 impl NotificationAgent {
-	fn view_notification(&self, notif: &Notification) -> Html {
+	fn view_notification(&self, id: String, notif: &Notification) -> Html {
 		let (classes, content) = match notif {
 			Notification::Generic(text) => (None, html! {
-				{ text }
+				<div class="block">
+					<span>{ text }</span>
+				</div>
 			}),
 			Notification::Login(service, url) => (Some("is-warning"), html! {
 				<>
@@ -91,9 +94,15 @@ impl NotificationAgent {
 
 		html! {
 			<div class={classes!("notification", classes)}>
-			  <button class="delete"></button>
+			  <button class="delete" onclick={self.link.callback(move |_| Msg::Delete(id.clone()))}/>
 			  { content }
 			</div>
+		}
+	}
+
+	fn draw_notifications(&self) {
+		if let Some(handler) = self.timeline_container {
+			self.link.respond(handler, Response::DrawNotifications(self.notifications.iter().map(|(id, n)| self.view_notification(id.to_string(), n)).collect()))
 		}
 	}
 }
