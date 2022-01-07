@@ -4,6 +4,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::num::{NonZeroU32, NonZeroU64};
 use js_sys::Date;
 use serde::{Serialize, Deserialize};
+use yew::prelude::*;
 
 pub mod component;
 pub mod fetch_agent;
@@ -108,6 +109,9 @@ pub trait ArticleData : Debug {
 	fn is_fully_fetched(&self) -> &bool { &true }
 	fn clone_data(&self) -> Box<dyn ArticleData>;
 	fn media_loaded(&mut self, index: usize);
+	fn view_text(&self) -> Html {
+		html! { { self.text() } }
+	}
 }
 
 impl PartialEq<dyn ArticleData> for dyn ArticleData {
