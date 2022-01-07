@@ -3,6 +3,7 @@ use std::cell::RefCell;
 use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher};
 use std::collections::{HashMap, HashSet};
 use gloo_storage::Storage;
+use reqwest::StatusCode;
 
 pub mod endpoints;
 mod article;
@@ -23,7 +24,17 @@ use crate::services::storages::SoshalSessionStorage;
 pub async fn fetch_tweets(url: &str, marked_as_read: &HashSet<u64>) -> RatelimitedResult<Vec<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)>> {
 	let response = reqwest::Client::builder().build()?
 		.get(format!("{}{}", base_url(), url))
-		.send().await?;
+		.send().await?
+		.error_for_status()
+		.map_err(|err| if let Some(StatusCode::UNAUTHORIZED) = err.status() {
+			Error::UnauthorizedFetch {
+				message: None,
+				error: err.into(),
+				article_ids: vec![],
+			}
+		}else {
+			err.into()
+		})?;
 
 	let headers = response.headers();
 	let ratelimit = RateLimit::try_from(headers)?;
@@ -46,7 +57,17 @@ pub async fn fetch_tweets(url: &str, marked_as_read: &HashSet<u64>) -> Ratelimit
 pub async fn fetch_tweet(url: &str, marked_as_read: &HashSet<u64>) -> RatelimitedResult<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)> {
 	let response = reqwest::Client::builder().build()?
 		.get(format!("{}{}", base_url(), url))
-		.send().await?;
+		.send().await?
+		.error_for_status()
+		.map_err(|err| if let Some(StatusCode::UNAUTHORIZED) = err.status() {
+			Error::UnauthorizedFetch {
+				message: None,
+				error: err.into(),
+				article_ids: vec![],
+			}
+		}else {
+			err.into()
+		})?;
 
 	let headers = response.headers();
 	let ratelimit = RateLimit::try_from(headers)?;
@@ -57,8 +78,7 @@ pub async fn fetch_tweet(url: &str, marked_as_read: &HashSet<u64>) -> Ratelimite
 	Ok((TweetArticleData::from(&value, &marked_as_read), Some(ratelimit)))
 }
 
-//TODO Receive TwitterUser
-pub enum AuthMode {
+pub enum AuthState {
 	NotLoggedIn,
 	LoggedIn(TwitterUser)
 }
@@ -69,7 +89,7 @@ pub struct TwitterAgent {
 	actions_agent: Dispatcher<ArticleActionsAgent>,
 	articles: HashMap<u64, Rc<RefCell<TweetArticleData>>>,
 	cached_marked_as_read: HashSet<u64>,
-	//auth_mode: AuthMode,
+	auth_state: AuthState,
 }
 
 pub enum Request {
@@ -150,7 +170,7 @@ impl Agent for TwitterAgent {
 			actions_agent,
 			articles: HashMap::new(),
 			cached_marked_as_read,
-			//auth_mode: AuthMode::NotLoggedIn,
+			auth_state: AuthState::NotLoggedIn,
 		}
 	}
 
@@ -158,37 +178,46 @@ impl Agent for TwitterAgent {
 		match msg {
 			Msg::EndpointFetchResponse(refresh_time, id, r) => {
 				let mut valid_rc = Vec::new();
-				if let Ok((articles, _)) = &r {
-					for (article, ref_article) in articles {
-						let borrow = article.borrow();
-						let valid_a_rc = self.articles.entry(borrow.id)
-							.and_modify(|a| a.borrow_mut().update(&borrow))
-							.or_insert_with(|| article.clone()).clone();
 
-						match ref_article {
-							StrongArticleRefType::Repost(a) | StrongArticleRefType::Quote(a) => {
-								let ref_borrow = a.borrow();
-								self.articles.entry(ref_borrow.id)
-									.and_modify(|a| a.borrow_mut().update(&ref_borrow))
-									.or_insert_with(|| a.clone());
-							}
-							StrongArticleRefType::QuoteRepost(a, q) => {
-								let a_borrow = a.borrow();
-								self.articles.entry(a_borrow.id)
-									.and_modify(|a| a.borrow_mut().update(&a_borrow))
-									.or_insert_with(|| a.clone());
+				match &r {
+					Ok((articles, _)) => {
+						for (article, ref_article) in articles {
+							let borrow = article.borrow();
+							let valid_a_rc = self.articles.entry(borrow.id)
+								.and_modify(|a| a.borrow_mut().update(&borrow))
+								.or_insert_with(|| article.clone()).clone();
 
-								let q_borrow = q.borrow();
-								self.articles.entry(q_borrow.id)
-									.and_modify(|a| a.borrow_mut().update(&q_borrow))
-									.or_insert_with(|| q.clone());
-							}
-							_ => {},
-						};
+							match ref_article {
+								StrongArticleRefType::Repost(a) | StrongArticleRefType::Quote(a) => {
+									let ref_borrow = a.borrow();
+									self.articles.entry(ref_borrow.id)
+										.and_modify(|a| a.borrow_mut().update(&ref_borrow))
+										.or_insert_with(|| a.clone());
+								}
+								StrongArticleRefType::QuoteRepost(a, q) => {
+									let a_borrow = a.borrow();
+									self.articles.entry(a_borrow.id)
+										.and_modify(|a| a.borrow_mut().update(&a_borrow))
+										.or_insert_with(|| a.clone());
 
-						valid_rc.push(valid_a_rc);
+									let q_borrow = q.borrow();
+									self.articles.entry(q_borrow.id)
+										.and_modify(|a| a.borrow_mut().update(&q_borrow))
+										.or_insert_with(|| q.clone());
+								}
+								_ => {},
+							};
+
+							valid_rc.push(valid_a_rc);
+						}
+					},
+					Err(err) => {
+						if let Error::UnauthorizedFetch { .. } = err {
+							self.auth_state = AuthState::NotLoggedIn;
+						}
 					}
 				}
+
 				self.endpoint_agent.send(EndpointRequest::EndpointFetchResponse(
 					refresh_time,
 					id,

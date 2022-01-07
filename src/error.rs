@@ -35,6 +35,11 @@ pub enum Error {
 		message: Option<String>,
 		error: ActualError,
 	},
+	UnauthorizedFetch {
+		message: Option<String>,
+		error: ActualError,
+		article_ids: Vec<String>,
+	},
 	ArticleFetch {
 		message: Option<String>,
 		error: ActualError,
@@ -49,21 +54,13 @@ pub enum Error {
 }
 
 impl Error {
-	pub fn actual_error(&self) -> &ActualError {
-		match self {
-			Error::Generic { error, .. } |
-			Error::ArticleFetch { error, .. } |
-			Error::RatelimitedArticleFetch { error, .. }
-				=> error
-		}
-	}
-
 	pub fn with_message(mut self, new_message: &str) -> Self {
 		match &mut self {
 			Error::Generic { message, .. } |
+			Error::UnauthorizedFetch { message, .. } |
 			Error::ArticleFetch { message, .. } |
 			Error::RatelimitedArticleFetch { message, .. }
-				=> *message = Some(new_message.to_owned())
+			=> *message = Some(new_message.to_owned()),
 		};
 		self
 	}
@@ -71,10 +68,21 @@ impl Error {
 
 impl Display for Error {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		let article_ids = match self {
+			Error::Generic { .. } => "".to_owned(),
+			Error::UnauthorizedFetch { article_ids, .. } |
+			Error::ArticleFetch { article_ids, .. } |
+			Error::RatelimitedArticleFetch { article_ids, .. } => if article_ids.is_empty() {
+				"".to_owned()
+			} else {
+				format!("While fetching articles {:?}.", article_ids)
+			},
+		};
 		match self {
 			Error::Generic { message, error } => f.write_fmt(format_args!("{}.\n{}", message.as_ref().unwrap_or(&"Generic error".to_owned()), error)),
-			Error::ArticleFetch { message, error, article_ids } => f.write_fmt(format_args!("{}. While fetching articles {:?}.\n{}", message.as_ref().unwrap_or(&"Generic error".to_owned()), article_ids, error)),
-			Error::RatelimitedArticleFetch { message, error, article_ids, ratelimit } => f.write_fmt(format_args!("{}. While fetching articles {:?}.\nWith rate limit: {:?}\n{}", message.as_ref().unwrap_or(&"Generic error".to_owned()), article_ids, ratelimit, error)),
+			Error::UnauthorizedFetch { message, error, .. } => f.write_fmt(format_args!("{}. {}\n{}", message.as_ref().unwrap_or(&"Unauthorized fetch error".to_owned()), article_ids, error)),
+			Error::ArticleFetch { message, error, .. } => f.write_fmt(format_args!("{}. {}\n{}", message.as_ref().unwrap_or(&"Generic error".to_owned()), article_ids, error)),
+			Error::RatelimitedArticleFetch { message, error, ratelimit, .. } => f.write_fmt(format_args!("{}. {}\nWith rate limit: {:?}\n{}", message.as_ref().unwrap_or(&"Generic error".to_owned()), article_ids, ratelimit, error)),
 		}
 	}
 }
@@ -107,11 +115,11 @@ impl Display for ActualError {
 }
 
 impl<T> From<T> for Error
-	where T : Into<ActualError> {
+	where T: Into<ActualError> {
 	fn from(error: T) -> Self {
 		Error::Generic {
 			message: None,
-			error: error.into()
+			error: error.into(),
 		}
 	}
 }
