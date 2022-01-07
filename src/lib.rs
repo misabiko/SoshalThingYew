@@ -8,6 +8,7 @@ pub mod components;
 pub mod error;
 pub mod favviewer;
 pub mod modals;
+pub mod notifications;
 pub mod services;
 pub mod timeline;
 mod sidebar;
@@ -16,6 +17,7 @@ use components::{FA, IconSize};
 use error::Result;
 use favviewer::PageInfo;
 use modals::AddTimelineModal;
+use notifications::{NotificationAgent, Request as NotificationRequest, Response as NotificationResponse};
 use services::{
 	Endpoint,
 	endpoint_agent::{EndpointId, EndpointAgent, Request as EndpointRequest, Response as EndpointResponse, TimelineEndpoints, TimelineCreationRequest},
@@ -66,6 +68,8 @@ pub struct Model {
 	main_timeline: TimelineId,
 	last_display_single: DisplayMode,
 	services_sidebar: HashMap<String, Html>,
+	_notification_agent: Box<dyn Bridge<NotificationAgent>>,
+	notifications: Vec<Html>,
 }
 
 pub enum Msg {
@@ -78,6 +82,7 @@ pub enum Msg {
 	EndpointResponse(EndpointResponse),
 	TwitterResponse(TwitterResponse),
 	FetchedAuthInfo(Result<AuthInfo>),
+	NotificationResponse(NotificationResponse),
 }
 
 #[derive(Properties, PartialEq, Default)]
@@ -96,6 +101,9 @@ impl Component for Model {
 	type Properties = Props;
 
 	fn create(ctx: &Context<Self>) -> Self {
+		let mut _notification_agent = NotificationAgent::bridge(ctx.link().callback(Msg::NotificationResponse));
+		_notification_agent.send(NotificationRequest::RegisterTimelineContainer);
+
 		let mut twitter = TwitterAgent::bridge(ctx.link().callback(Msg::TwitterResponse));
 		twitter.send(TwitterRequest::Sidebar);
 		let _pixiv = PixivAgent::dispatcher();
@@ -171,6 +179,8 @@ impl Component for Model {
 			timeline_counter: TimelineId::MIN,
 			main_timeline: TimelineId::MIN,
 			services_sidebar: ctx.props().services_sidebar.clone(),
+			_notification_agent,
+			notifications: Vec::new(),
 		}
 	}
 
@@ -281,6 +291,12 @@ impl Component for Model {
 				};
 				false
 			}
+			Msg::NotificationResponse(response) => {
+				match response {
+					NotificationResponse::DrawNotifications(notifs) => self.notifications = notifs,
+				};
+				true
+			}
 		}
 	}
 
@@ -298,6 +314,9 @@ impl Component for Model {
 		html! {
 			<>
 				<AddTimelineModal add_timeline_callback={ctx.link().callback(|props| Msg::AddTimeline(TimelineCreationMode::Props(props)))}/>
+				<div id="soshal-notifications">
+					{ for self.notifications.iter().cloned() }
+				</div>
 				{ self.page_info.as_ref().map(|p| p.view()).unwrap_or_default() }
 				{
 					match ctx.props().favviewer {

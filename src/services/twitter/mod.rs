@@ -13,6 +13,7 @@ pub use article::TweetArticleData;
 use article::StrongArticleRefType;
 use crate::articles::{ArticleData, ArticleRefType};
 use crate::base_url;
+use crate::notifications::{Notification, NotificationAgent, Request as NotificationRequest};
 use crate::services::{
 	RateLimit,
 	endpoint_agent::{EndpointAgent, Request as EndpointRequest, EndpointId, EndpointConstructor, EndpointConstructors, RefreshTime},
@@ -93,6 +94,7 @@ pub struct TwitterAgent {
 	cached_marked_as_read: HashSet<u64>,
 	auth_state: AuthState,
 	sidebar_handler: Option<HandlerId>,
+	notification_agent: Dispatcher<NotificationAgent>,
 }
 
 pub enum Msg {
@@ -181,6 +183,7 @@ impl Agent for TwitterAgent {
 			cached_marked_as_read,
 			auth_state: AuthState::NotLoggedIn,
 			sidebar_handler: None,
+			notification_agent: NotificationAgent::dispatcher(),
 		}
 	}
 
@@ -224,6 +227,10 @@ impl Agent for TwitterAgent {
 					Err(err) => {
 						if let Error::UnauthorizedFetch { .. } = err {
 							self.auth_state = AuthState::NotLoggedIn;
+							self.notification_agent.send(NotificationRequest::Notify(
+								Some("TwitterLogin".to_owned()),
+								Notification::Login("Twitter".to_owned(), "/proxy/twitter/login".to_owned())
+							));
 						}
 					}
 				}
