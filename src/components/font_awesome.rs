@@ -4,6 +4,7 @@ use yew::prelude::*;
 pub enum IconType {
 	Solid,
 	Regular,
+	Brand,
 }
 
 impl IconType {
@@ -11,6 +12,7 @@ impl IconType {
 		match self {
 			IconType::Solid => "fas",
 			IconType::Regular => "far",
+			IconType::Brand => "fab",
 		}
 	}
 }

@@ -1,3 +1,4 @@
+use yew::prelude::*;
 use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher};
@@ -93,6 +94,7 @@ pub struct TwitterAgent {
 }
 
 pub enum Request {
+	Sidebar,
 	FetchTweets(RefreshTime, EndpointId, String),
 	FetchTweet(RefreshTime, EndpointId, String),
 }
@@ -104,11 +106,15 @@ pub enum Msg {
 	Retweet(HandlerId, Weak<RefCell<dyn ArticleData>>),
 }
 
+pub enum Response {
+	Sidebar(Html),
+}
+
 impl Agent for TwitterAgent {
 	type Reach = Context<Self>;
 	type Message = Msg;
 	type Input = Request;
-	type Output = ();
+	type Output = Response;
 
 	fn create(link: AgentLink<Self>) -> Self {
 		let mut endpoint_agent = EndpointAgent::dispatcher();
@@ -274,9 +280,20 @@ impl Agent for TwitterAgent {
 		};
 	}
 
-	fn handle_input(&mut self, msg: Self::Input, _id: HandlerId) {
+	fn handle_input(&mut self, msg: Self::Input, id: HandlerId) {
+		//TODO Use storage
 		let marked_as_read = self.cached_marked_as_read.clone();
 		match msg {
+			Request::Sidebar => self.link.respond(id, Response::Sidebar(html! {
+				<div class="box">
+					<div class="block">
+						{"Twitter"}
+					</div>
+					<div class="block">
+						<a class="button" href="/proxy/twitter/login">{"Login"}</a>
+					</div>
+				</div>
+			})),
 			Request::FetchTweets(refresh_time, id, path) =>
 				self.link.send_future(async move {
 					Msg::EndpointFetchResponse(refresh_time, id, fetch_tweets(&path, &marked_as_read).await)

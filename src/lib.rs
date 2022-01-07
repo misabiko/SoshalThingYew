@@ -18,7 +18,7 @@ use services::{
 	Endpoint,
 	endpoint_agent::{EndpointId, EndpointAgent, Request as EndpointRequest, Response as EndpointResponse, TimelineEndpoints, TimelineCreationRequest},
 	pixiv::PixivAgent,
-	twitter::{endpoints::*, TwitterAgent},
+	twitter::{endpoints::*, TwitterAgent, Request as TwitterRequest, Response as TwitterResponse},
 };
 use sidebar::Sidebar;
 use timeline::{Props as TimelineProps, Timeline, TimelineId, Container};
@@ -53,11 +53,12 @@ pub struct Model {
 	display_mode: DisplayMode,
 	timelines: Vec<TimelineProps>,
 	page_info: Option<PageInfo>,
-	_twitter: Dispatcher<TwitterAgent>,
+	_twitter: Box<dyn Bridge<TwitterAgent>>,
 	_pixiv: Dispatcher<PixivAgent>,
 	timeline_counter: TimelineId,
 	main_timeline: TimelineId,
 	last_display_single: DisplayMode,
+	services_sidebar: Vec<Html>
 }
 
 pub enum Msg {
@@ -68,6 +69,7 @@ pub enum Msg {
 	ToggleDisplayMode,
 	TimelineAgentResponse(TimelineAgentResponse),
 	EndpointResponse(EndpointResponse),
+	TwitterResponse(TwitterResponse),
 }
 
 #[derive(Properties, PartialEq, Default)]
@@ -77,6 +79,8 @@ pub struct Props {
 	pub display_mode: Option<DisplayMode>,
 	#[prop_or_default]
 	pub page_info: Option<PageInfo>,
+	#[prop_or_default]
+	pub services_sidebar: Vec<Html>,
 }
 
 impl Component for Model {
@@ -84,8 +88,8 @@ impl Component for Model {
 	type Properties = Props;
 
 	fn create(ctx: &Context<Self>) -> Self {
-		//TODO Move service dispatch to main?
-		let _twitter = TwitterAgent::dispatcher();
+		let mut _twitter = TwitterAgent::bridge(ctx.link().callback(Msg::TwitterResponse));
+		_twitter.send(TwitterRequest::Sidebar);
 		let _pixiv = PixivAgent::dispatcher();
 
 		let mut _timeline_agent = TimelineAgent::bridge(ctx.link().callback(Msg::TimelineAgentResponse));
@@ -154,6 +158,7 @@ impl Component for Model {
 			_pixiv,
 			timeline_counter: TimelineId::MIN,
 			main_timeline: TimelineId::MIN,
+			services_sidebar: ctx.props().services_sidebar.clone(),
 		}
 	}
 
@@ -249,6 +254,12 @@ impl Component for Model {
 				},
 				_ => false
 			}
+			Msg::TwitterResponse(response) => {
+				match response {
+					TwitterResponse::Sidebar(html) => self.services_sidebar.push(html),
+				};
+				true
+			}
 		}
 	}
 
@@ -270,7 +281,7 @@ impl Component for Model {
 				{
 					match ctx.props().favviewer {
 						false => html! {
-							<Sidebar>
+							<Sidebar services={self.services_sidebar.clone()}>
 								{ display_mode_toggle }
 							</Sidebar>
 						},

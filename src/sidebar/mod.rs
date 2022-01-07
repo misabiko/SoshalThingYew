@@ -5,7 +5,7 @@ mod endpoint_options;
 
 use endpoint_options::EndpointOptions;
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest};
-use crate::components::{FA, IconSize};
+use crate::components::{FA, IconSize, IconType};
 
 pub struct Sidebar {
 	expanded: bool,
@@ -19,6 +19,7 @@ pub enum Msg {
 
 #[derive(Properties, PartialEq, Clone)]
 pub struct Props {
+	pub services: Vec<Html>,
 	pub children: Children,
 }
 
@@ -52,14 +53,7 @@ impl Component for Sidebar {
 			<nav id="sidebar">
 				{if self.expanded { html! {
 					<div class="sidebarMenu">
-						<div class="box">
-							<div class="block">
-								{"Twitter"}
-							</div>
-							<div class="block">
-								<a class="button" href="/proxy/twitter/login">{"Login"}</a>
-							</div>
-						</div>
+						{ for ctx.props().services.iter().cloned() }
 						<div class="box">
 							<EndpointOptions/>
 						</div>
@@ -78,7 +72,7 @@ impl Component for Sidebar {
 					<div title="Github">
 						<a href="https://github.com/misabiko/SoshalThingYew">
 							<button>
-								<FA icon="github" size={IconSize::X2}/>
+								<FA icon="github" icon_type={IconType::Brand} size={IconSize::X2}/>
 							</button>
 						</a>
 					</div>
