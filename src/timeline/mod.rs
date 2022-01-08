@@ -17,7 +17,7 @@ use containers::{view_container, Props as ContainerProps};
 use filters::{Filter, default_filters};
 use sort_methods::{SortMethod, compare};
 use agent::{TimelineAgent, Request as TimelineAgentRequest};
-use crate::articles::{ArticleView, ArticleData};
+use crate::articles::{ArticleView, ArticleData, ArticleRefType};
 use crate::services::endpoint_agent::{EndpointAgent, Request as EndpointRequest, TimelineEndpoints};
 use crate::modals::ModalCard;
 use crate::choose_endpoints::ChooseEndpoints;
@@ -43,6 +43,8 @@ struct Autoscroll {
 	speed: f64,
 	anim: Option<AutoscrollAnim>,
 }
+
+pub type ArticleTuple = (Weak<RefCell<dyn ArticleData>>, Box<dyn ArticleData>, ArticleRefType<Box<dyn ArticleData>>);
 
 pub struct Timeline {
 	endpoints: Rc<RefCell<TimelineEndpoints>>,
@@ -100,6 +102,7 @@ pub enum Msg {
 	ToggleSection,
 	UpdateSection(Option<usize>, Option<usize>),
 	ToggleLazyLoading,
+	Redraw,
 }
 
 #[derive(Properties, Clone)]
@@ -415,6 +418,7 @@ impl Component for Timeline {
 				self.lazy_loading = !self.lazy_loading;
 				true
 			}
+			Msg::Redraw => true,
 		}
 	}
 
@@ -446,11 +450,23 @@ impl Component for Timeline {
 				.collect();
 		}
 
-		let articles: Vec<(Weak<RefCell<dyn ArticleData>>, Box<dyn ArticleData>)> = articles.into_iter()
+		let articles: Vec<ArticleTuple> = articles.into_iter()
 			.map(|a| {
-				let data = a.upgrade().expect("upgrading article")
-					.borrow().clone_data();
-				(a, data)
+				let strong = a.upgrade().expect("upgrading article");
+				let borrow = strong.borrow();
+				(a, borrow.clone_data(), match borrow.referenced_article() {
+					ArticleRefType::NoRef => ArticleRefType::NoRef,
+					ArticleRefType::Repost(a) => ArticleRefType::Repost(
+						a.upgrade().expect("upgrading reposted article").borrow().clone_data()
+					),
+					ArticleRefType::Quote(a) => ArticleRefType::Quote(
+						a.upgrade().expect("upgrading quoted article").borrow().clone_data()
+					),
+					ArticleRefType::QuoteRepost(a, q) => ArticleRefType::QuoteRepost(
+						a.upgrade().expect("upgrading reposted quote").borrow().clone_data(),
+						q.upgrade().expect("upgrading quoted article").borrow().clone_data(),
+					)
+				})
 			}).collect();
 
 		let style = if self.width > 1 {
@@ -678,6 +694,9 @@ impl Timeline {
 						true => html! {}
 					}
 				}
+				<div class="block control">
+					<button class="button" onclick={ctx.link().callback(|_| Msg::Redraw)}>{"Redraw timeline"}</button>
+				</div>
 				<div class="block control">
 					<button class="button is-danger" onclick={ctx.link().callback(|_| Msg::RemoveTimeline)}>{"Remove timeline"}</button>
 				</div>

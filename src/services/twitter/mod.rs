@@ -44,38 +44,13 @@ pub async fn fetch_tweets(url: &str, storage: &SessionStorageService) -> Ratelim
 
 	serde_json::from_str(&json_str)
 		.map(|value: serde_json::Value|
-			(value
-			.as_array().unwrap()
-			.iter()
-			.map(|json| TweetArticleData::from(json, storage))
-			.collect(),
+			(match value.as_array() {
+				Some(array) => array.iter().map(|json| TweetArticleData::from(json, storage)).collect(),
+				None => vec![TweetArticleData::from(&value, storage)],
+			},
 			 Some(ratelimit))
 		)
 		.map_err(|err| Error::from(err))
-}
-
-pub async fn fetch_tweet(url: &str, storage: &SessionStorageService) -> RatelimitedResult<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)> {
-	let response = reqwest::Client::builder().build()?
-		.get(format!("{}{}", base_url(), url))
-		.send().await?
-		.error_for_status()
-		.map_err(|err| if let Some(StatusCode::UNAUTHORIZED) = err.status() {
-			Error::UnauthorizedFetch {
-				message: None,
-				error: err.into(),
-				article_ids: vec![],
-			}
-		}else {
-			err.into()
-		})?;
-
-	let headers = response.headers();
-	let ratelimit = RateLimit::try_from(headers)?;
-
-	let json_str = response.text().await?.to_string();
-
-	let value: serde_json::Value = serde_json::from_str(&json_str).unwrap();
-	Ok((TweetArticleData::from(&value, storage), Some(ratelimit)))
 }
 
 #[derive(Debug)]
@@ -95,7 +70,7 @@ pub struct TwitterAgent {
 }
 
 pub enum Msg {
-	FetchResponse(HandlerId, RatelimitedResult<Vec<Rc<RefCell<TweetArticleData>>>>),
+	FetchResponse(HandlerId, RatelimitedResult<Vec<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)>>),
 	EndpointFetchResponse(RefreshTime, EndpointId, RatelimitedResult<Vec<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)>>),
 	Like(HandlerId, Weak<RefCell<dyn ArticleData>>),
 	Retweet(HandlerId, Weak<RefCell<dyn ArticleData>>),
@@ -180,46 +155,16 @@ impl Agent for TwitterAgent {
 	fn update(&mut self, msg: Self::Message) {
 		match msg {
 			Msg::EndpointFetchResponse(refresh_time, id, r) => {
-				let mut valid_rc = Vec::new();
 
 				let r = match r {
 					Ok((articles, ratelimit)) => {
+						let mut updated_articles = Vec::new();
 						for (article, ref_article) in articles {
-							let borrow = article.borrow();
-							let valid_a_rc = self.articles.entry(borrow.id)
-								.and_modify(|a| a.borrow_mut().update(&borrow))
-								.or_insert_with(|| article.clone()).clone();
-
-							match ref_article {
-								StrongArticleRefType::Repost(a) | StrongArticleRefType::Quote(a) => {
-									let ref_borrow = a.borrow();
-									self.articles.entry(ref_borrow.id)
-										.and_modify(|a| a.borrow_mut().update(&ref_borrow))
-										.or_insert_with(|| a.clone());
-								}
-								StrongArticleRefType::QuoteRepost(a, q) => {
-									let a_borrow = a.borrow();
-									self.articles.entry(a_borrow.id)
-										.and_modify(|a| a.borrow_mut().update(&a_borrow))
-										.or_insert_with(|| a.clone());
-
-									let q_borrow = q.borrow();
-									self.articles.entry(q_borrow.id)
-										.and_modify(|a| a.borrow_mut().update(&q_borrow))
-										.or_insert_with(|| q.clone());
-								}
-								_ => {},
-							};
-
-							valid_rc.push(valid_a_rc);
+							let article = self.insert_or_update(article, Some(ref_article));
+							updated_articles.push(article as Rc<RefCell<dyn ArticleData>>);
 						}
 
-						Ok((
-							valid_rc.into_iter()
-								.map(|article| article as Rc<RefCell<dyn ArticleData>>)
-								.collect(),
-							ratelimit
-						))
+						Ok((updated_articles, ratelimit))
 					},
 					Err(err) => {
 						match err {
@@ -240,18 +185,15 @@ impl Agent for TwitterAgent {
 				self.endpoint_agent.send(EndpointRequest::EndpointFetchResponse(refresh_time, id, r));
 			}
 			Msg::FetchResponse(_id, r) => {
-				if let Ok((articles, _)) = &r {
-					let mut valid_rc = Vec::new();
-					for article in articles {
-						let borrow = article.borrow();
-						let updated = self.articles.entry(borrow.id)
-							.and_modify(|a| a.borrow_mut().update(&borrow))
-							.or_insert_with(|| article.clone());
+				if let Ok((articles, _)) = r {
+					let articles = articles.into_iter()
+						.map(|(article, ref_article)| {
+							let article = self.insert_or_update(article, Some(ref_article));
+							Rc::downgrade(&article) as Weak<RefCell<dyn ArticleData>>
+						})
+						.collect();
 
-						valid_rc.push(Rc::downgrade(updated) as Weak<RefCell<dyn ArticleData>>);
-					}
-
-					self.actions_agent.send(ArticleActionsRequest::RedrawTimelines(valid_rc));
+					self.actions_agent.send(ArticleActionsRequest::RedrawTimelines(articles));
 				}
 			}
 			Msg::Like(id, article) => {
@@ -262,7 +204,7 @@ impl Agent for TwitterAgent {
 					let path = format!("/proxy/twitter/{}/{}", if borrow.liked() { "unlike" } else { "like" }, borrow.id());
 
 					self.link.send_future(async move {
-						Msg::FetchResponse(id, fetch_tweet(&path, &get_service_session("Twitter")).await.map(|(articles, ratelimit)| (vec![articles.0], ratelimit)))
+						Msg::FetchResponse(id, fetch_tweets(&path, &get_service_session("Twitter")).await)
 					})
 				}
 			}
@@ -274,7 +216,7 @@ impl Agent for TwitterAgent {
 					let path = format!("/proxy/twitter/{}/{}", if borrow.reposted() { "unretweet" } else { "retweet" }, borrow.id());
 
 					self.link.send_future(async move {
-						Msg::FetchResponse(id, fetch_tweet(&path, &get_service_session("Twitter")).await.map(|(articles, ratelimit)| (vec![articles.0], ratelimit)))
+						Msg::FetchResponse(id, fetch_tweets(&path, &get_service_session("Twitter")).await)
 					})
 				}
 			}
@@ -303,7 +245,7 @@ impl Agent for TwitterAgent {
 				}),
 			Request::FetchTweet(refresh_time, id, path) =>
 				self.link.send_future(async move {
-					Msg::EndpointFetchResponse(refresh_time, id, fetch_tweet(&path, &get_service_session("Twitter")).await.map(|a| (vec![a.0], a.1)))
+					Msg::EndpointFetchResponse(refresh_time, id, fetch_tweets(&path, &get_service_session("Twitter")).await)
 				})
 		}
 	}
@@ -334,5 +276,40 @@ impl TwitterAgent {
 				} }
 			</div>
 		}
+	}
+
+	fn insert_or_update(&mut self, article: Rc<RefCell<TweetArticleData>>, ref_article: Option<StrongArticleRefType>) -> Rc<RefCell<TweetArticleData>> {
+		let borrow = article.borrow();
+		let article = self.articles.entry(borrow.id)
+			.and_modify(|a| a.borrow_mut().update(&borrow))
+			.or_insert_with(|| article.clone()).clone();
+		drop(borrow);
+
+		if let Some(ref_article) = ref_article {
+			match ref_article {
+				StrongArticleRefType::NoRef => {},
+				StrongArticleRefType::Repost(a) => {
+					let ref_article = self.insert_or_update(a, None);
+					let mut borrow_mut = article.borrow_mut();
+					borrow_mut.referenced_article = ArticleRefType::Repost(Rc::downgrade(&ref_article));
+				}
+				StrongArticleRefType::Quote(a) => {
+					let ref_article = self.insert_or_update(a, None);
+					let mut borrow_mut = article.borrow_mut();
+					borrow_mut.referenced_article = ArticleRefType::Quote(Rc::downgrade(&ref_article));
+				}
+				StrongArticleRefType::QuoteRepost(a, q) => {
+					let ref_quote = self.insert_or_update(a, None);
+					let mut borrow_mut = article.borrow_mut();
+					borrow_mut.referenced_article = ArticleRefType::Quote(Rc::downgrade(&ref_quote));
+
+					let ref_article = self.insert_or_update(q, None);
+					let mut quote_borrow_mut = ref_quote.borrow_mut();
+					quote_borrow_mut.referenced_article = ArticleRefType::Quote(Rc::downgrade(&ref_article));
+				}
+			}
+		}
+
+		article
 	}
 }

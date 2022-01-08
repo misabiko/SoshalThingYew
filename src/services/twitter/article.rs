@@ -14,6 +14,8 @@ pub struct TwitterUser {
 	pub avatar_url: String,
 }
 
+pub type StrongArticleRefType = ArticleRefType<Rc<RefCell<TweetArticleData>>>;
+
 #[derive(Clone, Debug)]
 pub struct TweetArticleData {
 	pub id: u64,
@@ -26,7 +28,7 @@ pub struct TweetArticleData {
 	pub retweet_count: u32,
 	pub media: Vec<ArticleMedia>,
 	pub raw_json: serde_json::Value,
-	pub referenced_article: ArticleRefType,
+	pub referenced_article: ArticleRefType<Weak<RefCell<TweetArticleData>>>,
 	pub marked_as_read: bool,
 	pub hidden: bool,
 }
@@ -47,11 +49,11 @@ impl ArticleData for TweetArticleData {
 	fn text(&self) -> String {
 		self.text.clone()
 	}
-	fn author_username(&self) -> String {
-		self.author.username.clone()
-	}
 	fn author_name(&self) -> String {
 		self.author.name.clone()
+	}
+	fn author_username(&self) -> String {
+		self.author.username.clone()
 	}
 	fn author_avatar_url(&self) -> String {
 		self.author.avatar_url.clone()
@@ -76,7 +78,15 @@ impl ArticleData for TweetArticleData {
 	}
 	fn json(&self) -> serde_json::Value { self.raw_json.clone() }
 	fn referenced_article(&self) -> ArticleRefType {
-		self.referenced_article.clone()
+		match &self.referenced_article {
+			ArticleRefType::NoRef => ArticleRefType::NoRef,
+			ArticleRefType::Repost(a) => ArticleRefType::Repost(a.clone() as Weak<RefCell<dyn ArticleData>>),
+			ArticleRefType::Quote(a) => ArticleRefType::Quote(a.clone() as Weak<RefCell<dyn ArticleData>>),
+			ArticleRefType::QuoteRepost(a, q) => ArticleRefType::QuoteRepost(
+				a.clone() as Weak<RefCell<dyn ArticleData>>,
+				q.clone() as Weak<RefCell<dyn ArticleData>>,
+			),
+		}
 	}
 	fn url(&self) -> String {
 		format!("https://twitter.com/{}/status/{}", &self.author_username(), &self.id())
@@ -100,8 +110,6 @@ impl ArticleData for TweetArticleData {
 		log::warn!("Twitter doesn't do lazy loading.");
 	}
 }
-
-pub type StrongArticleRefType = ArticleRefType<Rc<RefCell<TweetArticleData>>>;
 
 impl TweetArticleData {
 	//TODO Deserialize response
@@ -231,11 +239,11 @@ impl TweetArticleData {
 			raw_json: json.clone(),
 			referenced_article: match &referenced_article {
 				StrongArticleRefType::NoRef => ArticleRefType::NoRef,
-				StrongArticleRefType::Repost(a) => ArticleRefType::Repost(Rc::downgrade(a) as Weak<RefCell<dyn ArticleData>>),
-				StrongArticleRefType::Quote(a) => ArticleRefType::Quote(Rc::downgrade(a) as Weak<RefCell<dyn ArticleData>>),
+				StrongArticleRefType::Repost(a) => ArticleRefType::Repost(Rc::downgrade(a)),
+				StrongArticleRefType::Quote(a) => ArticleRefType::Quote(Rc::downgrade(a)),
 				StrongArticleRefType::QuoteRepost(quote, quoted) => ArticleRefType::QuoteRepost(
-					Rc::downgrade(quote) as Weak<RefCell<dyn ArticleData>>,
-					Rc::downgrade(quoted) as Weak<RefCell<dyn ArticleData>>
+					Rc::downgrade(quote),
+					Rc::downgrade(quoted)
 				),
 			},
 			marked_as_read: storage.articles_marked_as_read.contains(&id.to_string()),
@@ -245,10 +253,10 @@ impl TweetArticleData {
 	}
 
 	pub fn update(&mut self, new: &Ref<TweetArticleData>) {
-		self.liked = new.liked.clone();
-		self.retweeted = new.retweeted.clone();
-		self.like_count = new.like_count.clone();
-		self.retweet_count = new.retweet_count.clone();
+		self.liked = new.liked;
+		self.retweeted = new.retweeted;
+		self.like_count = new.like_count;
+		self.retweet_count = new.retweet_count;
 		self.raw_json = new.raw_json.clone();
 	}
 }

@@ -3,7 +3,8 @@ use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 
 use crate::error::Result;
-use crate::articles::{ArticleData, ArticleComponent, ArticleView};
+use crate::articles::{ArticleData, ArticleComponent, ArticleView, ArticleRefType};
+use crate::timeline::ArticleTuple;
 
 /*Make containers dynamic?
 	Would require to dynamically list container names without an enum/vec
@@ -64,7 +65,7 @@ pub struct Props {
 	pub column_count: u8,
 	pub rtl: bool,
 	pub article_view: ArticleView,
-	pub articles: Vec<(Weak<RefCell<dyn ArticleData>>, Box<dyn ArticleData>)>,
+	pub articles: Vec<ArticleTuple>,
 	pub lazy_loading: bool,
 }
 
@@ -78,7 +79,7 @@ impl PartialEq for Props {
 			self.article_view == other.article_view &&
 			self.articles.len() == other.articles.len() &&
 			self.articles.iter().zip(other.articles.iter())
-				.all(|((weak_a, a), (weak_b, b))| Weak::ptr_eq(&weak_a, &weak_b) && a == b)
+				.all(|((weak_a, a, ref_a), (weak_b, b, ref_b))| Weak::ptr_eq(&weak_a, &weak_b) && a == b && ref_a == ref_b)
 	}
 }
 
@@ -86,11 +87,12 @@ impl PartialEq for Props {
 pub fn column_container(props: &Props) -> Html {
 	html! {
 		<div class="articlesContainer columnContainer" ref={props.container_ref.clone()}>
-			{ for props.articles.iter().enumerate().map(|(load_priority, (weak_ref, article))| html! {
+			{ for props.articles.iter().enumerate().map(|(load_priority, (weak_ref, article, ref_article))| html! {
 				<ArticleComponent
 					key={article.id()}
 					weak_ref={weak_ref.clone()}
 					article={article.clone_data()}
+					ref_article={ref_article.clone_data()}
 					article_view={props.article_view.clone()}
 					compact={props.compact}
 					animated_as_gifs={props.animated_as_gifs}
@@ -112,11 +114,12 @@ pub fn row_container(props: &Props) -> Html {
 	};
 	html! {
 		<div class="articlesContainer rowContainer" ref={props.container_ref.clone()} {style}>
-			{ for props.articles.iter().enumerate().map(|(load_priority, (weak_ref, article))| { html! {
+			{ for props.articles.iter().enumerate().map(|(load_priority, (weak_ref, article, ref_article))| { html! {
 				<ArticleComponent
 					key={article.id()}
 					weak_ref={weak_ref.clone()}
 					article={article.clone_data()}
+					ref_article={ref_article.clone_data()}
 					article_view={props.article_view.clone()}
 					compact={props.compact}
 					animated_as_gifs={props.animated_as_gifs}
@@ -131,8 +134,8 @@ pub fn row_container(props: &Props) -> Html {
 	}
 }
 
-type ArticleTuple = (Rc<RefCell<dyn ArticleData>>, Box<dyn ArticleData>);
-type RatioedArticle<'a> = (&'a ArticleTuple, f32);
+type StrongArticleTuple = (Rc<RefCell<dyn ArticleData>>, Box<dyn ArticleData>, ArticleRefType<Box<dyn ArticleData>>);
+type RatioedArticle<'a> = (&'a StrongArticleTuple, f32);
 type Column<'a> = (u8, Vec<RatioedArticle<'a>>);
 
 fn relative_height(article: &Box<dyn ArticleData>) -> f32 {
@@ -152,7 +155,7 @@ fn height(column: &Column) -> f32 {
 	}
 }
 
-fn to_columns<'a>(articles: impl Iterator<Item = &'a ArticleTuple>, column_count: &'a u8, rtl: &bool) -> impl Iterator<Item = impl Iterator<Item = &'a ArticleTuple>> {
+fn to_columns<'a>(articles: impl Iterator<Item = &'a StrongArticleTuple>, column_count: &'a u8, rtl: &bool) -> impl Iterator<Item = impl Iterator<Item = &'a StrongArticleTuple>> {
 	let ratioed_articles = articles.map(|t| (t, relative_height(&t.1)));
 
 	let mut columns = ratioed_articles.fold(
@@ -181,18 +184,19 @@ fn to_columns<'a>(articles: impl Iterator<Item = &'a ArticleTuple>, column_count
 
 #[function_component(MasonryContainer)]
 pub fn masonry_container(props: &Props) -> Html {
-	let strongs: Vec<ArticleTuple> = props.articles.iter().filter_map(|t| t.0.upgrade().map(|s| (s, t.1.clone_data()))).collect();
+	let strongs: Vec<StrongArticleTuple> = props.articles.iter().filter_map(|t| t.0.upgrade().map(|s| (s, t.1.clone_data(), t.2.clone_data()))).collect();
 	let columns = to_columns(strongs.iter(), &props.column_count, &props.rtl);
 
 	html! {
 		<div class="articlesContainer masonryContainer" ref={props.container_ref.clone()}>
 			{ for columns.enumerate().map(|(column_index, column)| html! {
 				<div class="masonryColumn" key={column_index}>
-					{ for column.enumerate().map(|(load_priority, (strong_ref, article))| html! {
+					{ for column.enumerate().map(|(load_priority, (strong_ref, article, ref_article))| html! {
 						<ArticleComponent
 							key={article.id()}
 							weak_ref={Rc::downgrade(strong_ref)}
 							article={article.clone_data()}
+							ref_article={ref_article.clone_data()}
 							article_view={props.article_view.clone()}
 							compact={props.compact}
 							animated_as_gifs={props.animated_as_gifs}

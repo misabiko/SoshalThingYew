@@ -229,7 +229,7 @@ impl Agent for EndpointAgent {
 					let id_c = endpoint_id.clone();
 					let callback = self.link.callback(move |_| Msg::AutoRefreshEndpoint(id_c));
 					let new_interval = Interval::new(info.interval, move || {
-						log::debug!("Refreshing {}", &id_c);
+						log::trace!("Refreshing {}", &id_c);
 						callback.emit(());
 					});
 
@@ -380,7 +380,7 @@ impl Agent for EndpointAgent {
 					let id_c_2 = endpoint_id.clone();
 					let callback = self.link.callback(move |_| Msg::AutoRefreshEndpoint(id_c));
 					info.interval_id = Some(Interval::new(info.interval, move || {
-						log::debug!("Refreshing {}", &id_c_2);
+						log::trace!("Refreshing {}", &id_c_2);
 						callback.emit(());
 					}));
 					self.link.send_message(Msg::UpdatedState);

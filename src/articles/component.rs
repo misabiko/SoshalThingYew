@@ -41,6 +41,7 @@ pub enum Msg {
 pub struct Props {
 	pub weak_ref: Weak<RefCell<dyn ArticleData>>,
 	pub article: Box<dyn ArticleData>,
+	pub ref_article: ArticleRefType<Box<dyn ArticleData>>,
 	pub article_view: ArticleView,
 	pub load_priority: u32,
 	pub compact: bool,
@@ -64,7 +65,8 @@ impl PartialEq for Props {
 			self.lazy_loading == other.lazy_loading &&
 			self.load_priority == other.load_priority &&
 			self.column_count == other.column_count &&
-			&self.article == &other.article
+			&self.article == &other.article &&
+			&self.ref_article == &other.ref_article
 	}
 }
 
@@ -73,6 +75,7 @@ impl Clone for Props {
 		Props {
 			weak_ref: self.weak_ref.clone(),
 			article: self.article.clone_data(),
+			ref_article: self.ref_article.clone_data(),
 			article_view: self.article_view.clone(),
 			compact: self.compact,
 			animated_as_gifs: self.animated_as_gifs,
@@ -89,6 +92,7 @@ impl Clone for Props {
 pub struct ViewProps {
 	pub weak_ref: Weak<RefCell<dyn ArticleData>>,
 	pub article: Box<dyn ArticleData>,
+	pub ref_article: ArticleRefType<Box<dyn ArticleData>>,
 	pub compact: bool,
 	pub animated_as_gifs: bool,
 	pub hide_text: bool,
@@ -109,7 +113,8 @@ impl PartialEq<ViewProps> for ViewProps {
 			self.media_load_states == other.media_load_states &&
 			self.column_count == other.column_count &&
 			Weak::ptr_eq(&self.weak_ref, &other.weak_ref) &&
-			&self.article == &other.article
+			&self.article == &other.article &&
+			&self.ref_article == &other.ref_article
 	}
 }
 
@@ -118,6 +123,7 @@ impl Clone for ViewProps {
 		Self {
 			weak_ref: self.weak_ref.clone(),
 			article: self.article.clone_data(),
+			ref_article: self.ref_article.clone_data(),
 			compact: self.compact,
 			animated_as_gifs: self.animated_as_gifs,
 			hide_text: self.hide_text,
@@ -312,6 +318,7 @@ impl Component for ArticleComponent {
 					key={ctx.props().article.id()}
 					weak_ref={ctx.props().weak_ref.clone()}
 					article={ctx.props().article.clone_data()}
+					ref_article={ctx.props().ref_article.clone_data()}
 					compact={ctx.props().compact.clone()}
 					animated_as_gifs={ctx.props().animated_as_gifs.clone()}
 					hide_text={ctx.props().hide_text.clone()}
@@ -327,6 +334,7 @@ impl Component for ArticleComponent {
 					key={ctx.props().article.id()}
 					weak_ref={ctx.props().weak_ref.clone()}
 					article={ctx.props().article.clone_data()}
+					ref_article={ctx.props().ref_article.clone_data()}
 					compact={ctx.props().compact.clone()}
 					animated_as_gifs={ctx.props().animated_as_gifs.clone()}
 					hide_text={ctx.props().hide_text.clone()}

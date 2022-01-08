@@ -16,12 +16,23 @@ pub use component::ArticleComponent;
 pub use crate::articles::social::SocialArticle;
 pub use crate::articles::gallery::GalleryArticle;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ArticleRefType<Pointer = Weak<RefCell<dyn ArticleData>>> {
 	NoRef,
 	Repost(Pointer),
 	Quote(Pointer),
 	QuoteRepost(Pointer, Pointer),
+}
+
+impl ArticleRefType<Box<dyn ArticleData>> {
+	pub fn clone_data(&self) -> Self {
+		match self {
+			ArticleRefType::NoRef => ArticleRefType::NoRef,
+			ArticleRefType::Repost(a) => ArticleRefType::Repost(a.clone_data()),
+			ArticleRefType::Quote(a) => ArticleRefType::Quote(a.clone_data()),
+			ArticleRefType::QuoteRepost(a, q) => ArticleRefType::QuoteRepost(a.clone_data(), q.clone_data()),
+		}
+	}
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
