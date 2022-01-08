@@ -5,12 +5,9 @@ use actix_identity::Identity;
 use egg_mode::list::ListID;
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
-use std::future::{ready, Future, Ready};
-use std::pin::Pin;
+use std::future::ready;
 use std::sync::Mutex;
-use std::task::{Context, Poll};
-use actix_web::dev::{HttpServiceFactory, ServiceRequest, ServiceResponse, Service, Transform};
-use actix_web::guard::fn_guard;
+use actix_web::dev::{HttpServiceFactory, Service};
 
 use crate::{Error, Result, State};
 
@@ -48,7 +45,7 @@ pub async fn state() -> Result<TwitterState> {
 			.map_err(|err| Error::from(format!("Please add credentials.json or set environment variables\n{:#?}", err)))
 	);
 
-	let r = match credentials {
+	match credentials {
 		Ok(credentials) => {
 			let con_token = egg_mode::KeyPair::new(credentials.consumer_key, credentials.consumer_secret);
 			Ok(TwitterState {
@@ -59,69 +56,14 @@ pub async fn state() -> Result<TwitterState> {
 			})
 		},
 		Err(err) => Err(err)
-	};
-
-	println!("twitter::state() {}", r.is_ok());
-	r
-}
-
-/*pub struct TwitterService;
-
-pub struct CheckTwitterDataTransform;
-
-impl<S: Service<ServiceRequest>> Transform<S, ServiceRequest> for CheckTwitterDataTransform {
-	type Response = ServiceResponse;
-	type Error = actix_web::Error;
-	type Transform = CheckTwitterDataMiddleware<S>;
-	type InitError = ();
-	type Future = Ready<std::result::Result<Self::Transform, Self::InitError>>;
-
-	fn new_transform(&self, service: S) -> Self::Future {
-		ready(Ok(CheckTwitterDataMiddleware { service }))
 	}
 }
-
-pub struct CheckTwitterDataMiddleware<S> {
-	service: S
-}
-
-impl<S: Service<ServiceRequest>> Service<ServiceRequest> for CheckTwitterDataMiddleware<S> {
-	type Response = ServiceResponse;
-	type Error = actix_web::Error;
-	type Future = Pin<Box<dyn Future<Output = std::result::Result<Self::Response, Self::Error>>>>;
-
-	fn poll_ready(&self, _ctx: &mut Context<'_>) -> Poll<std::result::Result<(), Self::Error>> {
-		Poll::Ready(Ok(()))
-	}
-
-	fn call(&self, req: ServiceRequest) -> Self::Future {
-		//let mut extensions = req.extensions_mut();
-		//println!("contains State? {}", extensions.contains::<State>());
-		//let data = extensions.get::<State>().unwrap();
-		//let has_data = data.twitter.is_ok();
-
-		let fut = self.service.call(req);
-		Box::pin(async {
-			//if has_data {
-				let res = fut.await?;
-				Ok(res)
-			//}else {
-			//	Err(actix_web::Error::from(&HttpResponse::InternalServerError().finish()).as_response_error())
-			//}
-		})
-		//ready(Err(actix_web::Error::from(Error::from("No twitter data".to_owned()))))
-	}
-}*/
 
 pub fn service() -> impl HttpServiceFactory {
 	web::scope("/twitter")
-		//.wrap(CheckTwitterDataTransform)
 		.wrap_fn(|req, service| {
-			println!("State {}", req.app_data::<Data<State>>().is_some());
-			println!("State {}", req.req_data().contains::<Data<State>>());
 			let has_data = req.app_data::<Data<State>>().map(|s| s.twitter.is_some()).unwrap_or(false);
 			let fut = service.call(req);
-			println!("has_data {}", has_data);
 
 			if has_data {
 				fut
