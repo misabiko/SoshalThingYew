@@ -1,9 +1,8 @@
 use actix_web::{get, web, App, HttpResponse, HttpServer, middleware::Logger};
 use actix_identity::{Identity, CookieIdentityPolicy, IdentityService};
-use serde::{Serialize, Deserialize};
-use std::sync::Mutex;
-use std::collections::HashMap;
+use serde::Serialize;
 use std::fmt::{Display, Formatter};
+use crate::twitter::TwitterState;
 
 mod twitter;
 
@@ -11,9 +10,11 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub enum Error {
+	Text(String),
 	Actix(actix_web::Error),
 	EggMode(egg_mode::error::Error),
 	IO(std::io::Error),
+	Serde(serde_json::Error),
 }
 
 impl std::error::Error for Error {}
@@ -21,10 +22,18 @@ impl std::error::Error for Error {}
 impl Display for Error {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		match self {
+			Error::Text(str) => f.write_str(&str),
 			Error::Actix(err) => err.fmt(f),
 			Error::EggMode(err) => err.fmt(f),
 			Error::IO(err) => err.fmt(f),
+			Error::Serde(err) => err.fmt(f),
 		}
+	}
+}
+
+impl From<String> for Error {
+	fn from(err: String) -> Self {
+		Error::Text(err)
 	}
 }
 
@@ -46,24 +55,22 @@ impl From<std::io::Error> for Error {
 	}
 }
 
-impl actix_web::ResponseError for Error {}
-
-#[derive(Deserialize)]
-struct Credentials {
-	consumer_key: String,
-	consumer_secret: String,
+impl From<serde_json::Error> for Error {
+	fn from(err: serde_json::Error) -> Self {
+		Error::Serde(err)
+	}
 }
 
+impl actix_web::ResponseError for Error {}
+
+#[derive(Debug)]
 pub struct State {
-	con_token: egg_mode::KeyPair,
-	req_token: Mutex<Option<egg_mode::KeyPair>>,
-	bearer_token: egg_mode::Token,
-	tokens: Mutex<HashMap<u64, egg_mode::Token>>,
+	pub twitter: Option<TwitterState>,
 }
 
 #[derive(Serialize)]
 struct AuthInfo {
-	twitter: Option<String>,
+	pub twitter: Option<String>,
 }
 
 #[get("/auth_info")]
@@ -75,31 +82,8 @@ async fn auth_info(id: Identity) -> HttpResponse {
 
 #[actix_web::main]
 async fn main() -> Result<()> {
-	let credentials = match (std::env::var("consumer_key"), std::env::var("consumer_secret")) {
-		(Ok(_), Err(err)) => {
-			log::info!("Found consumer_key environment variable, but no secret.\n{:?}", err);
-			None
-		}
-		(Err(err), Ok(_)) => {
-			log::info!("Found consumer_secret environment variable, but no key.\n{:?}", err);
-			None
-		}
-		(Ok(consumer_key), Ok(consumer_secret)) => Some(Credentials { consumer_key, consumer_secret }),
-		(Err(_), Err(_)) => None,
-	};
-
-	//TODO Cleaner "Please add credentials.json or set environement variable" message then exit
-	let credentials = credentials.unwrap_or_else(|| {
-		let c = std::fs::read_to_string("credentials.json").expect("Couldn't find credentials.json");
-		serde_json::from_str(&c).expect("Couldn't parse credentials.json")
-	});
-
-	let con_token = egg_mode::KeyPair::new(credentials.consumer_key, credentials.consumer_secret);
 	let data = web::Data::new(State {
-		req_token: Mutex::new(None),
-		bearer_token: egg_mode::auth::bearer_token(&con_token).await?,
-		tokens: Mutex::new(HashMap::new()),
-		con_token,
+		twitter: twitter::state().await.ok(),
 	});
 
 	std::env::set_var("RUST_LOG", "actix_web=debug");
