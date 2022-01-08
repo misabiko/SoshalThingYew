@@ -31,6 +31,11 @@ jobs:
       with:
         toolchain: stable
         target: wasm32-unknown-unknown
+    - name: Install wasm-pack
+      run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+    - run: cargo test
+    - run: wasm-pack test --headless --chrome
     - uses: jetli/trunk-action@v0.1.0
       with:
         # Optional version of trunk to install(eg. 'v0.8.1', 'latest')
@@ -38,7 +43,7 @@ jobs:
     - name: Cypress run
       uses: cypress-io/github-action@v2
       with:
-        build: trunk build
-        start: trunk serve
+        build: trunk build && cargo build -p utils --bin server
+        start: cargo run -p utils --bin server
         wait-on: "http://localhost:8080"
         wait-on-timeout: 120
