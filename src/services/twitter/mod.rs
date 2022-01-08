@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use reqwest::StatusCode;
 
 pub mod endpoints;
-mod article;
+pub mod article;
 
 pub use article::TweetArticleData;
 use article::StrongArticleRefType;

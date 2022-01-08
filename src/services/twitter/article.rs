@@ -112,7 +112,6 @@ impl ArticleData for TweetArticleData {
 }
 
 impl TweetArticleData {
-	//TODO Deserialize response
 	pub fn from(json: &serde_json::Value, storage: &SessionStorageService) -> (Rc<RefCell<Self>>, StrongArticleRefType) {
 		let id = json["id"].as_u64().unwrap();
 
@@ -289,8 +288,7 @@ fn get_mp4(video_info: &serde_json::Value) -> Option<(&str, ValidRatio)> {
 		)
 }
 
-//TEST tweet parse_text unit tests
-fn parse_text(mut text: String, entities: &serde_json::Value, extended_entities: &serde_json::Value) -> String {
+pub fn parse_text(mut text: String, entities: &serde_json::Value, extended_entities: &serde_json::Value) -> String {
 	let medias_opt: Option<Vec<&str>> = extended_entities
 		.get("media")
 		.and_then(|media| media.as_array())
