@@ -43,7 +43,7 @@ jobs:
     - name: Cypress run
       uses: cypress-io/github-action@v2
       with:
-        build: trunk build && cargo build -p utils --bin server
+        build: trunk build, cargo build -p utils --bin server
         start: cargo run -p utils --bin server
         wait-on: "http://localhost:8080"
         wait-on-timeout: 120
