@@ -5,14 +5,12 @@ Tweetdeck-style timeline app to display feeds from various services in columns.
 ---
 
 ### Dev
-Launch the server with: `cargo run -p utils --bin server`  
+Serve the app  on `localhost:8080` with `cargo run -p utils --bin server`  
 Needs a `credentials.json` in the working directory with `consumer_key` and `consumer_secret` for a Twitter app.  
 That or setting `consumer_key` and `consumer_secret` as environment variables.  
-Necessary since Twitter won't allow cross-origin requests.
 
-Serve the app on `localhost:8080`: `trunk serve`
+If not using any endpoints with proxy `trunk serve` should work too.
 
 ### Release
 
-If the server is built in release mode, it will serve the app on `localhost:8080` without need for trunk.  
-So only the `server.exe`, `dist/` folder and `credentials.json` or environment variables are needed.
+To deploy, only `server.exe`, `dist/` folder and `credentials.json` or environment variables are needed.

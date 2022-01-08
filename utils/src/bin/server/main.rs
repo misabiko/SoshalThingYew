@@ -120,7 +120,7 @@ async fn main() -> Result<()> {
 			)
 			.service(actix_files::Files::new("/", "./dist").index_file("index.html"))
 	})
-	.bind(format!("127.0.0.1:{}", if cfg!(debug_assertions) { 3000 } else { 8080 }))?
+	.bind("127.0.0.1:8080")?
 	.run()
 	.await
 	.map_err(|err| err.into())
