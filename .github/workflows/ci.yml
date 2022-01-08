@@ -40,10 +40,11 @@ jobs:
       with:
         # Optional version of trunk to install(eg. 'v0.8.1', 'latest')
         version: 'latest'
+    - run: trunk build
     - name: Cypress run
       uses: cypress-io/github-action@v2
       with:
-        build: trunk build, cargo build -p utils --bin server
+        build: cargo build -p utils --bin server
         start: cargo run -p utils --bin server
         wait-on: "http://localhost:8080"
         wait-on-timeout: 120
