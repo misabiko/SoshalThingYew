@@ -1,63 +1,23 @@
-use actix_web::{get, web, App, HttpResponse, HttpServer, middleware::Logger, web::Path, http::header};
-use actix_identity::{Identity, CookieIdentityPolicy, IdentityService};
+use actix_web::{get, web, HttpResponse, web::Path, http::header, Scope};
+use actix_identity::Identity;
 use egg_mode::list::ListID;
 use serde::{Serialize, Deserialize};
-use std::sync::Mutex;
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
 
-type Result<T> = std::result::Result<T, Error>;
+use crate::{Result, State};
 
-#[derive(Debug)]
-enum Error {
-	Actix(actix_web::Error),
-	EggMode(egg_mode::error::Error),
-	IO(std::io::Error),
-}
-
-impl std::error::Error for Error {}
-
-impl Display for Error {
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		match self {
-			Error::Actix(err) => err.fmt(f),
-			Error::EggMode(err) => err.fmt(f),
-			Error::IO(err) => err.fmt(f),
-		}
-	}
-}
-
-impl From<actix_web::Error> for Error {
-	fn from(err: actix_web::Error) -> Self {
-		Error::Actix(err)
-	}
-}
-
-impl From<egg_mode::error::Error> for Error {
-	fn from(err: egg_mode::error::Error) -> Self {
-		Error::EggMode(err)
-	}
-}
-
-impl From<std::io::Error> for Error {
-	fn from(err: std::io::Error) -> Self {
-		Error::IO(err)
-	}
-}
-
-impl actix_web::ResponseError for Error {}
-
-#[derive(Deserialize)]
-struct Credentials {
-	consumer_key: String,
-	consumer_secret: String,
-}
-
-struct State {
-	con_token: egg_mode::KeyPair,
-	req_token: Mutex<Option<egg_mode::KeyPair>>,
-	bearer_token: egg_mode::Token,
-	tokens: Mutex<HashMap<u64, egg_mode::Token>>,
+pub fn service() -> Scope {
+	web::scope("/twitter")
+		.service(status)
+		.service(like)
+		.service(unlike)
+		.service(retweet)
+		.service(unretweet)
+		.service(user_timeline)
+		.service(home_timeline)
+		.service(list)
+		.service(twitter_login)
+		.service(twitter_login_callback)
 }
 
 fn get_token<'a>(id: &'a Identity, tokens: &'a HashMap<u64, egg_mode::Token>, bearer_token: &'a egg_mode::Token) -> &'a egg_mode::Token {
@@ -127,7 +87,7 @@ struct TimelineQuery {
 	max_id: Option<u64>,
 }
 
-#[get("twitter/list/{username}/{slug}")]
+#[get("list/{username}/{slug}")]
 async fn list(id: Identity, path: Path<(String, String)>, query: web::Query<TimelineQuery>, data: web::Data<State>) -> Result<HttpResponse> {
 	let tokens = &*data.tokens.lock().expect("locking token mutex");
 	let token = get_token(&id, tokens, &data.bearer_token);
@@ -141,7 +101,7 @@ async fn list(id: Identity, path: Path<(String, String)>, query: web::Query<Time
 	Ok(tweet_to_http_response(feed))
 }
 
-#[get("/twitter/status/{id}")]
+#[get("status/{id}")]
 async fn status(id: Identity, tweet_id: Path<u64>, data: web::Data<State>) -> Result<HttpResponse> {
 	let tokens = &*data.tokens.lock().expect("locking token mutex");
 	let token = get_token(&id, tokens, &data.bearer_token);
@@ -151,7 +111,7 @@ async fn status(id: Identity, tweet_id: Path<u64>, data: web::Data<State>) -> Re
 	Ok(tweet_to_http_response(r))
 }
 
-#[get("/twitter/user/{username}")]
+#[get("user/{username}")]
 async fn user_timeline(id: Identity, username: Path<String>, query: web::Query<TimelineQuery>, data: web::Data<State>) -> Result<HttpResponse> {
 	let tokens = &*data.tokens.lock().expect("locking token mutex");
 	let token = get_token(&id, tokens, &data.bearer_token);
@@ -162,14 +122,14 @@ async fn user_timeline(id: Identity, username: Path<String>, query: web::Query<T
 		query.rts.unwrap_or(true),
 		token
 	)
-	.with_page_size(query.count.unwrap_or(200));
+		.with_page_size(query.count.unwrap_or(200));
 
 	let feed = timeline.call(query.min_id, query.max_id).await?;
 
 	Ok(tweet_to_http_response(feed))
 }
 
-#[get("/twitter/home")]
+#[get("home")]
 async fn home_timeline(id: Identity, query: web::Query<TimelineQuery>, data: web::Data<State>) -> Result<HttpResponse> {
 	let tokens = &*data.tokens.lock().expect("locking token mutex");
 	let token_opt = get_access_token(&id, tokens);
@@ -186,7 +146,7 @@ async fn home_timeline(id: Identity, query: web::Query<TimelineQuery>, data: web
 	}
 }
 
-#[get("/twitter/like/{id}")]
+#[get("like/{id}")]
 async fn like(id: Identity, tweet_id: Path<u64>, data: web::Data<State>) -> Result<HttpResponse> {
 	let tokens = &*data.tokens.lock().expect("locking token mutex");
 	let token_opt = get_access_token(&id, tokens);
@@ -200,7 +160,7 @@ async fn like(id: Identity, tweet_id: Path<u64>, data: web::Data<State>) -> Resu
 	}
 }
 
-#[get("/twitter/unlike/{id}")]
+#[get("unlike/{id}")]
 async fn unlike(id: Identity, tweet_id: Path<u64>, data: web::Data<State>) -> Result<HttpResponse> {
 	let tokens = &*data.tokens.lock().expect("locking token mutex");
 	let token_opt = get_access_token(&id, tokens);
@@ -214,7 +174,7 @@ async fn unlike(id: Identity, tweet_id: Path<u64>, data: web::Data<State>) -> Re
 	}
 }
 
-#[get("/twitter/retweet/{id}")]
+#[get("retweet/{id}")]
 async fn retweet(id: Identity, tweet_id: Path<u64>, data: web::Data<State>) -> Result<HttpResponse> {
 	let tokens = &*data.tokens.lock().expect("locking token mutex");
 	let token_opt = get_access_token(&id, tokens);
@@ -228,7 +188,7 @@ async fn retweet(id: Identity, tweet_id: Path<u64>, data: web::Data<State>) -> R
 	}
 }
 
-#[get("/twitter/unretweet/{id}")]
+#[get("unretweet/{id}")]
 async fn unretweet(id: Identity, tweet_id: Path<u64>, data: web::Data<State>) -> Result<HttpResponse> {
 	let tokens = &*data.tokens.lock().expect("locking token mutex");
 	let token_opt = get_access_token(&id, tokens);
@@ -242,7 +202,7 @@ async fn unretweet(id: Identity, tweet_id: Path<u64>, data: web::Data<State>) ->
 	}
 }
 
-#[get("/twitter/login")]
+#[get("login")]
 async fn twitter_login(data: web::Data<State>) -> Result<HttpResponse> {
 	let new_req_token = egg_mode::auth::request_token(&data.con_token, "http://localhost:8080/proxy/twitter/callback").await?;
 	*data.req_token.lock().expect("locking token mutex") = Some(new_req_token.clone());
@@ -260,7 +220,7 @@ struct LoginCallbackQuery {
 	oauth_verifier: String,
 }
 
-#[get("/twitter/callback")]
+#[get("callback")]
 async fn twitter_login_callback(id: Identity, query: web::Query<LoginCallbackQuery>, data: web::Data<State>) -> Result<HttpResponse> {
 	if let Some(req_token) = &*data.req_token.lock().expect("locking token mutex") {
 		let (access_token, user_id, _username) = egg_mode::auth::access_token(
@@ -277,78 +237,4 @@ async fn twitter_login_callback(id: Identity, query: web::Query<LoginCallbackQue
 	Ok(HttpResponse::TemporaryRedirect()
 		.append_header((header::LOCATION, "http://localhost:8080/"))
 		.finish())
-}
-
-#[derive(Serialize)]
-struct AuthInfo {
-	twitter: Option<String>,
-}
-
-#[get("/auth_info")]
-async fn auth_info(id: Identity) -> HttpResponse {
-	HttpResponse::Ok().json(AuthInfo {
-		twitter: id.identity(),
-	})
-}
-
-#[actix_web::main]
-async fn main() -> Result<()> {
-	let credentials = match (std::env::var("consumer_key"), std::env::var("consumer_secret")) {
-		(Ok(_), Err(err)) => {
-			log::info!("Found consumer_key environment variable, but no secret.\n{:?}", err);
-			None
-		}
-		(Err(err), Ok(_)) => {
-			log::info!("Found consumer_secret environment variable, but no key.\n{:?}", err);
-			None
-		}
-		(Ok(consumer_key), Ok(consumer_secret)) => Some(Credentials { consumer_key, consumer_secret }),
-		(Err(_), Err(_)) => None,
-	};
-
-	//TODO Cleaner "Please add credentials.json or set environement variable" message then exit
-	let credentials = credentials.unwrap_or_else(|| {
-		let c = std::fs::read_to_string("credentials.json").expect("Couldn't find credentials.json");
-		serde_json::from_str(&c).expect("Couldn't parse credentials.json")
-	});
-
-	let con_token = egg_mode::KeyPair::new(credentials.consumer_key, credentials.consumer_secret);
-	let data = web::Data::new(State {
-		req_token: Mutex::new(None),
-		bearer_token: egg_mode::auth::bearer_token(&con_token).await?,
-		tokens: Mutex::new(HashMap::new()),
-		con_token,
-	});
-
-	std::env::set_var("RUST_LOG", "actix_web=info");
-	env_logger::init();
-
-	//TODO Use cookie key
-	//TODO Set secure to true when HTTPS
-	HttpServer::new(move || {
-		App::new()
-			.wrap(IdentityService::new(CookieIdentityPolicy::new(&[0; 32])
-				.secure(false)))
-			.wrap(Logger::default())
-			.app_data(data.clone())
-			.service(
-				web::scope("/proxy")
-					.service(status)
-					.service(like)
-					.service(unlike)
-					.service(retweet)
-					.service(unretweet)
-					.service(user_timeline)
-					.service(home_timeline)
-					.service(list)
-					.service(twitter_login)
-					.service(twitter_login_callback)
-					.service(auth_info)
-			)
-			.service(actix_files::Files::new("/", "./dist").index_file("index.html"))
-	})
-	.bind(format!("127.0.0.1:{}", if cfg!(debug_assertions) { 3000 } else { 8080 }))?
-	.run()
-	.await
-	.map_err(|err| err.into())
 }
