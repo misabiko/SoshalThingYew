@@ -325,5 +325,5 @@ pub fn parse_text(mut text: String, entities: &serde_json::Value, extended_entit
 		}
 	}
 
-	text
+	text.trim().to_owned()
 }
