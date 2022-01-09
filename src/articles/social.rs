@@ -61,7 +61,7 @@ impl Component for SocialArticle {
 			ArticleRefType::NoRef => (strong.clone(), html! {}, html! {}),
 			ArticleRefType::Repost(a) => (
 				a.upgrade().unwrap(),
-				view_repost_label(&borrow),
+				self.view_repost_label(ctx, &borrow),
 				html! {}
 			),
 			ArticleRefType::Quote(a) => {
@@ -74,7 +74,7 @@ impl Component for SocialArticle {
 
 				let quoted_article = q.upgrade().unwrap();
 				let quoted_borrow = quoted_article.borrow();
-				(reposted_article.clone(), view_repost_label(&borrow), self.view_quoted_post(ctx, &quoted_borrow))
+				(reposted_article.clone(), self.view_repost_label(ctx, &borrow), self.view_quoted_post(ctx, &quoted_borrow))
 			}
 		};
 		let actual_borrow = actual_article.borrow();
@@ -343,7 +343,7 @@ impl SocialArticle {
 		}
 	}
 
-	fn view_quoted_post(&self, ctx: &Context<SocialArticle>, quoted: &Ref<dyn ArticleData>) -> Html {
+	fn view_quoted_post(&self, ctx: &Context<Self>, quoted: &Ref<dyn ArticleData>) -> Html {
 		html! {
 			<div class="quotedPost">
 				<div class="articleHeader">
@@ -368,15 +368,23 @@ impl SocialArticle {
 			</div>
 		}
 	}
-}
 
-fn view_repost_label(repost: &Ref<dyn ArticleData>) -> Html {
-	html! {
-		<div class="repostLabel"
-			href={repost.url()}
-			target="_blank">
-			<a>{ format!("{} reposted - {}", &repost.author_name(), short_timestamp(&repost.creation_time())) }</a>
-		</div>
+	fn view_repost_label(&self, ctx: &Context<Self>, repost: &Ref<dyn ArticleData>) -> Html {
+		let service = repost.service().to_owned();
+		let username = repost.author_username();
+		let onclick = ctx.link().callback(move |e: MouseEvent| {
+			e.prevent_default();
+			Msg::AddUserTimeline(service.clone(), username.clone())
+		});
+		html! {
+			<div class="repostLabel"
+				href={repost.url()}
+				target="_blank">
+				<a {onclick}>
+					{ format!("{} reposted - {}", &repost.author_name(), short_timestamp(&repost.creation_time())) }
+				</a>
+			</div>
+		}
 	}
 }
 

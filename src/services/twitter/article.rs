@@ -35,8 +35,8 @@ pub struct TweetHashtag {
 #[derive(Deserialize)]
 pub struct TweetMention {
 	indices: (usize, usize),
-	id: u64,
-	name: String,
+	// id: u64,
+	// name: String,
 	screen_name: String,
 }
 
@@ -396,7 +396,7 @@ pub fn parse_text(original: String, entities: Entities, extended_entities: &Opti
 			</a>
 		}))
 	}
-	for TweetMention { indices, id: _, name: _, screen_name } in entities.user_mentions {
+	for TweetMention { indices, /*id: _, name: _, */screen_name } in entities.user_mentions {
 		html_parts.push((indices, html! {
 			<a href={format!("https://twitter.com/{}", screen_name)}>
 				{format!("@{}", screen_name)}

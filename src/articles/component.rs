@@ -22,6 +22,7 @@ extern "C" {
 }
 
 #[wasm_bindgen]
+#[allow(dead_code)]
 pub struct TwemojiOptions {
 	folder: &'static str,
 	ext: &'static str,
