@@ -1,7 +1,8 @@
-use actix_web::{get, web, App, HttpResponse, HttpServer, middleware::Logger};
+use actix_web::{get, web, App, HttpResponse, HttpServer, middleware::Logger, HttpRequest};
 use actix_identity::{Identity, CookieIdentityPolicy, IdentityService};
 use serde::Serialize;
 use std::fmt::{Display, Formatter};
+use actix_files::NamedFile;
 use crate::twitter::TwitterState;
 
 mod twitter;
@@ -80,6 +81,11 @@ async fn auth_info(id: Identity) -> HttpResponse {
 	})
 }
 
+async fn index(_req: HttpRequest) -> Result<NamedFile> {
+	println!("index");
+	Ok(NamedFile::open("index.html")?)
+}
+
 #[actix_web::main]
 async fn main() -> Result<()> {
 	let data = web::Data::new(State {
@@ -102,6 +108,8 @@ async fn main() -> Result<()> {
 					.service(twitter::service())
 					.service(auth_info)
 			)
+			//TODO Fix /twitter/status/{id} shortcut
+			.route("/twitter/{_:.*}", web::to(index))
 			.service(actix_files::Files::new("/", "./dist").index_file("index.html"))
 	})
 	.bind("127.0.0.1:8080")?
