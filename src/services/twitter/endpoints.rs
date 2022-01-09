@@ -275,7 +275,7 @@ impl SingleTweetEndpoint {
 	pub fn from_json(id: EndpointId, value: serde_json::Value) -> Self {
 		Self::new(
 			id,
-			value["id"].as_u64().unwrap(),
+			value["id"].as_str().unwrap().parse::<u64>().unwrap(),
 		)
 	}
 }

@@ -11,11 +11,11 @@ use crate::services::storages::SessionStorageService;
 
 #[derive(Deserialize)]
 pub struct Entities {
-	// hashtags: Vec<>
+	hashtags: Vec<TweetHashtag>,
 	// media: Vec<>
 	// symbols: Vec<>
 	urls: Vec<TweetUrl>,
-	// user_mentions: Vec<>
+	user_mentions: Vec<TweetMention>,
 }
 
 #[derive(Deserialize)]
@@ -24,6 +24,20 @@ pub struct TweetUrl {
 	expanded_url: String,
 	indices: (usize, usize),
 	url: String,
+}
+
+#[derive(Deserialize)]
+pub struct TweetHashtag {
+	indices: (usize, usize),
+	text: String,
+}
+
+#[derive(Deserialize)]
+pub struct TweetMention {
+	indices: (usize, usize),
+	id: u64,
+	name: String,
+	screen_name: String,
 }
 
 #[derive(Deserialize)]
@@ -368,7 +382,7 @@ pub fn parse_text(original: String, entities: Entities, extended_entities: &Opti
 		}
 	}
 
-	let trimmed_text = trimmed_text.trim_end().to_owned();
+	//let trimmed_text = trimmed_text.trim_end().to_owned();
 
 	let mut final_text = trimmed_text.clone();
 
@@ -376,6 +390,20 @@ pub fn parse_text(original: String, entities: Entities, extended_entities: &Opti
 	for TweetUrl { display_url, expanded_url, indices, url } in entities.urls {
 		final_text = final_text.replace(url.as_str(), display_url.as_str());
 		html_parts.push((indices, html! { <a href={expanded_url.clone()}>{display_url.as_str()}</a> }))
+	}
+	for TweetHashtag { indices, text } in entities.hashtags {
+		html_parts.push((indices, html! {
+			<a href={format!("https://twitter.com/search?q=#{}", text)}>
+				{format!("#{}", text)}
+			</a>
+		}))
+	}
+	for TweetMention { indices, id: _, name: _, screen_name } in entities.user_mentions {
+		html_parts.push((indices, html! {
+			<a href={format!("https://twitter.com/{}", screen_name)}>
+				{format!("@{}", screen_name)}
+			</a>
+		}))
 	}
 
 	final_text = final_text.trim().to_owned();
@@ -386,7 +414,7 @@ pub fn parse_text(original: String, entities: Entities, extended_entities: &Opti
 		html_parts.sort_by(|((a, _), _), ((b, _), _)| a.cmp(b));
 
 		let mut i = 0;
-		let len = original.len();
+		let len = trimmed_text.len();
 		let mut new_html_parts = Vec::new();
 		let last_index = html_parts.iter().last().unwrap().0.1;
 		for ((first, last), html) in html_parts {
@@ -395,10 +423,9 @@ pub fn parse_text(original: String, entities: Entities, extended_entities: &Opti
 			}
 
 			new_html_parts.push(html.clone());
-			i = last + 1;
+			i = last;
 		}
 
-		//log::debug!("i: {}, last_index: {}, len: {}", i, last_index, len);
 		if i < len - 1 {
 			new_html_parts.push(html! { {trimmed_text.as_str()[last_index..].to_owned()} });
 		}
