@@ -83,25 +83,23 @@ async fn auth_info(id: Identity) -> HttpResponse {
 }
 
 async fn index(_req: HttpRequest) -> Result<NamedFile> {
-	println!("index");
 	Ok(NamedFile::open("index.html")?)
 }
 
 #[actix_web::main]
 async fn main() -> Result<()> {
+	env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
+
 	let data = web::Data::new(State {
 		twitter: twitter::state().await.ok(),
 	});
-
-	std::env::set_var("RUST_LOG", "actix_web=debug");
-	env_logger::init();
 
 	let cookie_key = rand::thread_rng().gen::<[u8; 32]>();
 
 	HttpServer::new(move || {
 		App::new()
 			.wrap(IdentityService::new(CookieIdentityPolicy::new(&cookie_key).secure(true)))
-			.wrap(Logger::default())
+			.wrap(Logger::new(r#"%a %t "%r" %s "%{Referer}i" %T ms"#))
 			.app_data(data.clone())
 			.service(
 				web::scope("/proxy")

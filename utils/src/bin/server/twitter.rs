@@ -48,6 +48,8 @@ pub async fn state() -> Result<TwitterState> {
 	match credentials {
 		Ok(credentials) => {
 			let con_token = egg_mode::KeyPair::new(credentials.consumer_key, credentials.consumer_secret);
+			log::info!("Twitter credentials successfully retrieved.");
+
 			Ok(TwitterState {
 				req_token: Mutex::new(None),
 				bearer_token: egg_mode::auth::bearer_token(&con_token).await?,
@@ -55,7 +57,10 @@ pub async fn state() -> Result<TwitterState> {
 				con_token,
 			})
 		},
-		Err(err) => Err(err)
+		Err(err) => {
+			log::info!("Failed to retrieve Twitter credentials.");
+			Err(err)
+		}
 	}
 }
 
@@ -82,9 +87,6 @@ pub fn service() -> impl HttpServiceFactory {
 		.service(list)
 		.service(twitter_login)
 		.service(twitter_login_callback)
-	/*let error_message = err.to_string();
-			web::scope("/twitter")
-				.default_service(web::route().to(move || HttpResponse::InternalServerError().body(error_message.clone())))*/
 }
 
 fn get_token<'a>(id: &'a Identity, tokens: &'a HashMap<u64, egg_mode::Token>, bearer_token: &'a egg_mode::Token) -> &'a egg_mode::Token {
