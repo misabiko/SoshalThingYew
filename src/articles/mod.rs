@@ -1,7 +1,7 @@
 use std::rc::Weak;
 use std::cell::RefCell;
 use std::fmt::{Debug, Display, Formatter};
-use std::num::{NonZeroU32, NonZeroU64, NonZeroU8};
+use std::num::{NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8};
 use js_sys::Date;
 use serde::{Serialize, Deserialize};
 use yew::prelude::*;
@@ -38,18 +38,19 @@ impl ArticleRefType<Box<dyn ArticleData>> {
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ValidRatio(f32);
 
+macro_rules! new_u {
+	($name:ident, $nonzero:ty) => {
+		pub fn $name(width: $nonzero, height: $nonzero) -> Self {
+			Self(height.get() as f32 / width.get() as f32)
+		}
+	}
+}
+
 impl ValidRatio {
-	pub fn new_u8(width: NonZeroU8, height: NonZeroU8) -> Self {
-		Self(height.get() as f32 / width.get() as f32)
-	}
-
-	pub fn new_u32(width: NonZeroU32, height: NonZeroU32) -> Self {
-		Self(height.get() as f32 / width.get() as f32)
-	}
-
-	pub fn new_u64(width: NonZeroU64, height: NonZeroU64) -> Self {
-		Self(height.get() as f32 / width.get() as f32)
-	}
+	new_u!{new_u8, NonZeroU8}
+	new_u!{new_u16, NonZeroU16}
+	new_u!{new_u32, NonZeroU32}
+	new_u!{new_u64, NonZeroU64}
 
 	pub fn one() -> Self {
 		ValidRatio(1.0)

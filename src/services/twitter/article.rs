@@ -2,7 +2,7 @@ use std::rc::{Rc, Weak};
 use std::cell::{RefCell, Ref};
 use js_sys::Date;
 use wasm_bindgen::JsValue;
-use std::num::{NonZeroU32, NonZeroU8};
+use std::num::{NonZeroU32, NonZeroU16};
 use serde::Deserialize;
 use yew::prelude::*;
 
@@ -21,8 +21,8 @@ pub struct Entities {
 #[derive(Deserialize)]
 pub struct TweetUrl {
 	display_url: String,
-	// expanded_url: String
-	// indices: (u16, u16)
+	expanded_url: String,
+	indices: (usize, usize),
 	url: String,
 }
 
@@ -95,7 +95,7 @@ pub struct TweetMediaSize {
 
 #[derive(Deserialize)]
 pub struct VideoInfo {
-	aspect_ratio: (u8, u8),
+	aspect_ratio: (u16, u16),
 	// duration_millis: u32,
 	variants: Vec<VideoVariant>,
 }
@@ -315,9 +315,9 @@ fn get_mp4(video_info: &VideoInfo, media_type: MediaType) -> ArticleMedia {
 		src: video_info.variants
 			.iter().find(|v| v.content_type == "video/mp4").expect("finding mp4 video")
 			.url.clone(),
-		ratio: ValidRatio::new_u8(
-			NonZeroU8::new(video_info.aspect_ratio.0).expect("non-zero width"),
-			NonZeroU8::new(video_info.aspect_ratio.1).expect("non-zero height"),
+		ratio: ValidRatio::new_u16(
+			NonZeroU16::new(video_info.aspect_ratio.0).expect("non-zero width"),
+			NonZeroU16::new(video_info.aspect_ratio.1).expect("non-zero height"),
 		),
 		queue_load_info: MediaQueueInfo::DirectLoad,
 	}
@@ -346,7 +346,13 @@ fn parse_media(media: Option<Vec<TweetMedia>>) -> Vec<ArticleMedia> {
 	}
 }
 
-pub fn parse_text(mut text: String, entities: Entities, extended_entities: &Option<ExtendedEntities>) -> (String, Html) {
+/*enum TextToken {
+	Text(String),
+	Link(String),
+}*/
+
+pub fn parse_text(original: String, entities: Entities, extended_entities: &Option<ExtendedEntities>) -> (String, Html) {
+	let mut trimmed_text = original.clone();
 	let medias_opt: Option<Vec<&String>> = extended_entities.as_ref().map(|e|
 			e.media.iter().map(|m| match m {
 				TweetMedia::Photo { url, .. } |
@@ -356,21 +362,49 @@ pub fn parse_text(mut text: String, entities: Entities, extended_entities: &Opti
 			}).collect()
 		);
 
-	let urls: Vec<(String, &String)> = entities.urls.iter().map(|url|
-		(url.url.clone(), &url.display_url)
-	).collect();
-
 	if let Some(medias) = medias_opt {
 		for media in medias {
-			text = text.replace(media, "");
+			trimmed_text = trimmed_text.replace(media, "");
 		}
 	}
 
-	for (compressed, display) in urls {
-		text = text.replace(compressed.as_str(), display.as_str());
+	let trimmed_text = trimmed_text.trim_end().to_owned();
+
+	let mut final_text = trimmed_text.clone();
+
+	let mut html_parts = Vec::new();
+	for TweetUrl { display_url, expanded_url, indices, url } in entities.urls {
+		final_text = final_text.replace(url.as_str(), display_url.as_str());
+		html_parts.push((indices, html! { <a href={expanded_url.clone()}>{display_url.as_str()}</a> }))
 	}
 
-	text = text.trim().to_owned();
-	let html = html! { { text.clone() } };
-	(text, html)
+	final_text = final_text.trim().to_owned();
+
+	let html = if html_parts.is_empty() {
+		html! { { final_text.clone() } }
+	}else {
+		html_parts.sort_by(|((a, _), _), ((b, _), _)| a.cmp(b));
+
+		let mut i = 0;
+		let len = original.len();
+		let mut new_html_parts = Vec::new();
+		let last_index = html_parts.iter().last().unwrap().0.1;
+		for ((first, last), html) in html_parts {
+			if i < first {
+				new_html_parts.push(html! { {original.as_str()[i..first].to_owned()} });
+			}
+
+			new_html_parts.push(html.clone());
+			i = last + 1;
+		}
+
+		//log::debug!("i: {}, last_index: {}, len: {}", i, last_index, len);
+		if i < len - 1 {
+			new_html_parts.push(html! { {trimmed_text.as_str()[last_index..].to_owned()} });
+		}
+
+		html! { { for new_html_parts.into_iter() } }
+	};
+
+	(final_text, html)
 }
