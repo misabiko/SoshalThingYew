@@ -40,12 +40,12 @@ impl SortMethod {
 			SortMethod::Id => {
 				let a = a.upgrade().map(|s| s.borrow().sortable_id()).unwrap_or_default();
 				let b = b.upgrade().map(|s| s.borrow().sortable_id()).unwrap_or_default();
-				a.partial_cmp(&b).unwrap()
+				a.cmp(&b)
 			},
 			SortMethod::Index => {
 				let a = a.upgrade().map(|s| s.borrow().index()).unwrap_or_default();
 				let b = b.upgrade().map(|s| s.borrow().index()).unwrap_or_default();
-				a.partial_cmp(&b).unwrap()
+				a.cmp(&b)
 			}
 			SortMethod::Date => {
 				let a = a.upgrade().map(|s| s.borrow().creation_time()).map(|d| d.get_time()).unwrap_or(0.0);
@@ -56,13 +56,13 @@ impl SortMethod {
 				let (a, b) = (actual_article(&a), actual_article(&b));
 				let a = a.upgrade().map(|s| s.borrow().like_count()).unwrap_or_default();
 				let b = b.upgrade().map(|s| s.borrow().like_count()).unwrap_or_default();
-				a.partial_cmp(&b).unwrap()
+				a.cmp(&b)
 			}
 			SortMethod::Reposts => {
 				let (a, b) = (actual_article(&a), actual_article(&b));
 				let a = a.upgrade().map(|s| s.borrow().repost_count()).unwrap_or_default();
 				let b = b.upgrade().map(|s| s.borrow().repost_count()).unwrap_or_default();
-				a.partial_cmp(&b).unwrap()
+				a.cmp(&b)
 			}
 		}
 	}

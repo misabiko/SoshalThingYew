@@ -31,9 +31,8 @@ impl ArticleData for PixivArticleData {
 	fn id(&self) -> String {
 		self.id.to_string()
 	}
-
-	fn sortable_id(&self) -> usize {
-		self.id as usize
+	fn sortable_id(&self) -> u64 {
+		self.id as u64
 	}
 
 	fn creation_time(&self) -> Date {

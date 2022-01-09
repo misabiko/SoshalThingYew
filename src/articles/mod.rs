@@ -102,8 +102,8 @@ pub enum MediaQueueInfo {
 pub trait ArticleData : Debug {
 	fn service(&self) -> &'static str;
 	fn id(&self) -> String;
-	fn sortable_id(&self) -> usize;
-	fn index(&self) -> usize { self.sortable_id() }	//TODO Use per-service sort methods
+	fn sortable_id(&self) -> u64;
+	fn index(&self) -> u64 { self.sortable_id() }	//TODO Use per-service sort methods
 	fn creation_time(&self) -> Date;
 	fn text(&self) -> String;
 	fn author_name(&self) -> String;

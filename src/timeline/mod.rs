@@ -399,10 +399,7 @@ impl Component for Timeline {
 			Msg::ActionsCallback(response) => {
 				match response {
 					//Could filter articles for perfs
-					ArticleActionsResponse::RedrawTimelines(_articles) => {
-						log::debug!("Redraw timeline");
-						true
-					}
+					ArticleActionsResponse::RedrawTimelines(_articles) => true
 				}
 			}
 			Msg::SetMainTimeline => {
