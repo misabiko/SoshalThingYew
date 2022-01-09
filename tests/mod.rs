@@ -3,7 +3,7 @@ use yew::html;
 
 use soshalthing_yew::services::twitter::article::parse_text;
 
-//wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
+wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 
 #[wasm_bindgen_test]
 fn test_parse_plain_text() {
@@ -184,6 +184,7 @@ fn test_parse_text_quote_emoji() {
 	assert_eq!(parsed_html, expected_html, "parsed html");
 }
 
+//works but assert_eq still fails...
 /*#[wasm_bindgen_test]
 fn test_parse_text_hashtags_url() {
 	//1480012348974776322
