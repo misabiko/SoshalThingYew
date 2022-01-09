@@ -37,7 +37,7 @@ impl Component for EndpointOptions {
 				EndpointResponse::UpdatedState(_services, endpoints) => {
 					self.endpoints.clear();
 					for endpoint in endpoints {
-						self.endpoints.insert(endpoint.id.clone(), endpoint.clone());
+						self.endpoints.insert(endpoint.id, endpoint.clone());
 					}
 
 					true
@@ -93,19 +93,19 @@ impl EndpointOptions {
 	}
 
 	fn view_autorefresh(&self, ctx: &Context<Self>, endpoint: &EndpointView) -> Html {
-		let id_c = endpoint.id.clone();
+		let id_c = endpoint.id;
 		let interval = endpoint.autorefresh_interval.to_string();
 
 		html! {
 			<div class="field has-addons">
 				{ match endpoint.is_autorefreshing {
 					false => {
-						let id_c_2 = endpoint.id.clone();
+						let id_c_2 = endpoint.id;
 						let oninput = ctx.link().batch_callback(move |e: InputEvent|
 							e.target()
 								.and_then(|t| t.dyn_into::<web_sys::HtmlInputElement>().ok())
 								.and_then(|i| i.value().parse::<u32>().ok())
-								.map(|v| Msg::SetAutoRefreshInterval(id_c_2.clone(), v))
+								.map(|v| Msg::SetAutoRefreshInterval(id_c_2, v))
 						);
 						html! {
 							<>

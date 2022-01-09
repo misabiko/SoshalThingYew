@@ -35,7 +35,7 @@ struct ModelStorage {
 	display_mode: DisplayMode,
 }
 
-#[derive(PartialEq, Clone, Deserialize)]
+#[derive(PartialEq, Clone, Copy, Deserialize)]
 #[serde(tag = "type")]
 pub enum DisplayMode {
 	Single {
@@ -149,9 +149,9 @@ impl Component for Model {
 			.unwrap_or_default();
 
 		let display_mode = if let Some(ModelStorage { display_mode }) = gloo_storage::LocalStorage::get("SoshalThingYew").ok() {
-			display_mode.clone()
+			display_mode
 		}else if let Some(display_mode) = &ctx.props().display_mode {
-			(*display_mode).clone()
+			*display_mode
 		} else if single_timeline_bool {
 			DisplayMode::Single {
 				container: search_opt.as_ref()
@@ -174,7 +174,7 @@ impl Component for Model {
 		Self {
 			_timeline_agent,
 			last_display_single: match display_mode {
-				DisplayMode::Single{ .. } => display_mode.clone(),
+				DisplayMode::Single{ .. } => display_mode,
 				_ => DisplayMode::Single {
 					container: Container::Masonry,
 					column_count: 4,
@@ -205,17 +205,17 @@ impl Component for Model {
 				false
 			}
 			Msg::AddTimeline(creation_mode) => {
-				let timeline_id = self.timeline_counter.clone();
+				let timeline_id = self.timeline_counter;
 				match creation_mode {
 					TimelineCreationMode::NameEndpoints(name, endpoints) => {
 						self.timelines.push(yew::props! { TimelineProps {
 							name,
-							id: timeline_id.clone(),
+							id: timeline_id,
 							endpoints,
 						}});
 					}
 					TimelineCreationMode::Props(props) => {
-						self.timelines.push((props)(timeline_id.clone()));
+						self.timelines.push((props)(timeline_id));
 					}
 				}
 				self.timeline_counter += 1;
@@ -232,7 +232,7 @@ impl Component for Model {
 			}
 			Msg::ToggleDisplayMode => {
 				self.display_mode = match self.display_mode {
-					DisplayMode::Default => self.last_display_single.clone(),
+					DisplayMode::Default => self.last_display_single,
 					DisplayMode::Single { .. } => DisplayMode::Default,
 				};
 				true
@@ -242,20 +242,20 @@ impl Component for Model {
 					log::debug!("Set main timeline! {}", &id);
 					self.main_timeline = id;
 					if let DisplayMode::Default = self.display_mode {
-						self.display_mode = self.last_display_single.clone();
+						self.display_mode = self.last_display_single;
 					};
 					true
 				}
 				TimelineAgentResponse::RemoveTimeline(id) => {
 					let index = self.timelines.iter().position(|t| t.id == id);
 					if let Some(index) = index {
-						let id = self.timelines[index].id.clone();
+						let id = self.timelines[index].id;
 						self.timelines.remove(index);
 
 						if id == self.main_timeline {
 							self.main_timeline = match self.timelines.first() {
-								Some(t) => t.id.clone(),
-								None => self.timeline_counter.clone(),
+								Some(t) => t.id,
+								None => self.timeline_counter,
 							}
 						}
 					}
@@ -263,7 +263,7 @@ impl Component for Model {
 				}
 				TimelineAgentResponse::CreateTimelines(timelines) => {
 					for props in timelines {
-						self.timelines.push((props)(self.timeline_counter.clone()));
+						self.timelines.push((props)(self.timeline_counter));
 						self.timeline_counter += 1;
 					}
 					true
@@ -273,8 +273,8 @@ impl Component for Model {
 			Msg::EndpointResponse(response) => match response {
 				EndpointResponse::BatchRequestResponse(timelines) => {
 					for (endpoints, closure) in timelines {
-						let id = self.timeline_counter.clone();
-						self.timelines.push((closure)(id.clone(), endpoints));
+						let id = self.timeline_counter;
+						self.timelines.push((closure)(id, endpoints));
 						self.timeline_counter += 1;
 					}
 
@@ -343,7 +343,7 @@ impl Component for Model {
 						match &self.display_mode {
 							DisplayMode::Default => html! {
 								{for self.timelines.iter().map(|props| html! {
-									<Timeline key={props.id.clone()} ..props.clone()/>
+									<Timeline key={props.id} ..props.clone()/>
 								})}
 							},
 							DisplayMode::Single {container, column_count} => html! {
@@ -364,7 +364,7 @@ impl Component for Model {
 									}
 								}else  {
 									html! {
-										<Timeline hide=true key={props.id.clone()} ..props.clone()/>
+										<Timeline hide=true key={props.id} ..props.clone()/>
 									}
 								})}
 							}
@@ -402,7 +402,7 @@ pub fn parse_pathname(ctx: &Context<Model>, pathname: &str, search_opt: &Option<
 		ctx.link().send_message(
 			Msg::AddEndpoint(Box::new(move |id| {
 				callback.emit(id);
-				Box::new(SingleTweetEndpoint::new(id, tweet_id.clone()))
+				Box::new(SingleTweetEndpoint::new(id, tweet_id))
 			}))
 		);
 	} else if let Some(username) = pathname.strip_prefix("/twitter/user/").map(str::to_owned) {

@@ -133,9 +133,9 @@ impl Agent for TimelineAgent {
 
 					let callbacks = storage.into_iter().map(|t| {
 						let name = t.title.clone();
-						let width = t.width.clone();
-						let column_count = t.column_count.clone();
-						let container = t.container.clone();
+						let width = t.width;
+						let column_count = t.column_count;
+						let container = t.container;
 						let filters = if t.filters.is_empty() {
 							None
 						}else {

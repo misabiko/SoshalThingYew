@@ -91,7 +91,7 @@ impl Clone for Props {
 			weak_ref: self.weak_ref.clone(),
 			article: self.article.clone_data(),
 			ref_article: self.ref_article.clone_data(),
-			article_view: self.article_view.clone(),
+			article_view: self.article_view,
 			compact: self.compact,
 			animated_as_gifs: self.animated_as_gifs,
 			hide_text: self.hide_text,
@@ -337,10 +337,10 @@ impl Component for ArticleComponent {
 					weak_ref={ctx.props().weak_ref.clone()}
 					article={ctx.props().article.clone_data()}
 					ref_article={ctx.props().ref_article.clone_data()}
-					compact={ctx.props().compact.clone()}
-					animated_as_gifs={ctx.props().animated_as_gifs.clone()}
-					hide_text={ctx.props().hide_text.clone()}
-					in_modal={self.in_modal.clone()}
+					compact={ctx.props().compact}
+					animated_as_gifs={ctx.props().animated_as_gifs}
+					hide_text={ctx.props().hide_text}
+					in_modal={self.in_modal}
 					video_ref={self.video_ref.clone()}
 					paragraph_ref={self.paragraph_ref.clone()}
 					parent_callback={ctx.link().callback(identity)}
@@ -354,10 +354,10 @@ impl Component for ArticleComponent {
 					weak_ref={ctx.props().weak_ref.clone()}
 					article={ctx.props().article.clone_data()}
 					ref_article={ctx.props().ref_article.clone_data()}
-					compact={ctx.props().compact.clone()}
-					animated_as_gifs={ctx.props().animated_as_gifs.clone()}
-					hide_text={ctx.props().hide_text.clone()}
-					in_modal={self.in_modal.clone()}
+					compact={ctx.props().compact}
+					animated_as_gifs={ctx.props().animated_as_gifs}
+					hide_text={ctx.props().hide_text}
+					in_modal={self.in_modal}
 					video_ref={self.video_ref.clone()}
 					paragraph_ref={self.paragraph_ref.clone()}
 					parent_callback={ctx.link().callback(identity)}

@@ -16,7 +16,7 @@ use crate::articles::ArticleData;
 use crate::timeline::sort_methods::sort_by_id;
 use crate::timeline::filters::FilterSerialized;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct RateLimit {
 	pub limit: i32,
 	pub remaining: i32,

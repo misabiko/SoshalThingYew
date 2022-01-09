@@ -29,7 +29,7 @@ impl ArticleData for PixivArticleData {
 	}
 
 	fn id(&self) -> String {
-		self.id.clone().to_string()
+		self.id.to_string()
 	}
 
 	fn sortable_id(&self) -> usize {
@@ -73,7 +73,7 @@ impl ArticleData for PixivArticleData {
 	}
 
 	fn marked_as_read(&self) -> bool {
-		self.marked_as_read.clone()
+		self.marked_as_read
 	}
 
 	fn set_marked_as_read(&mut self, value: bool) {
@@ -81,7 +81,7 @@ impl ArticleData for PixivArticleData {
 	}
 
 	fn hidden(&self) -> bool {
-		self.hidden.clone()
+		self.hidden
 	}
 
 	fn set_hidden(&mut self, value: bool) {
@@ -91,19 +91,19 @@ impl ArticleData for PixivArticleData {
 	fn is_fully_fetched(&self) -> &bool { &self.is_fully_fetched }
 
 	fn like_count(&self) -> u32 {
-		self.like_count.clone()
+		self.like_count
 	}
 
 	fn liked(&self) -> bool {
-		self.liked.clone()
+		self.liked
 	}
 
 	fn repost_count(&self) -> u32 {
-		self.bookmark_count.clone()
+		self.bookmark_count
 	}
 
 	fn reposted(&self) -> bool {
-		self.bookmarked.clone()
+		self.bookmarked
 	}
 
 	fn clone_data(&self) -> Box<dyn ArticleData> {
@@ -127,10 +127,10 @@ impl PixivArticleData {
 			new_json => self.raw_json = new_json.clone(),
 		};
 
-		self.like_count = new.like_count.clone();
-		self.liked = new.liked.clone();
-		self.bookmark_count = new.bookmark_count.clone();
-		self.bookmarked = new.bookmarked.clone();
+		self.like_count = new.like_count;
+		self.liked = new.liked;
+		self.bookmark_count = new.bookmark_count;
+		self.bookmarked = new.bookmarked;
 	}
 }
 

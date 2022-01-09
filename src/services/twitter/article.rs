@@ -154,7 +154,7 @@ impl ArticleData for TweetArticleData {
 		"Twitter"
 	}
 	fn id(&self) -> String {
-		self.id.clone().to_string()
+		self.id.to_string()
 	}
 	fn sortable_id(&self) -> usize {
 		self.id as usize
@@ -178,16 +178,16 @@ impl ArticleData for TweetArticleData {
 		format!("https://twitter.com/{}", &self.author.username)
 	}
 	fn like_count(&self) -> u32 {
-		self.like_count.clone()
+		self.like_count
 	}
 	fn repost_count(&self) -> u32 {
-		self.retweet_count.clone()
+		self.retweet_count
 	}
 	fn liked(&self) -> bool {
-		self.liked.clone()
+		self.liked
 	}
 	fn reposted(&self) -> bool {
-		self.retweeted.clone()
+		self.retweeted
 	}
 	fn media(&self) -> Vec<ArticleMedia> {
 		self.media.clone()
@@ -208,13 +208,13 @@ impl ArticleData for TweetArticleData {
 		format!("https://twitter.com/{}/status/{}", &self.author_username(), &self.id())
 	}
 	fn marked_as_read(&self) -> bool {
-		self.marked_as_read.clone()
+		self.marked_as_read
 	}
 	fn set_marked_as_read(&mut self, value: bool) {
 		self.marked_as_read = value;
 	}
 	fn hidden(&self) -> bool {
-		self.hidden.clone()
+		self.hidden
 	}
 	fn set_hidden(&mut self, value: bool) {
 		self.hidden = value;

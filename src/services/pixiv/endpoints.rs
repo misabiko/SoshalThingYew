@@ -112,10 +112,10 @@ impl From<(serde_json::Value, &FullPostAPI, &SessionStorageService)> for PixivAr
 			hidden: false,
 			is_fully_fetched: true,
 			raw_json,
-			like_count: data.like_count.clone(),
-			liked: data.like_data.clone(),
-			bookmark_count: data.bookmark_count.clone(),
-			bookmarked: data.bookmark_data.clone(),
+			like_count: data.like_count,
+			liked: data.like_data,
+			bookmark_count: data.bookmark_count,
+			bookmarked: data.bookmark_data,
 		}
 	}
 }
@@ -297,7 +297,7 @@ impl Endpoint for FollowPageEndpoint {
 			Ok(None) => {
 				if self.timeout.is_none() {
 					let mut agent = PixivAgent::dispatcher();
-					let id = self.id.clone();
+					let id = self.id;
 					let timeout = Some(Timeout::new(1_000, move || agent.send(Request::RefreshEndpoint(id, refresh_time))));
 					self.timeout = timeout;
 				}
@@ -312,8 +312,7 @@ impl Endpoint for FollowPageEndpoint {
 					}
 				}
 
-				let id = self.id().clone();
-				self.agent.send(Request::AddArticles(refresh_time, id, articles));
+				self.agent.send(Request::AddArticles(refresh_time, self.id, articles));
 				self.timeout = None;
 			}
 			Err(err) => log_error!("Failed to use query_selector", err),
@@ -360,7 +359,6 @@ impl Endpoint for FollowAPIEndpoint {
 	}
 
 	fn refresh(&mut self, refresh_time: RefreshTime) {
-		let id = self.id().clone();
 		let query = web_sys::UrlSearchParams::new().unwrap();
 		if self.page > 0 {
 			query.append("p", &(self.page + 1).to_string());
@@ -370,7 +368,7 @@ impl Endpoint for FollowAPIEndpoint {
 		}
 		self.agent.send(Request::FetchPosts(
 			refresh_time,
-			id,
+			self.id,
 			format!("https://www.pixiv.net/ajax/follow_latest/illust?{}", query.to_string()),
 		))
 	}

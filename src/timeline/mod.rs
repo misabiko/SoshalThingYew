@@ -26,7 +26,7 @@ use crate::services::article_actions::{ArticleActionsAgent, Response as ArticleA
 
 pub type TimelineId = i8;
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 enum ScrollDirection {
 	Up,
 	Down,
@@ -174,19 +174,19 @@ impl Component for Timeline {
 			endpoints,
 			articles: ctx.props().articles.clone(),
 			options_shown: false,
-			compact: ctx.props().compact.clone(),
-			animated_as_gifs: ctx.props().animated_as_gifs.clone(),
-			hide_text: ctx.props().hide_text.clone(),
+			compact: ctx.props().compact,
+			animated_as_gifs: ctx.props().animated_as_gifs,
+			hide_text: ctx.props().hide_text,
 			endpoint_agent,
 			filters: ctx.props().filters.as_ref().map(|f| f.clone()).unwrap_or_else(|| default_filters()),
 			sort_method: match ctx.props().sort_method {
 				Some((method, reversed)) => (Some(method), reversed),
 				None => (None, true)
 			},
-			container: ctx.props().container.clone(),
-			column_count: ctx.props().column_count.clone(),
-			width: ctx.props().width.clone(),
-			article_view: ctx.props().article_view.clone(),
+			container: ctx.props().container,
+			column_count: ctx.props().column_count,
+			width: ctx.props().width,
+			article_view: ctx.props().article_view,
 			show_choose_endpoint: false,
 			container_ref: NodeRef::default(),
 			autoscroll: Rc::new(RefCell::new(Autoscroll {
@@ -198,7 +198,7 @@ impl Component for Timeline {
 			timeline_agent: TimelineAgent::dispatcher(),
 			use_section: false,
 			section: (0, 50),
-			rtl: ctx.props().rtl.clone(),
+			rtl: ctx.props().rtl,
 			lazy_loading: true,
 		}
 	}
@@ -284,7 +284,7 @@ impl Component for Timeline {
 				true
 			}
 			Msg::Autoscroll => {
-				let old_direction = self.autoscroll.borrow().direction.clone();
+				let old_direction = self.autoscroll.borrow().direction;
 				self.autoscroll.borrow_mut().direction = match old_direction {
 					ScrollDirection::Up => ScrollDirection::Down,
 					ScrollDirection::Down => ScrollDirection::Up,
@@ -394,12 +394,12 @@ impl Component for Timeline {
 				}
 			}
 			Msg::SetMainTimeline => {
-				self.timeline_agent.send(TimelineAgentRequest::SetMainTimeline(ctx.props().id.clone()));
+				self.timeline_agent.send(TimelineAgentRequest::SetMainTimeline(ctx.props().id));
 				false
 			}
 			Msg::RemoveTimeline => {
-				self.timeline_agent.send(TimelineAgentRequest::RemoveTimeline(ctx.props().id.clone()));
-				self.endpoint_agent.send(EndpointRequest::RemoveTimeline(ctx.props().id.clone()));
+				self.timeline_agent.send(TimelineAgentRequest::RemoveTimeline(ctx.props().id));
+				self.endpoint_agent.send(EndpointRequest::RemoveTimeline(ctx.props().id));
 
 				false
 			}
@@ -476,7 +476,7 @@ impl Component for Timeline {
 		};
 		html! {
 			<div class={classes!("timeline", if ctx.props().main_timeline { Some("mainTimeline") } else { None })} {style}>
-				<ModalCard enabled={self.show_choose_endpoint.clone()} modal_title="Choose Endpoints" close_modal_callback={ctx.link().callback(|_| Msg::SetChooseEndpointModal(false))}>
+				<ModalCard enabled={self.show_choose_endpoint} modal_title="Choose Endpoints" close_modal_callback={ctx.link().callback(|_| Msg::SetChooseEndpointModal(false))}>
 					<ChooseEndpoints
 						timeline_endpoints={Rc::downgrade(&self.endpoints)}
 					/>
@@ -525,7 +525,7 @@ impl Component for Timeline {
 					column_count: self.column_count,
 					rtl: self.rtl,
 					lazy_loading: self.lazy_loading,
-					article_view: self.article_view.clone(),
+					article_view: self.article_view,
 					articles
 				}}) }
 			</div>
@@ -575,13 +575,13 @@ impl Timeline {
 					_ => html! {
 						<div class="block control">
 							<label class="label">{"Column Count"}</label>
-							<input class="input" type="number" value={self.column_count.clone().to_string()} min=1 oninput={on_column_count_input}/>
+							<input class="input" type="number" value={self.column_count.to_string()} min=1 oninput={on_column_count_input}/>
 						</div>
 					},
 				} }
 				<div class="block control">
 					<label class="label">{"Timeline Width"}</label>
-					<input class="input" type="number" value={self.width.clone().to_string()} min=1 oninput={on_width_input}/>
+					<input class="input" type="number" value={self.width.to_string()} min=1 oninput={on_width_input}/>
 				</div>
 				<div class="block control">
 					<Dropdown current_label={DropdownLabel::Text(self.container.name().to_string())}>
@@ -685,7 +685,7 @@ impl Timeline {
 					<button class="button" onclick={ctx.link().callback(|_| Msg::SetChooseEndpointModal(true))}>{"Change"}</button>
 				</div>
 				{
-					match ctx.props().main_timeline.clone() {
+					match ctx.props().main_timeline {
 						false => html! {
 							<div class="block control">
 								<button class="button" onclick={ctx.link().callback(|_| Msg::SetMainTimeline)}>{"Set as main timeline"}</button>
@@ -708,7 +708,7 @@ impl Timeline {
 		html! {
 			<div class="box">
 				{ for self.filters.iter().enumerate().map(|(i, filter)| {
-					let enabled_i = i.clone();
+					let enabled_i = i;
 					let (enabled_class, enabled_label) = match filter.enabled {
 						true => (Some("is-success"), "Enabled"),
 						false => (None, "Disabled"),

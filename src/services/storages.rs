@@ -76,7 +76,7 @@ pub fn mark_article_as_read(service_name: &str, id: String, value: bool) {
 			})
 				.map(|s| &mut s.articles_marked_as_read).
 				map(|cached| if value {
-					cached.insert(id.clone());
+					cached.insert(id);
 				}else {
 					cached.remove(&id);
 				});
@@ -90,7 +90,7 @@ pub fn mark_article_as_read(service_name: &str, id: String, value: bool) {
 						articles_marked_as_read: match value {
 							true => {
 								let mut set = HashSet::new();
-								set.insert(id.clone());
+								set.insert(id);
 								set
 							},
 							false => HashSet::new(),

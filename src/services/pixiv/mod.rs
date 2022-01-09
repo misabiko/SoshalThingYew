@@ -161,7 +161,7 @@ impl Agent for PixivAgent {
 impl PixivAgent {
 	fn check_unfetched_articles(&mut self) {
 		let unfetched: Vec<u32> = self.articles.values().filter_map(|a| if !a.borrow().is_fully_fetched && !self.fetching_articles.contains(&a.borrow().id) {
-			Some(a.borrow().id.clone())
+			Some(a.borrow().id)
 		} else {
 			None
 		}).collect();
@@ -173,7 +173,7 @@ impl PixivAgent {
 				for id in unfetched.into_iter().take(5) {
 					let path = format!("https://www.pixiv.net/ajax/illust/{}", &id);
 
-					self.fetching_articles.insert(id.clone());
+					self.fetching_articles.insert(id);
 					self.link.send_future(async move {
 						Msg::FetchResponse(fetch_post(&path, &get_service_session("Pixiv")).await.map(|(article, _)| (vec![article], None)))
 					});

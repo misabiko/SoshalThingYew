@@ -139,9 +139,9 @@ fn get_access_token<'a>(id: &'a Identity, tokens: &'a HashMap<u64, egg_mode::Tok
 
 fn tweet_to_http_response(feed: egg_mode::Response<impl Serialize>) -> HttpResponse {
 	HttpResponse::Ok()
-		.append_header(("x-rate-limit-limit".to_owned(), feed.rate_limit_status.limit.clone()))
-		.append_header(("x-rate-limit-remaining".to_owned(), feed.rate_limit_status.remaining.clone()))
-		.append_header(("x-rate-limit-reset".to_owned(), feed.rate_limit_status.reset.clone()))
+		.append_header(("x-rate-limit-limit".to_owned(), feed.rate_limit_status.limit))
+		.append_header(("x-rate-limit-remaining".to_owned(), feed.rate_limit_status.remaining))
+		.append_header(("x-rate-limit-reset".to_owned(), feed.rate_limit_status.reset))
 		.json(&feed.response)
 }
 

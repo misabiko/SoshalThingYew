@@ -1,6 +1,7 @@
 use yew::prelude::*;
 use std::rc::{Rc, Weak};
 use std::cell::RefCell;
+use serde::{Serialize, Deserialize};
 
 use crate::error::Result;
 use crate::articles::{ArticleData, ArticleComponent, ArticleView, ArticleRefType};
@@ -10,7 +11,7 @@ use crate::timeline::ArticleTuple;
 	Would require to dynamically list container names without an enum/vec
 	Would require to dynamically create a container from said name
  */
-#[derive(Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Debug)]
 pub enum Container {
 	Column,
 	Row,

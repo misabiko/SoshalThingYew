@@ -3,7 +3,7 @@ use yew::prelude::*;
 
 mod pixiv;
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FavViewerStyle {
 	Hidden,
 	Normal,

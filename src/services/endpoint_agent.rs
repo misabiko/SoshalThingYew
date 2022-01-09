@@ -51,7 +51,7 @@ impl TimelineEndpoints {
 	}
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum RefreshTime {
 	Start,
 	OnRefresh,
@@ -226,7 +226,7 @@ impl Agent for EndpointAgent {
 			Msg::ResetAutoRefresh(endpoint_id) => {
 				let info = self.endpoints.get_mut(&endpoint_id).unwrap();
 				if info.interval_id.is_some() {
-					let id_c = endpoint_id.clone();
+					let id_c = endpoint_id;
 					let callback = self.link.callback(move |_| Msg::AutoRefreshEndpoint(id_c));
 					let new_interval = Interval::new(info.interval, move || {
 						log::trace!("Refreshing {}", &id_c);
@@ -324,14 +324,14 @@ impl Agent for EndpointAgent {
 			Request::BatchAddEndpoints(start_closures, refresh_closures, timeline_creation_request) => {
 				if let Some(timeline_container) = self.timeline_container {
 					let start = start_closures.into_iter().map(|closure| {
-						let id = self.endpoint_counter.clone();
-						self.endpoints.insert(id.clone(), EndpointInfo::new((closure)(self.endpoint_counter)));
+						let id = self.endpoint_counter;
+						self.endpoints.insert(id, EndpointInfo::new((closure)(self.endpoint_counter)));
 						self.endpoint_counter += 1;
 						id.into()
 					}).collect();
 					let refresh = refresh_closures.into_iter().map(|closure| {
-						let id = self.endpoint_counter.clone();
-						self.endpoints.insert(id.clone(), EndpointInfo::new((closure)(self.endpoint_counter)));
+						let id = self.endpoint_counter;
+						self.endpoints.insert(id, EndpointInfo::new((closure)(self.endpoint_counter)));
 						self.endpoint_counter += 1;
 						id.into()
 					}).collect();
@@ -426,10 +426,10 @@ impl EndpointAgent {
 		let id = match self.endpoint_from_constructor(storage) {
 			Some(id) => id,
 			None => {
-				let constructor = self.services[&storage.service].endpoint_types[storage.endpoint_type.clone()].clone();
+				let constructor = self.services[&storage.service].endpoint_types[storage.endpoint_type].clone();
 				let params = storage.params.clone();
 
-				let id = self.endpoint_counter.clone();
+				let id = self.endpoint_counter;
 				self.endpoints.insert(self.endpoint_counter, EndpointInfo::new((constructor.callback)(id, params.clone())));
 				self.endpoint_counter += 1;
 
@@ -451,7 +451,7 @@ impl EndpointAgent {
 			name: e.endpoint.name(),
 			ratelimit: e.endpoint.ratelimit().cloned(),
 			is_autorefreshing: e.interval_id.is_some(),
-			autorefresh_interval: e.interval.clone(),
+			autorefresh_interval: e.interval,
 		}).collect()));
 	}
 }

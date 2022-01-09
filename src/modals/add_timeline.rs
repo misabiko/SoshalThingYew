@@ -113,7 +113,7 @@ impl Component for AddTimelineModal {
 		};
 
 		html! {
-			<ModalCard enabled={self.enabled.clone()} modal_title="Add Timeline" close_modal_callback={ctx.link().callback(|_| Msg::SetEnabled(false))} {footer}>
+			<ModalCard enabled={self.enabled} modal_title="Add Timeline" close_modal_callback={ctx.link().callback(|_| Msg::SetEnabled(false))} {footer}>
 				<div class="field">
 					<label class="label">{"Title"}</label>
 					<div class="control">

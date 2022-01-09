@@ -61,10 +61,9 @@ impl Endpoint for UserTimelineEndpoint {
 	}
 
 	fn refresh(&mut self, refresh_time: RefreshTime) {
-		let id = self.id().clone();
 		self.agent.send(TwitterRequest::FetchTweets(
 			refresh_time,
-			id,
+			self.id,
 			format!("/proxy/twitter/user/{}?replies={}&rts={}&count=20", self.username, &self.include_replies, &self.include_retweets)
 		))
 	}
@@ -72,10 +71,9 @@ impl Endpoint for UserTimelineEndpoint {
 	fn load_bottom(&mut self, refresh_time: RefreshTime) {
 		match self.articles.last() {
 			Some(last_id) => {
-				let id = self.id().clone();
 				self.agent.send(TwitterRequest::FetchTweets(
 					refresh_time,
-					id,
+					self.id,
 					format!("/proxy/twitter/user/{}?replies={}&rts={}&max_id={}", &self.username, &self.include_replies, &self.include_retweets, &last_id.upgrade().unwrap().borrow().id())
 				))
 			}
@@ -137,17 +135,15 @@ impl Endpoint for HomeTimelineEndpoint {
 	}
 
 	fn refresh(&mut self, refresh_time: RefreshTime) {
-		let id = self.id().clone();
-		self.agent.send(TwitterRequest::FetchTweets(refresh_time, id, "/proxy/twitter/home?count=20".to_owned()))
+		self.agent.send(TwitterRequest::FetchTweets(refresh_time, self.id, "/proxy/twitter/home?count=20".to_owned()))
 	}
 
 	fn load_bottom(&mut self, refresh_time: RefreshTime) {
 		match self.articles.last() {
 			Some(last_id) => {
-				let id = self.id().clone();
 				self.agent.send(TwitterRequest::FetchTweets(
 					refresh_time,
-					id,
+					self.id,
 					format!("/proxy/twitter/home?max_id={}", &last_id.upgrade().unwrap().borrow().id())
 				))
 			}
@@ -217,10 +213,9 @@ impl Endpoint for ListEndpoint {
 	}
 
 	fn refresh(&mut self, refresh_time: RefreshTime) {
-		let id = self.id().clone();
 		self.agent.send(TwitterRequest::FetchTweets(
 			refresh_time,
-			id,
+			self.id,
 			format!("/proxy/twitter/list/{}/{}", &self.username, &self.slug)
 		))
 	}
@@ -228,10 +223,9 @@ impl Endpoint for ListEndpoint {
 	fn load_bottom(&mut self, refresh_time: RefreshTime) {
 		match self.articles.last() {
 			Some(last_id) => {
-				let id = self.id().clone();
 				self.agent.send(TwitterRequest::FetchTweets(
 					refresh_time,
-					id,
+					self.id,
 					format!("/proxy/twitter/list/{}/{}?max_id={}", &self.username, &self.slug, &last_id.upgrade().unwrap().borrow().id())
 				))
 			}
@@ -306,10 +300,9 @@ impl Endpoint for SingleTweetEndpoint {
 	}
 
 	fn refresh(&mut self, refresh_time: RefreshTime) {
-		let id = self.id().clone();
 		self.agent.send(TwitterRequest::FetchTweet(
 			refresh_time,
-			id,
+			self.id,
 			format!("/proxy/twitter/status/{}", &self.tweet_id)
 		))
 	}
