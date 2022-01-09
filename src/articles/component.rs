@@ -32,7 +32,7 @@ pub struct ArticleComponent {
 	in_modal: bool,
 	article_actions: Dispatcher<ArticleActionsAgent>,
 	video_ref: NodeRef,
-	paragraph_ref: NodeRef,
+	component_ref: NodeRef,
 	media_load_states: Vec<MediaLoadState>,
 	media_load_queue: Box<dyn Bridge<MediaLoadAgent>>,
 }
@@ -113,7 +113,6 @@ pub struct ViewProps {
 	pub hide_text: bool,
 	pub in_modal: bool,
 	pub video_ref: NodeRef,
-	pub paragraph_ref: NodeRef,
 	//Maybe use ctx.link().get_parent()?
 	pub parent_callback: Callback<Msg>,
 	pub media_load_states: Vec<MediaLoadState>,
@@ -145,7 +144,6 @@ impl Clone for ViewProps {
 			hide_text: self.hide_text,
 			in_modal: self.in_modal,
 			video_ref: self.video_ref.clone(),
-			paragraph_ref: self.paragraph_ref.clone(),
 			parent_callback: self.parent_callback.clone(),
 			media_load_states: self.media_load_states.clone(),
 			column_count: self.column_count,
@@ -179,7 +177,7 @@ impl Component for ArticleComponent {
 			in_modal: false,
 			article_actions: ArticleActionsAgent::dispatcher(),
 			video_ref: NodeRef::default(),
-			paragraph_ref: NodeRef::default(),
+			component_ref: NodeRef::default(),
 			media_load_states: ctx.props().article.media().iter().map(|m|
 				if !ctx.props().lazy_loading {
 					MediaLoadState::Loaded
@@ -342,7 +340,6 @@ impl Component for ArticleComponent {
 					hide_text={ctx.props().hide_text}
 					in_modal={self.in_modal}
 					video_ref={self.video_ref.clone()}
-					paragraph_ref={self.paragraph_ref.clone()}
 					parent_callback={ctx.link().callback(identity)}
 					media_load_states={self.media_load_states.clone()}
 					column_count={ctx.props().column_count}
@@ -359,7 +356,6 @@ impl Component for ArticleComponent {
 					hide_text={ctx.props().hide_text}
 					in_modal={self.in_modal}
 					video_ref={self.video_ref.clone()}
-					paragraph_ref={self.paragraph_ref.clone()}
 					parent_callback={ctx.link().callback(identity)}
 					media_load_states={self.media_load_states.clone()}
 					column_count={ctx.props().column_count}
@@ -374,7 +370,7 @@ impl Component for ArticleComponent {
 
 		//For some reason, the view needs at least a wrapper otherwise when changing article_view, the container draws everything in reverse order...
 		let article_html = html! {
-			<article {class} articleId={ctx.props().article.id()} key={ctx.props().article.id()} style={ctx.props().style.clone()}>
+			<article {class} articleId={ctx.props().article.id()} key={ctx.props().article.id()} style={ctx.props().style.clone()} ref={self.component_ref.clone()}>
 				{ view_html }
 			</article>
 		};
@@ -393,8 +389,8 @@ impl Component for ArticleComponent {
 	fn rendered(&mut self, _ctx: &Context<Self>, first_render: bool) {
 		//TODO "Node not found to remove VText"
 		if first_render {
-			if let Some(paragraph_ref) = self.paragraph_ref.get() {
-				twemoji_parse(paragraph_ref, TwemojiOptions {
+			if let Some(component_ref) = self.component_ref.get() {
+				twemoji_parse(component_ref, TwemojiOptions {
 					folder: "svg",
 					ext: ".svg",
 				})

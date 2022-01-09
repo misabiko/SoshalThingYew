@@ -234,15 +234,15 @@ impl Component for ChooseEndpoints {
 	fn view(&self, ctx: &Context<Self>) -> Html {
 		html! {
 			<>
-				{ self.view_refresh_time_endpoints(ctx, RefreshTime::Start) }
-				{ self.view_refresh_time_endpoints(ctx, RefreshTime::OnRefresh) }
+				{ self.component_refresh_time_endpoints(ctx, RefreshTime::Start) }
+				{ self.component_refresh_time_endpoints(ctx, RefreshTime::OnRefresh) }
 			</>
 		}
 	}
 }
 
 impl ChooseEndpoints {
-	fn view_refresh_time_endpoints(&self, ctx: &Context<Self>, refresh_time: RefreshTime) -> Html {
+	fn component_refresh_time_endpoints(&self, ctx: &Context<Self>, refresh_time: RefreshTime) -> Html {
 		let strong_endpoints = ctx.props().timeline_endpoints.upgrade().unwrap();
 		let endpoints_borrowed = strong_endpoints.borrow();
 		let (label, endpoints_iter) = match refresh_time {
