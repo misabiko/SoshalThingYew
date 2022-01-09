@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::future::ready;
 use std::sync::Mutex;
 use actix_web::dev::{HttpServiceFactory, Service};
+use egg_mode::user::UserID;
 
 use crate::{Error, Result, State};
 
@@ -77,12 +78,14 @@ pub fn service() -> impl HttpServiceFactory {
 				Box::pin(ready(Err(actix_web::Error::from(Error::from("No twitter data".to_owned())))))
 			}
 		})
+		.service(search)
 		.service(status)
 		.service(like)
 		.service(unlike)
 		.service(retweet)
 		.service(unretweet)
 		.service(user_timeline)
+		.service(likes)
 		.service(home_timeline)
 		.service(list)
 		.service(twitter_login)
@@ -147,9 +150,38 @@ fn tweet_to_http_response(feed: egg_mode::Response<impl Serialize>) -> HttpRespo
 		.json(&feed.response)
 }
 
-/*fn lock_tokens(data: &Data<State>) -> Result<MutexGuard<HashMap<u64, Token>>> {
-	data.twitter.map(|d| d.tokens.lock().expect("locking token mutex"))
-}*/
+#[derive(Deserialize)]
+struct SearchQuery {
+	query: String,
+	count: Option<u32>,
+	min_id: Option<u64>,
+	max_id: Option<u64>,
+}
+
+#[get("search")]
+async fn search(id: Identity, query: Query<SearchQuery>, data: Data<State>) -> Result<HttpResponse> {
+	let tokens = &*data.twitter.as_ref().unwrap().tokens.lock().expect("locking token mutex");
+	let token = get_token(&id, tokens, &data.twitter.as_ref().unwrap().bearer_token);
+
+	let mut builder = egg_mode::search::search(query.query.clone())
+		.count(query.count.unwrap_or(100));
+
+	if let Some(max_id) = query.max_id {
+		builder = builder.max_tweet(max_id);
+	}
+	if let Some(min_id) = query.min_id {
+		builder = builder.since_tweet(min_id);
+	}
+
+	let response = builder.call(token)
+		.await?;
+
+	Ok(HttpResponse::Ok()
+		.append_header(("x-rate-limit-limit".to_owned(), response.rate_limit_status.limit))
+		.append_header(("x-rate-limit-remaining".to_owned(), response.rate_limit_status.remaining))
+		.append_header(("x-rate-limit-reset".to_owned(), response.rate_limit_status.reset))
+		.json(&response.response.statuses))
+}
 
 #[derive(Deserialize)]
 struct TimelineQuery {
@@ -190,11 +222,24 @@ async fn user_timeline(id: Identity, username: Path<String>, query: Query<Timeli
 	let token = get_token(&id, tokens, &data.twitter.as_ref().unwrap().bearer_token);
 
 	let timeline = egg_mode::tweet::user_timeline(
-		egg_mode::user::UserID::ScreenName(username.into_inner().into()),
+		UserID::ScreenName(username.into_inner().into()),
 		query.replies.unwrap_or(true),
 		query.rts.unwrap_or(true),
 		token
 	)
+		.with_page_size(query.count.unwrap_or(200));
+
+	let feed = timeline.call(query.min_id, query.max_id).await?;
+
+	Ok(tweet_to_http_response(feed))
+}
+
+#[get("likes/{username}")]
+async fn likes(id: Identity, username: Path<String>, query: Query<TimelineQuery>, data: Data<State>) -> Result<HttpResponse> {
+	let tokens = &*data.twitter.as_ref().unwrap().tokens.lock().expect("locking token mutex");
+	let token = get_token(&id, tokens, &data.twitter.as_ref().unwrap().bearer_token);
+
+	let timeline = egg_mode::tweet::liked_by(UserID::ScreenName(username.into_inner().into()), token)
 		.with_page_size(query.count.unwrap_or(200));
 
 	let feed = timeline.call(query.min_id, query.max_id).await?;

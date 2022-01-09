@@ -3,7 +3,7 @@ use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher};
 use std::collections::HashMap;
-use reqwest::StatusCode;
+use reqwest::{StatusCode, Url};
 
 pub mod endpoints;
 pub mod article;
@@ -11,20 +11,20 @@ pub mod article;
 pub use article::TweetArticleData;
 use article::StrongArticleRefType;
 use crate::articles::{ArticleData, ArticleRefType};
-use crate::base_url;
+use crate::{base_url, SearchEndpoint};
 use crate::notifications::{Notification, NotificationAgent, Request as NotificationRequest};
 use crate::services::{
 	RateLimit,
 	endpoint_agent::{EndpointAgent, Request as EndpointRequest, EndpointId, EndpointConstructor, EndpointConstructors, RefreshTime},
 	article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest},
-	twitter::endpoints::{UserTimelineEndpoint, HomeTimelineEndpoint, ListEndpoint, SingleTweetEndpoint},
+	twitter::endpoints::*,
 };
 use crate::error::{Error, RatelimitedResult};
 use crate::services::storages::{get_service_storage, ServiceStorage};
 
-pub async fn fetch_tweets(url: &str, storage: &ServiceStorage) -> RatelimitedResult<Vec<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)>> {
+pub async fn fetch_tweets(url: Url, storage: &ServiceStorage) -> RatelimitedResult<Vec<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)>> {
 	let response = reqwest::Client::builder().build()?
-		.get(format!("{}{}", base_url(), url))
+		.get(url)
 		.send().await?
 		.error_for_status()
 		.map_err(|err| if let Some(StatusCode::UNAUTHORIZED) = err.status() {
@@ -79,8 +79,8 @@ pub enum Msg {
 pub enum Request {
 	Auth(Option<String>),
 	Sidebar,
-	FetchTweets(RefreshTime, EndpointId, String),
-	FetchTweet(RefreshTime, EndpointId, String),
+	FetchTweets(RefreshTime, EndpointId, Url),
+	FetchTweet(RefreshTime, EndpointId, Url),
 }
 
 pub enum Response {
@@ -123,11 +123,25 @@ impl Agent for TwitterAgent {
 						callback: Rc::new(|id, params| Box::new(ListEndpoint::from_json(id, params))),
 					},
 					EndpointConstructor {
+						name: "Likes",
+						param_template: vec![
+							("username", serde_json::Value::String("".to_owned())),
+						],
+						callback: Rc::new(|id, params| Box::new(LikesEndpoint::from_json(id, params))),
+					},
+					EndpointConstructor {
 						name: "Single Tweet",
 						param_template: vec![
 							("id", serde_json::Value::String("".to_owned())),
 						],
 						callback: Rc::new(|id, params| Box::new(SingleTweetEndpoint::from_json(id, params))),
+					},
+					EndpointConstructor {
+						name: "Search",
+						param_template: vec![
+							("query", serde_json::Value::String("".to_owned())),
+						],
+						callback: Rc::new(|id, params| Box::new(SearchEndpoint::from_json(id, params))),
 					},
 				],
 				user_endpoint: Some(1)
@@ -201,10 +215,10 @@ impl Agent for TwitterAgent {
 				let borrow = strong.borrow();
 
 				if let ArticleRefType::NoRef | ArticleRefType::Quote(_) = borrow.referenced_article() {
-					let path = format!("/proxy/twitter/{}/{}", if borrow.liked() { "unlike" } else { "like" }, borrow.id());
+					let url = Url::parse(&format!("{}/proxy/twitter/{}/{}", base_url(), if borrow.liked() { "unlike" } else { "like" }, borrow.id())).unwrap();
 
 					self.link.send_future(async move {
-						Msg::FetchResponse(id, fetch_tweets(&path, &get_service_storage("Twitter")).await)
+						Msg::FetchResponse(id, fetch_tweets(url, &get_service_storage("Twitter")).await)
 					})
 				}
 			}
@@ -213,10 +227,10 @@ impl Agent for TwitterAgent {
 				let borrow = strong.borrow();
 
 				if let ArticleRefType::NoRef | ArticleRefType::Quote(_) = borrow.referenced_article() {
-					let path = format!("/proxy/twitter/{}/{}", if borrow.reposted() { "unretweet" } else { "retweet" }, borrow.id());
+					let url = Url::parse(&format!("{}/proxy/twitter/{}/{}", base_url(), if borrow.reposted() { "unretweet" } else { "retweet" }, borrow.id())).unwrap();
 
 					self.link.send_future(async move {
-						Msg::FetchResponse(id, fetch_tweets(&path, &get_service_storage("Twitter")).await)
+						Msg::FetchResponse(id, fetch_tweets(url, &get_service_storage("Twitter")).await)
 					})
 				}
 			}
@@ -239,13 +253,13 @@ impl Agent for TwitterAgent {
 				self.sidebar_handler = Some(id);
 				self.link.respond(id, Response::Sidebar(self.sidebar()));
 			},
-			Request::FetchTweets(refresh_time, id, path) =>
+			Request::FetchTweets(refresh_time, id, url) =>
 				self.link.send_future(async move {
-					Msg::EndpointFetchResponse(refresh_time, id, fetch_tweets(&path, &get_service_storage("Twitter")).await)
+					Msg::EndpointFetchResponse(refresh_time, id, fetch_tweets(url, &get_service_storage("Twitter")).await)
 				}),
-			Request::FetchTweet(refresh_time, id, path) =>
+			Request::FetchTweet(refresh_time, id, url) =>
 				self.link.send_future(async move {
-					Msg::EndpointFetchResponse(refresh_time, id, fetch_tweets(&path, &get_service_storage("Twitter")).await)
+					Msg::EndpointFetchResponse(refresh_time, id, fetch_tweets(url, &get_service_storage("Twitter")).await)
 				})
 		}
 	}

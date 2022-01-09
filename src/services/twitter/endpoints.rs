@@ -1,9 +1,11 @@
 use std::rc::Weak;
 use std::cell::RefCell;
+use reqwest::Url;
 use yew_agent::{Dispatched, Dispatcher};
 
 use super::{TwitterAgent, Request as TwitterRequest};
 use crate::articles::{ArticleData};
+use crate::base_url;
 use crate::services::{Endpoint, EndpointSerialized, RateLimit};
 use crate::services::endpoint_agent::{EndpointId, RefreshTime};
 
@@ -64,7 +66,7 @@ impl Endpoint for UserTimelineEndpoint {
 		self.agent.send(TwitterRequest::FetchTweets(
 			refresh_time,
 			self.id,
-			format!("/proxy/twitter/user/{}?replies={}&rts={}&count=20", self.username, &self.include_replies, &self.include_retweets)
+			Url::parse(&format!("{}/proxy/twitter/user/{}?replies={}&rts={}&count=20", base_url(), self.username, &self.include_replies, &self.include_retweets)).unwrap()
 		))
 	}
 
@@ -74,7 +76,7 @@ impl Endpoint for UserTimelineEndpoint {
 				self.agent.send(TwitterRequest::FetchTweets(
 					refresh_time,
 					self.id,
-					format!("/proxy/twitter/user/{}?replies={}&rts={}&max_id={}", &self.username, &self.include_replies, &self.include_retweets, &last_id.upgrade().unwrap().borrow().id())
+					Url::parse(&format!("{}/proxy/twitter/user/{}?replies={}&rts={}&max_id={}", base_url(), &self.username, &self.include_replies, &self.include_retweets, &last_id.upgrade().unwrap().borrow().id())).unwrap()
 				))
 			}
 			None => self.refresh(refresh_time)
@@ -135,7 +137,11 @@ impl Endpoint for HomeTimelineEndpoint {
 	}
 
 	fn refresh(&mut self, refresh_time: RefreshTime) {
-		self.agent.send(TwitterRequest::FetchTweets(refresh_time, self.id, "/proxy/twitter/home?count=20".to_owned()))
+		self.agent.send(TwitterRequest::FetchTweets(
+			refresh_time,
+			self.id,
+			Url::parse(&format!("{}/proxy/twitter/home?count=20", base_url())).unwrap())
+		)
 	}
 
 	fn load_bottom(&mut self, refresh_time: RefreshTime) {
@@ -144,7 +150,7 @@ impl Endpoint for HomeTimelineEndpoint {
 				self.agent.send(TwitterRequest::FetchTweets(
 					refresh_time,
 					self.id,
-					format!("/proxy/twitter/home?max_id={}", &last_id.upgrade().unwrap().borrow().id())
+					Url::parse(&format!("{}/proxy/twitter/home?max_id={}", base_url(), &last_id.upgrade().unwrap().borrow().id())).unwrap()
 				))
 			}
 			None => self.refresh(refresh_time)
@@ -216,7 +222,7 @@ impl Endpoint for ListEndpoint {
 		self.agent.send(TwitterRequest::FetchTweets(
 			refresh_time,
 			self.id,
-			format!("/proxy/twitter/list/{}/{}", &self.username, &self.slug)
+			Url::parse(&format!("{}/proxy/twitter/list/{}/{}", base_url(), &self.username, &self.slug)).unwrap()
 		))
 	}
 
@@ -226,7 +232,7 @@ impl Endpoint for ListEndpoint {
 				self.agent.send(TwitterRequest::FetchTweets(
 					refresh_time,
 					self.id,
-					format!("/proxy/twitter/list/{}/{}?max_id={}", &self.username, &self.slug, &last_id.upgrade().unwrap().borrow().id())
+					Url::parse(&format!("{}/proxy/twitter/list/{}/{}?max_id={}", base_url(), &self.username, &self.slug, &last_id.upgrade().unwrap().borrow().id())).unwrap()
 				))
 			}
 			None => self.refresh(refresh_time)
@@ -244,6 +250,89 @@ impl Endpoint for ListEndpoint {
 			.as_str()
 			.map(|s| s == self.slug)
 			.unwrap_or_default()
+	}
+}
+
+pub struct LikesEndpoint {
+	id: EndpointId,
+	username: String,
+	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
+	agent: Dispatcher<TwitterAgent>,
+	ratelimit: RateLimit,
+}
+
+impl LikesEndpoint {
+	pub fn new(id: EndpointId, username: String) -> Self {
+		Self {
+			id,
+			username,
+			articles: Vec::new(),
+			agent: TwitterAgent::dispatcher(),
+			ratelimit: RateLimit::default()
+		}
+	}
+
+	pub fn from_json(id: EndpointId, value: serde_json::Value) -> Self {
+		Self::new(
+			id,
+			value["username"].as_str().unwrap().to_owned(),
+		)
+	}
+}
+
+impl Endpoint for LikesEndpoint {
+	fn name(&self) -> String {
+		format!("Liked by {}", &self.username).to_owned()
+	}
+
+	fn id(&self) -> &EndpointId {
+		&self.id
+	}
+
+	fn articles(&mut self) -> &mut Vec<Weak<RefCell<dyn ArticleData>>> {
+		&mut self.articles
+	}
+
+	fn ratelimit(&self) -> Option<&RateLimit> {
+		Some(&self.ratelimit)
+	}
+
+	fn get_mut_ratelimit(&mut self) -> Option<&mut RateLimit> {
+		Some(&mut self.ratelimit)
+	}
+
+	fn update_ratelimit(&mut self, ratelimit: RateLimit) {
+		self.ratelimit = ratelimit
+	}
+
+	fn refresh(&mut self, refresh_time: RefreshTime) {
+		self.agent.send(TwitterRequest::FetchTweets(
+			refresh_time,
+			self.id,
+			Url::parse(&format!("{}/proxy/twitter/likes/{}?count=20", base_url(), &self.username)).unwrap()
+		))
+	}
+
+	fn load_bottom(&mut self, refresh_time: RefreshTime) {
+		match self.articles.last() {
+			Some(last_id) => {
+				self.agent.send(TwitterRequest::FetchTweets(
+					refresh_time,
+					self.id,
+					Url::parse(&format!("{}/proxy/twitter/likes/{}?max_id={}", base_url(), &self.username, &last_id.upgrade().unwrap().borrow().id())).unwrap()
+				))
+			}
+			None => self.refresh(refresh_time)
+		}
+	}
+
+	fn eq_storage(&self, storage: &EndpointSerialized) -> bool {
+		storage.service == "Twitter" &&
+			storage.endpoint_type == 3 &&
+			storage.params["username"]
+				.as_str()
+				.map(|u| u == self.username)
+				.unwrap_or_default()
 	}
 }
 
@@ -303,16 +392,97 @@ impl Endpoint for SingleTweetEndpoint {
 		self.agent.send(TwitterRequest::FetchTweet(
 			refresh_time,
 			self.id,
-			format!("/proxy/twitter/status/{}", &self.tweet_id)
+			Url::parse(&format!("{}/proxy/twitter/status/{}", base_url(), &self.tweet_id)).unwrap()
 		))
 	}
 
 	fn eq_storage(&self, storage: &EndpointSerialized) -> bool {
 		storage.service == "Twitter" &&
-		storage.endpoint_type == 3 &&
+		storage.endpoint_type == 4 &&
 		storage.params["id"]
 			.as_u64()
 			.map(|id| id == self.tweet_id)
 			.unwrap_or_default()
+	}
+}
+
+pub struct SearchEndpoint {
+	id: EndpointId,
+	query: String,
+	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
+	agent: Dispatcher<TwitterAgent>,
+	ratelimit: RateLimit,
+}
+
+impl SearchEndpoint {
+	pub fn new(id: EndpointId, query: String) -> Self {
+		Self {
+			id,
+			query,
+			articles: Vec::new(),
+			agent: TwitterAgent::dispatcher(),
+			ratelimit: RateLimit::default()
+		}
+	}
+
+	pub fn from_json(id: EndpointId, value: serde_json::Value) -> Self {
+		Self::new(
+			id,
+			value["query"].as_str().unwrap().to_owned(),
+		)
+	}
+}
+
+impl Endpoint for SearchEndpoint {
+	fn name(&self) -> String {
+		format!("Search \"{}\"", &self.query).to_owned()
+	}
+
+	fn id(&self) -> &EndpointId {
+		&self.id
+	}
+
+	fn articles(&mut self) -> &mut Vec<Weak<RefCell<dyn ArticleData>>> {
+		&mut self.articles
+	}
+
+	fn ratelimit(&self) -> Option<&RateLimit> {
+		Some(&self.ratelimit)
+	}
+
+	fn get_mut_ratelimit(&mut self) -> Option<&mut RateLimit> {
+		Some(&mut self.ratelimit)
+	}
+
+	fn update_ratelimit(&mut self, ratelimit: RateLimit) {
+		self.ratelimit = ratelimit
+	}
+
+	fn refresh(&mut self, refresh_time: RefreshTime) {
+		let mut url = Url::parse(&format!("{}/proxy/twitter/search", base_url())).unwrap();
+		url.set_query(Some(&format!("query={}", self.query)));
+		self.agent.send(TwitterRequest::FetchTweets(refresh_time, self.id, url))
+	}
+
+	fn load_bottom(&mut self, refresh_time: RefreshTime) {
+		match self.articles.last() {
+			Some(last_id) => {
+				let mut url = Url::parse(&format!("{}/proxy/twitter/search", base_url())).unwrap();
+				url.query_pairs_mut()
+					.append_pair("query", self.query.as_str())
+					.append_pair("max_id", &last_id.upgrade().unwrap().borrow().id());
+				self.agent.send(TwitterRequest::FetchTweets(refresh_time, self.id, url))
+			}
+			None => self.refresh(refresh_time)
+		}
+	}
+
+	fn eq_storage(&self, storage: &EndpointSerialized) -> bool {
+		storage.service == "Twitter" &&
+			storage.endpoint_type == 4 &&
+			storage.params["query"]
+				.as_str()
+				.map(|s| s == self.query)
+				.unwrap_or_default()
 	}
 }
