@@ -14,7 +14,7 @@ pub use endpoint_agent::{EndpointId, EndpointAgent, RefreshTime};
 use crate::error::Error;
 use crate::articles::ArticleData;
 use crate::timeline::sort_methods::sort_by_id;
-use crate::timeline::filters::FilterSerialized;
+use crate::timeline::filters::FilterInstance;
 
 #[derive(Clone, Copy, Debug)]
 pub struct RateLimit {
@@ -72,7 +72,7 @@ pub struct EndpointSerialized {
 	pub endpoint_type: usize,
 	pub params: serde_json::Value,
 	#[serde(default)]
-	pub filters: Vec<FilterSerialized>,
+	pub filters: Vec<FilterInstance>,
 	#[serde(default)]
 	pub auto_refresh: bool,
 }

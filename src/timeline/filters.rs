@@ -1,39 +1,131 @@
 use std::rc::Weak;
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell};
+use serde::{Serialize, Deserialize};
 
 use crate::articles::{ArticleData, ArticleMedia, ArticleRefType, MediaType};
 
 pub type FilterPredicate = fn(&Weak<RefCell<dyn ArticleData>>, inverted: &bool) -> bool;
 
-#[derive(Clone)]
-pub struct Filter {
-	pub name: String,
-	pub predicate: FilterPredicate,
-	pub enabled: bool,
-	pub inverted: bool,
-}
-
-#[derive(serde::Serialize, serde::Deserialize)]
-pub struct FilterSerialized {
-	pub id: usize,
-	pub enabled: bool,
-	pub inverted: bool,
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum Filter {
+	Media,
+	Animated,
+	NotMarkedAsRead,
+	NotHidden,
+	Liked,
+	Reposted,
 }
 
 impl Filter {
-	fn new(name: String, predicate: FilterPredicate) -> Self {
+	pub fn name(&self, inverted: bool) -> &'static str {
+		if inverted {
+			match self {
+				Filter::Media => "Without Media",
+				Filter::Animated => "Not Animated",
+				Filter::NotMarkedAsRead => "Marked as read",
+				Filter::NotHidden => "Hidden",
+				Filter::Liked => "Not Liked",
+				Filter::Reposted => "Not Reposted",
+			}
+		}else {
+			match self {
+				Filter::Media => "Has Media",
+				Filter::Animated => "Animated",
+				Filter::NotMarkedAsRead => "Not marked as read",
+				Filter::NotHidden => "Not hidden",
+				Filter::Liked => "Liked",
+				Filter::Reposted => "Reposted",
+			}
+		}
+	}
+	pub fn iter() -> impl ExactSizeIterator<Item = &'static Filter> {
+		[
+			Filter::Media,
+			Filter::Animated,
+			Filter::NotMarkedAsRead,
+			Filter::NotHidden,
+			Filter::Liked,
+			Filter::Reposted,
+		].iter()
+	}
+
+	pub fn filter(&self, article: &Ref<dyn ArticleData>) -> bool {
+		match self {
+			Filter::Media => {
+				match article.referenced_article() {
+					ArticleRefType::NoRef => !article.media().is_empty(),
+					ArticleRefType::Repost(a) => a.upgrade().map(|r| !r.borrow().media().is_empty()).unwrap_or(false),
+					ArticleRefType::Quote(a) => (a.upgrade().map(|r| !r.borrow().media().is_empty()).unwrap_or(false) || !article.media().is_empty()),
+					ArticleRefType::QuoteRepost(a, q) => (q.upgrade().map(|r| !r.borrow().media().is_empty()).unwrap_or(false) || a.upgrade().map(|r| !r.borrow().media().is_empty()).unwrap_or(false) || !article.media().is_empty()),
+				}
+			}
+			Filter::Animated => {
+				match article.referenced_article() {
+					ArticleRefType::NoRef => article.media().iter().any(|m| is_animated(m)),
+					ArticleRefType::Repost(a) => a.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false),
+					ArticleRefType::Quote(a) => (a.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false) || (article.media().iter().any(|m| is_animated(m)))),
+					ArticleRefType::QuoteRepost(a, q) => (q.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false) || a.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false) || (article.media().iter().any(|m| is_animated(m)))),
+				}
+			},
+			Filter::NotMarkedAsRead => {
+				match article.referenced_article() {
+					ArticleRefType::NoRef => (!article.marked_as_read()),
+					ArticleRefType::Repost(a) | ArticleRefType::Quote(a)
+					=> (a.upgrade().map(|r| !r.borrow().marked_as_read()).unwrap_or(false) && !article.marked_as_read()),
+					ArticleRefType::QuoteRepost(a, q)
+					=> (q.upgrade().map(|r| !r.borrow().marked_as_read()).unwrap_or(false) && a.upgrade().map(|r| !r.borrow().marked_as_read()).unwrap_or(false) && !article.marked_as_read()),
+				}
+			},
+			Filter::NotHidden => {
+				match article.referenced_article() {
+					ArticleRefType::NoRef => !article.hidden(),
+					ArticleRefType::Repost(a) | ArticleRefType::Quote(a)
+					=> a.upgrade().map(|r| !r.borrow().hidden()).unwrap_or(false) && !article.hidden(),
+					ArticleRefType::QuoteRepost(a, q)
+					=> q.upgrade().map(|r| !r.borrow().hidden()).unwrap_or(false) && a.upgrade().map(|r| !r.borrow().hidden()).unwrap_or(false) && !article.hidden(),
+				}
+			}
+			Filter::Liked => {
+				match article.referenced_article() {
+					ArticleRefType::NoRef => article.liked(),
+					ArticleRefType::Repost(a) | ArticleRefType::Quote(a)
+					=> a.upgrade().map(|r| r.borrow().liked()).unwrap_or(false) || article.liked(),
+					ArticleRefType::QuoteRepost(a, q)
+					=> q.upgrade().map(|r| r.borrow().liked()).unwrap_or(false) || a.upgrade().map(|r| r.borrow().liked()).unwrap_or(false) || article.liked(),
+				}
+			}
+			Filter::Reposted => {
+				match article.referenced_article() {
+					ArticleRefType::NoRef => article.reposted(),
+					ArticleRefType::Repost(a) | ArticleRefType::Quote(a)
+					=> a.upgrade().map(|r| r.borrow().reposted()).unwrap_or(false) || article.reposted(),
+					ArticleRefType::QuoteRepost(a, q)
+					=> q.upgrade().map(|r| r.borrow().reposted()).unwrap_or(false) || a.upgrade().map(|r| r.borrow().reposted()).unwrap_or(false) || article.reposted(),
+				}
+			}
+		}
+	}
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct FilterInstance {
+	pub filter: Filter,
+	pub enabled: bool,
+	pub inverted: bool,
+}
+
+impl FilterInstance {
+	pub fn new(filter: Filter) -> Self {
 		Self {
-			name,
-			predicate,
+			filter,
 			enabled: true,
 			inverted: false,
 		}
 	}
 
-	fn new_disabled(name: String, predicate: FilterPredicate) -> Self {
+	pub fn new_disabled(filter: Filter) -> Self {
 		Self {
-			name,
-			predicate,
+			filter,
 			enabled: false,
 			inverted: false,
 		}
@@ -45,120 +137,4 @@ fn is_animated(media: &ArticleMedia) -> bool {
 		MediaType::Video | MediaType::VideoGif | MediaType::Gif => true,
 		MediaType::Image => false,
 	}
-}
-
-pub fn default_filters() -> Vec<Filter> {
-	vec![
-		Filter::new_disabled(
-			"Media".to_owned(),
-			|a, inverted| {
-				match a.upgrade() {
-					Some(strong) => {
-						let borrow = strong.borrow();
-						&(match borrow.referenced_article() {
-							ArticleRefType::NoRef => !borrow.media().is_empty(),
-							ArticleRefType::Repost(a) => a.upgrade().map(|r| !r.borrow().media().is_empty()).unwrap_or(false),
-							ArticleRefType::Quote(a) => (a.upgrade().map(|r| !r.borrow().media().is_empty()).unwrap_or(false) || !borrow.media().is_empty()),
-							ArticleRefType::QuoteRepost(a, q) => (q.upgrade().map(|r| !r.borrow().media().is_empty()).unwrap_or(false) || a.upgrade().map(|r| !r.borrow().media().is_empty()).unwrap_or(false) || !borrow.media().is_empty()),
-						}) != inverted
-					},
-					None => false,
-				}
-		}),
-		Filter::new_disabled(
-			"Animated".to_owned(),
-			|a, inverted| {
-				match a.upgrade() {
-					Some(strong) => {
-						let borrow = strong.borrow();
-						&(match borrow.referenced_article() {
-							ArticleRefType::NoRef => borrow.media().iter().any(|m| is_animated(m)),
-							ArticleRefType::Repost(a) => a.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false),
-							ArticleRefType::Quote(a) => (a.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false) || (borrow.media().iter().any(|m| is_animated(m)))),
-							ArticleRefType::QuoteRepost(a, q) => (q.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false) || a.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false) || (borrow.media().iter().any(|m| is_animated(m)))),
-						}) != inverted
-					},
-					None => false,
-				}
-			}),
-		Filter::new(
-			"Not marked as read".to_owned(),
-			|a, inverted| {
-				match a.upgrade() {
-					Some(strong) => {
-						let borrow = strong.borrow();
-						&(match borrow.referenced_article() {
-							ArticleRefType::NoRef => (!borrow.marked_as_read()),
-							ArticleRefType::Repost(a) | ArticleRefType::Quote(a)
-								=> (a.upgrade().map(|r| !r.borrow().marked_as_read()).unwrap_or(false) && !borrow.marked_as_read()),
-							ArticleRefType::QuoteRepost(a, q)
-							=> (q.upgrade().map(|r| !r.borrow().marked_as_read()).unwrap_or(false) && a.upgrade().map(|r| !r.borrow().marked_as_read()).unwrap_or(false) && !borrow.marked_as_read()),
-						}) != inverted
-					},
-					None => false,
-				}
-			}),
-		Filter::new(
-			"Not hidden".to_owned(),
-			|a, inverted| {
-				match a.upgrade() {
-					Some(strong) => {
-						let borrow = strong.borrow();
-						&(match borrow.referenced_article() {
-							ArticleRefType::NoRef => !borrow.hidden(),
-							ArticleRefType::Repost(a) | ArticleRefType::Quote(a)
-								=> a.upgrade().map(|r| !r.borrow().hidden()).unwrap_or(false) && !borrow.hidden(),
-							ArticleRefType::QuoteRepost(a, q)
-							=> q.upgrade().map(|r| !r.borrow().hidden()).unwrap_or(false) && a.upgrade().map(|r| !r.borrow().hidden()).unwrap_or(false) && !borrow.hidden(),
-						}) != inverted
-					},
-					None => false,
-				}
-			}),
-		Filter::new_disabled(
-			"Liked".to_owned(),
-			|a, inverted| {
-				match a.upgrade() {
-					Some(strong) => {
-						let borrow = strong.borrow();
-						&(match borrow.referenced_article() {
-							ArticleRefType::NoRef => borrow.liked(),
-							ArticleRefType::Repost(a) | ArticleRefType::Quote(a)
-							=> a.upgrade().map(|r| r.borrow().liked()).unwrap_or(false) || borrow.liked(),
-							ArticleRefType::QuoteRepost(a, q)
-							=> q.upgrade().map(|r| r.borrow().liked()).unwrap_or(false) || a.upgrade().map(|r| r.borrow().liked()).unwrap_or(false) || borrow.liked(),
-						}) != inverted
-					},
-					None => false,
-				}
-			}),
-		Filter::new_disabled(
-			"Reposted".to_owned(),
-			|a, inverted| {
-				match a.upgrade() {
-					Some(strong) => {
-						let borrow = strong.borrow();
-						&(match borrow.referenced_article() {
-							ArticleRefType::NoRef => borrow.reposted(),
-							ArticleRefType::Repost(a) | ArticleRefType::Quote(a)
-							=> a.upgrade().map(|r| r.borrow().reposted()).unwrap_or(false) || borrow.reposted(),
-							ArticleRefType::QuoteRepost(a, q)
-							=> q.upgrade().map(|r| r.borrow().reposted()).unwrap_or(false) || a.upgrade().map(|r| r.borrow().reposted()).unwrap_or(false) || borrow.reposted(),
-						}) != inverted
-					},
-					None => false,
-				}
-			}),
-	]
-}
-
-pub fn deserialize_filters(filters: &Vec<FilterSerialized>) -> Vec<Filter> {
-	//TODO Implement Filter::from<FilterSerialized>
-	let default_filters = default_filters();
-	filters.iter().map(|f| {
-		let mut filter = default_filters[f.id].clone();
-		filter.enabled = f.enabled;
-		filter.inverted = f.inverted;
-		filter
-	}).collect()
 }

@@ -33,6 +33,39 @@ impl SortMethod {
 			_ => if reversed { "Descending" } else { "Ascending" },
 		}
 	}
+
+	//TODO Unit test sort methods
+	pub fn compare(&self, a: &Weak<RefCell<dyn ArticleData>>, b: &Weak<RefCell<dyn ArticleData>>) -> std::cmp::Ordering {
+		match self {
+			SortMethod::Id => {
+				let a = a.upgrade().map(|s| s.borrow().sortable_id()).unwrap_or_default();
+				let b = b.upgrade().map(|s| s.borrow().sortable_id()).unwrap_or_default();
+				a.partial_cmp(&b).unwrap()
+			},
+			SortMethod::Index => {
+				let a = a.upgrade().map(|s| s.borrow().index()).unwrap_or_default();
+				let b = b.upgrade().map(|s| s.borrow().index()).unwrap_or_default();
+				a.partial_cmp(&b).unwrap()
+			}
+			SortMethod::Date => {
+				let a = a.upgrade().map(|s| s.borrow().creation_time()).map(|d| d.get_time()).unwrap_or(0.0);
+				let b = b.upgrade().map(|s| s.borrow().creation_time()).map(|d| d.get_time()).unwrap_or(0.0);
+				a.partial_cmp(&b).unwrap()
+			}
+			SortMethod::Likes => {
+				let (a, b) = (actual_article(&a), actual_article(&b));
+				let a = a.upgrade().map(|s| s.borrow().like_count()).unwrap_or_default();
+				let b = b.upgrade().map(|s| s.borrow().like_count()).unwrap_or_default();
+				a.partial_cmp(&b).unwrap()
+			}
+			SortMethod::Reposts => {
+				let (a, b) = (actual_article(&a), actual_article(&b));
+				let a = a.upgrade().map(|s| s.borrow().repost_count()).unwrap_or_default();
+				let b = b.upgrade().map(|s| s.borrow().repost_count()).unwrap_or_default();
+				a.partial_cmp(&b).unwrap()
+			}
+		}
+	}
 }
 
 impl Display for SortMethod {
@@ -50,39 +83,6 @@ impl Display for SortMethod {
 impl Default for SortMethod {
 	fn default() -> Self {
 		SortMethod::Id
-	}
-}
-
-//TODO Unit test sort methods
-pub fn compare(method: &SortMethod, a: &Weak<RefCell<dyn ArticleData>>, b: &Weak<RefCell<dyn ArticleData>>) -> std::cmp::Ordering {
-	match method {
-		SortMethod::Id => {
-			let a = a.upgrade().map(|s| s.borrow().sortable_id()).unwrap_or_default();
-			let b = b.upgrade().map(|s| s.borrow().sortable_id()).unwrap_or_default();
-			a.partial_cmp(&b).unwrap()
-		},
-		SortMethod::Index => {
-			let a = a.upgrade().map(|s| s.borrow().index()).unwrap_or_default();
-			let b = b.upgrade().map(|s| s.borrow().index()).unwrap_or_default();
-			a.partial_cmp(&b).unwrap()
-		}
-		SortMethod::Date => {
-			let a = a.upgrade().map(|s| s.borrow().creation_time()).map(|d| d.get_time()).unwrap_or(0.0);
-			let b = b.upgrade().map(|s| s.borrow().creation_time()).map(|d| d.get_time()).unwrap_or(0.0);
-			a.partial_cmp(&b).unwrap()
-		}
-		SortMethod::Likes => {
-			let (a, b) = (actual_article(&a), actual_article(&b));
-			let a = a.upgrade().map(|s| s.borrow().like_count()).unwrap_or_default();
-			let b = b.upgrade().map(|s| s.borrow().like_count()).unwrap_or_default();
-			a.partial_cmp(&b).unwrap()
-		}
-		SortMethod::Reposts => {
-			let (a, b) = (actual_article(&a), actual_article(&b));
-			let a = a.upgrade().map(|s| s.borrow().repost_count()).unwrap_or_default();
-			let b = b.upgrade().map(|s| s.borrow().repost_count()).unwrap_or_default();
-			a.partial_cmp(&b).unwrap()
-		}
 	}
 }
 

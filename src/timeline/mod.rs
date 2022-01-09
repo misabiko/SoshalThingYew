@@ -14,8 +14,8 @@ mod containers;
 
 pub use containers::Container;
 use containers::{view_container, Props as ContainerProps};
-use filters::{Filter, default_filters};
-use sort_methods::{SortMethod, compare};
+use filters::Filter;
+use sort_methods::SortMethod;
 use agent::{TimelineAgent, Request as TimelineAgentRequest};
 use crate::articles::{ArticleView, ArticleData, ArticleRefType};
 use crate::services::endpoint_agent::{EndpointAgent, Request as EndpointRequest, TimelineEndpoints};
@@ -23,6 +23,7 @@ use crate::modals::ModalCard;
 use crate::choose_endpoints::ChooseEndpoints;
 use crate::components::{Dropdown, DropdownLabel, FA, IconSize};
 use crate::services::article_actions::{ArticleActionsAgent, Response as ArticleActionsResponse};
+use crate::timeline::filters::FilterInstance;
 
 pub type TimelineId = i8;
 
@@ -54,7 +55,7 @@ pub struct Timeline {
 	animated_as_gifs: bool,
 	hide_text: bool,
 	endpoint_agent: Dispatcher<EndpointAgent>,
-	filters: Vec<Filter>,
+	filters: Vec<FilterInstance>,
 	sort_method: (Option<SortMethod>, bool),
 	container: Container,
 	column_count: u8,
@@ -103,6 +104,8 @@ pub enum Msg {
 	UpdateSection(Option<usize>, Option<usize>),
 	ToggleLazyLoading,
 	Redraw,
+	AddFilter(Filter),
+	RemoveFilter(usize),
 }
 
 #[derive(Properties, Clone)]
@@ -128,7 +131,7 @@ pub struct Props {
 	#[prop_or_default]
 	pub articles: Vec<Weak<RefCell<dyn ArticleData>>>,
 	#[prop_or_default]
-	pub filters: Option<Vec<Filter>>,
+	pub filters: Option<Vec<FilterInstance>>,
 	#[prop_or(Some((SortMethod::Id, false)))]
 	pub sort_method: Option<(SortMethod, bool)>,
 	#[prop_or_default]
@@ -178,7 +181,10 @@ impl Component for Timeline {
 			animated_as_gifs: ctx.props().animated_as_gifs,
 			hide_text: ctx.props().hide_text,
 			endpoint_agent,
-			filters: ctx.props().filters.as_ref().map(|f| f.clone()).unwrap_or_else(|| default_filters()),
+			filters: ctx.props().filters.as_ref().map(|f| f.clone()).unwrap_or_else(|| vec![
+				FilterInstance::new(Filter::NotMarkedAsRead),
+				FilterInstance::new(Filter::NotHidden),
+			]),
 			sort_method: match ctx.props().sort_method {
 				Some((method, reversed)) => (Some(method), reversed),
 				None => (None, true)
@@ -368,8 +374,8 @@ impl Component for Timeline {
 			Msg::SortOnce(method) => {
 				self.articles.sort_by(|a, b| {
 					match self.sort_method.1 {
-						false => compare(method, &a, &b),
-						true => compare(method, &a, &b).reverse(),
+						false => method.compare(&a, &b),
+						true => method.compare(&a, &b).reverse(),
 					}
 				});
 				true
@@ -419,6 +425,14 @@ impl Component for Timeline {
 				true
 			}
 			Msg::Redraw => true,
+			Msg::AddFilter(filter) => {
+				self.filters.push(FilterInstance::new(filter));
+				true
+			}
+			Msg::RemoveFilter(index) => {
+				self.filters.remove(index);
+				true
+			}
 		}
 	}
 
@@ -428,17 +442,24 @@ impl Component for Timeline {
 		}
 
 		let mut articles = self.articles.clone();
-		for filter in &self.filters {
-			if filter.enabled {
-				articles = articles.into_iter().filter(|a| (filter.predicate)(a, &filter.inverted)).collect();
+		for instance in &self.filters {
+			if instance.enabled {
+				articles = articles.into_iter().filter(|a| {
+					let strong = a.upgrade();
+					if let Some(a) = strong {
+						instance.filter.filter(&a.borrow()) != instance.inverted
+					}else {
+						false
+					}
+				}).collect();
 			}
 		}
 
 		if let Some(method) = self.sort_method.0 {
 			articles.sort_by(|a, b| {
 				match self.sort_method.1 {
-					false => compare(&method, &a, &b),
-					true => compare(&method, &a, &b).reverse(),
+					false => method.compare(&a, &b),
+					true => method.compare(&a, &b).reverse(),
 				}
 			});
 		}
@@ -721,7 +742,7 @@ impl Timeline {
 					html! {
 						<div class="block field has-addons">
 							<div class="field-label is-normal">
-								<label class="label">{ filter.name.clone() }</label>
+								<label class="label">{ filter.filter.name(filter.inverted) }</label>
 							</div>
 							<div class="field-body">
 								<div class="control">
@@ -730,10 +751,20 @@ impl Timeline {
 								<div class="control">
 									<button class={classes!("button", inverted_class)} onclick={ctx.link().callback(move |_| Msg::ToggleFilterInverted(i))}>{inverted_label}</button>
 								</div>
+								<div class="control">
+									<button class="button" onclick={ctx.link().callback(move |_| Msg::RemoveFilter(i))}>{"Remove"}</button>
+								</div>
 							</div>
 						</div>
 					}
 				}) }
+				<Dropdown current_label={DropdownLabel::Text("New Filter".to_owned())}>
+					{ for Filter::iter().map(|filter| html! {
+						<a class="dropdown-item" onclick={ctx.link().callback(move |_| Msg::AddFilter(*filter))}>
+							{ filter.name(false) }
+						</a>
+					}) }
+				</Dropdown>
 			</div>
 		}
 	}

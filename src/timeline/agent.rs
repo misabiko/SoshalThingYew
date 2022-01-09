@@ -8,7 +8,7 @@ use crate::services::EndpointSerialized;
 use crate::services::endpoint_agent::{TimelineEndpoints, Request as EndpointRequest, EndpointAgent};
 use crate::{TimelinePropsClosure, TimelinePropsEndpointsClosure};
 use crate::log_warn;
-use crate::timeline::filters::{FilterSerialized, deserialize_filters};
+use crate::timeline::filters::FilterInstance;
 use crate::timeline::sort_methods::SortMethod;
 
 pub struct TimelineAgent {
@@ -57,7 +57,7 @@ pub struct SoshalTimelineStorage {
 	#[serde(default = "default_1")]
 	width: u8,
 	#[serde(default)]
-	filters: Vec<FilterSerialized>,
+	filters: Vec<FilterInstance>,
 	#[serde(default = "default_sort_method")]
 	sort_method: Option<(SortMethod, bool)>,
 	#[serde(default)]
@@ -136,11 +136,7 @@ impl Agent for TimelineAgent {
 						let width = t.width;
 						let column_count = t.column_count;
 						let container = t.container;
-						let filters = if t.filters.is_empty() {
-							None
-						}else {
-							Some(deserialize_filters(&t.filters))
-						};
+						let filters = t.filters;
 						let sort_method = t.sort_method;
 						let compact = t.compact;
 						let animated_as_gifs = t.animated_as_gifs;

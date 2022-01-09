@@ -10,7 +10,7 @@ use super::{Endpoint, EndpointSerialized, RateLimit};
 use crate::error::{Error, RatelimitedResult};
 use crate::articles::ArticleData;
 use crate::timeline::agent::TimelineEndpointsSerialized;
-use crate::timeline::filters::{Filter, deserialize_filters};
+use crate::timeline::filters::FilterInstance;
 use crate::{TimelineCreationMode, TimelineId, TimelinePropsEndpointsClosure};
 use crate::notifications::{NotificationAgent, Request as NotificationRequest, Notification};
 
@@ -19,7 +19,7 @@ pub type EndpointId = i32;
 #[derive(Clone)]
 pub struct TimelineEndpointWrapper {
 	pub id: EndpointId,
-	pub filters: Vec<Filter>,
+	pub filters: Vec<FilterInstance>,
 }
 
 impl From<EndpointId> for TimelineEndpointWrapper {
@@ -197,8 +197,15 @@ impl Agent for EndpointAgent {
 						timeline.1.emit(response.0.iter()
 							.map(|article| Rc::downgrade(&article))
 							.filter(|article|
-								endpoint_wrapper.filters.iter().all(|filter|
-									filter.enabled && (filter.predicate)(article, &filter.inverted)
+								endpoint_wrapper.filters.iter().all(|instance|
+									instance.enabled && {
+										let strong = article.upgrade();
+										if let Some(a) = strong {
+											instance.filter.filter(&a.borrow()) != instance.inverted
+										}else {
+											false
+										}
+									}
 								)
 							)
 							.collect());
@@ -440,9 +447,8 @@ impl EndpointAgent {
 		if storage.auto_refresh {
 			self.link.send_input(Request::StartAutoRefresh(id))
 		}
-		let filters = deserialize_filters(&storage.filters);
 
-		TimelineEndpointWrapper { id, filters }
+		TimelineEndpointWrapper { id, filters: storage.filters.clone() }
 	}
 
 	fn send_state(&self, id: &HandlerId) {
