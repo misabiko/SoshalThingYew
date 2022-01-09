@@ -24,7 +24,7 @@ pub fn modal_card(props: &ModalCardProps) -> Html {
 			<div class="modal-content">
 				<div class="card">
 					<header class="card-header">
-						<p class="card-header-title">{"Choose Endpoint"}</p>
+						<p class="card-header-title">{props.modal_title.clone()}</p>
 						<button class="card-header-icon" onclick={props.close_modal_callback.clone()}>
 							<FA icon="times"/>
 						</button>
