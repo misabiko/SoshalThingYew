@@ -73,6 +73,8 @@ pub struct EndpointSerialized {
 	pub params: serde_json::Value,
 	#[serde(default)]
 	pub filters: Vec<FilterSerialized>,
+	#[serde(default)]
+	pub auto_refresh: bool,
 }
 
 pub trait Endpoint {

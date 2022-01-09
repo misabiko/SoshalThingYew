@@ -385,7 +385,7 @@ impl Agent for EndpointAgent {
 					}));
 					self.link.send_message(Msg::UpdatedState);
 				}else {
-					log::warn!("Auto refresh for {} is already on.", &endpoint_id);
+					log::trace!("Auto refresh for {} is already on.", &endpoint_id);
 				}
 			},
 			Request::StopAutoRefresh(endpoint_id) => {
@@ -437,6 +437,9 @@ impl EndpointAgent {
 			}
 		};
 
+		if storage.auto_refresh {
+			self.link.send_input(Request::StartAutoRefresh(id))
+		}
 		let filters = deserialize_filters(&storage.filters);
 
 		TimelineEndpointWrapper { id, filters }

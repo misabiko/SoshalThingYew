@@ -1,6 +1,8 @@
 use yew::prelude::*;
 use yew_agent::{Bridge, Bridged, Dispatched, Dispatcher};
 use std::collections::HashMap;
+use gloo_storage::Storage;
+use serde::Deserialize;
 
 pub mod articles;
 pub mod choose_endpoints;
@@ -28,7 +30,13 @@ use sidebar::Sidebar;
 use timeline::{Props as TimelineProps, Timeline, TimelineId, Container};
 use timeline::agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse};
 
-#[derive(PartialEq, Clone)]
+#[derive(Deserialize)]
+struct ModelStorage {
+	display_mode: DisplayMode,
+}
+
+#[derive(PartialEq, Clone, Deserialize)]
+#[serde(tag = "type")]
 pub enum DisplayMode {
 	Single {
 		container: Container,
@@ -140,7 +148,9 @@ impl Component for Model {
 			.and_then(|s| s.parse().ok())
 			.unwrap_or_default();
 
-		let display_mode = if let Some(display_mode) = &ctx.props().display_mode {
+		let display_mode = if let Some(ModelStorage { display_mode }) = gloo_storage::LocalStorage::get("SoshalThingYew").ok() {
+			display_mode.clone()
+		}else if let Some(display_mode) = &ctx.props().display_mode {
 			(*display_mode).clone()
 		} else if single_timeline_bool {
 			DisplayMode::Single {
