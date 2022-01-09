@@ -2,12 +2,113 @@ use std::rc::{Rc, Weak};
 use std::cell::{RefCell, Ref};
 use js_sys::Date;
 use wasm_bindgen::JsValue;
-use std::num::NonZeroU64;
+use std::num::{NonZeroU32, NonZeroU8};
+use serde::Deserialize;
+use yew::prelude::*;
 
 use crate::articles::{ArticleData, ArticleMedia, MediaType, MediaQueueInfo, ArticleRefType, ValidRatio};
 use crate::services::storages::SessionStorageService;
 
-#[derive(Clone, PartialEq, Debug, serde::Deserialize)]
+#[derive(Deserialize)]
+pub struct Entities {
+	// hashtags: Vec<>
+	// media: Vec<>
+	// symbols: Vec<>
+	urls: Vec<TweetUrl>,
+	// user_mentions: Vec<>
+}
+
+#[derive(Deserialize)]
+pub struct TweetUrl {
+	display_url: String,
+	// expanded_url: String
+	// indices: (u16, u16)
+	url: String,
+}
+
+#[derive(Deserialize)]
+pub struct ExtendedEntities {
+	media: Vec<TweetMedia>,
+}
+
+#[derive(Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum TweetMedia {
+	Photo {
+		// display_url: String
+		// expanded_url: String
+		// ext_alt_text: null
+		// id: u32
+		// indices: (u16, u16)
+		// media_url: String
+		media_url_https: String,
+		sizes: TweetMediaSizes,
+		// source_status_id: null
+		// type: "photo"
+		url: String,
+		// video_info: null
+	},
+	AnimatedGif {
+		// display_url: String
+		// expanded_url: String
+		// ext_alt_text: null
+		// id: u32
+		// indices: (u16, u16)
+		// media_url: String
+		// media_url_https: String,
+		// sizes: TweetMediaSizes,
+		// source_status_id: null
+		// type: "photo"
+		url: String,
+		video_info: VideoInfo,
+	},
+	Video {
+		// display_url: String
+		// expanded_url: String
+		// ext_alt_text: null
+		// id: u32
+		// indices: (u16, u16)
+		// media_url: String
+		// media_url_https: String,
+		// sizes: TweetMediaSizes,
+		// source_status_id: null
+		// type: "photo"
+		url: String,
+		video_info: VideoInfo,
+	},
+}
+
+#[derive(Deserialize)]
+pub struct TweetMediaSizes {
+	large: TweetMediaSize,
+	// medium: TweetMediaSize,
+	// small: TweetMediaSize,
+	// thumb: TweetMediaSize,
+}
+
+#[derive(Deserialize)]
+pub struct TweetMediaSize {
+	h: u32,
+	//resize: enum
+	w: u32,
+}
+
+#[derive(Deserialize)]
+pub struct VideoInfo {
+	aspect_ratio: (u8, u8),
+	// duration_millis: u32,
+	variants: Vec<VideoVariant>,
+}
+
+#[derive(Deserialize)]
+pub struct VideoVariant {
+	// bitrate: u32,
+	content_type: String,
+	// enum
+	url: String,
+}
+
+#[derive(Clone, PartialEq, Debug, Deserialize)]
 pub struct TwitterUser {
 	pub username: String,
 	pub name: String,
@@ -31,6 +132,7 @@ pub struct TweetArticleData {
 	pub referenced_article: ArticleRefType<Weak<RefCell<TweetArticleData>>>,
 	pub marked_as_read: bool,
 	pub hidden: bool,
+	pub text_html: Html,
 }
 
 impl ArticleData for TweetArticleData {
@@ -109,6 +211,9 @@ impl ArticleData for TweetArticleData {
 	fn media_loaded(&mut self, _index: usize) {
 		log::warn!("Twitter doesn't do lazy loading.");
 	}
+	fn view_text(&self) -> Html {
+		self.text_html.clone()
+	}
 }
 
 impl TweetArticleData {
@@ -155,17 +260,14 @@ impl TweetArticleData {
 			}
 		};
 
-		let extended_entities = &json["extended_entities"];
-		let medias_opt = extended_entities
-			.get("media")
-			.and_then(|media| media.as_array());
+		let extended_entities: Option<ExtendedEntities> = serde_json::from_value(json["extended_entities"].clone()).unwrap();
 
-		let mut text = match json["full_text"].as_str().or(json["text"].as_str()) {
+		let text = match json["full_text"].as_str().or(json["text"].as_str()) {
 			Some(text) => text,
 			None => "",
 		}.to_owned();
 
-		text = parse_text(text, &json["entities"], &extended_entities);
+		let (text, text_html) = parse_text(text, serde_json::from_value(json["entities"].clone()).unwrap(), &extended_entities);
 
 		let data = Rc::new(RefCell::new(TweetArticleData {
 			id,
@@ -180,61 +282,7 @@ impl TweetArticleData {
 			retweeted: json["retweeted"].as_bool().unwrap_or_default(),
 			like_count: json["favorite_count"].as_u64().unwrap() as u32,
 			retweet_count: json["retweet_count"].as_u64().unwrap() as u32,
-			media: match medias_opt {
-				Some(medias) => {
-					medias.iter()
-						.map(|m| {
-							m.get("type")
-								.and_then(|t| t.as_str())
-								.and_then(|t| match t {
-									"photo" => m.get("media_url_https")
-											.and_then(|url| url.as_str())
-											.zip(m.get("sizes")
-												.and_then(|s| s.get("large"))
-												.and_then(|s|
-													s.get("w")
-														.and_then(|w| w.as_u64())
-														.zip(s.get("h")
-															.and_then(|h| h.as_u64())
-														)
-														.map(|(w, h)| ValidRatio::new_u64(
-															NonZeroU64::new(w).expect("non-zero width"),
-															NonZeroU64::new(h).expect("non-zero height"),
-														))
-												))
-											.map(|(url, ratio)| ArticleMedia {
-												media_type: MediaType::Image,
-												src: url.to_owned(),
-												ratio,
-												queue_load_info: MediaQueueInfo::DirectLoad,
-											}),
-									"animated_gif" => m.get("video_info")
-										.and_then(|v| get_mp4(v))
-										.map(|(url, ratio)| ArticleMedia {
-											media_type: MediaType::VideoGif,
-											src: url.to_owned(),
-											ratio,
-											queue_load_info: MediaQueueInfo::DirectLoad,
-										}),
-									"video" => m.get("video_info")
-										.and_then(|v| get_mp4(v))
-										.map(|(url, ratio)| ArticleMedia {
-											media_type: MediaType::Video,
-											src: url.to_owned(),
-											ratio,
-											queue_load_info: MediaQueueInfo::DirectLoad,
-										}),
-									other_type => {
-										log::warn!("Unexpected media type \"{}\"", &other_type);
-										None
-									}
-								})
-						})
-						.filter_map(std::convert::identity)
-						.collect()
-				},
-				None => Vec::new()
-			},
+			media: parse_media(extended_entities.map(|e| e.media)),
 			raw_json: json.clone(),
 			referenced_article: match &referenced_article {
 				StrongArticleRefType::NoRef => ArticleRefType::NoRef,
@@ -247,6 +295,7 @@ impl TweetArticleData {
 			},
 			marked_as_read: storage.articles_marked_as_read.contains(&id.to_string()),
 			hidden: false,
+			text_html,
 		}));
 		(data, referenced_article)
 	}
@@ -260,58 +309,56 @@ impl TweetArticleData {
 	}
 }
 
-fn first_mp4(variants: &Vec<serde_json::Value>) -> Option<&serde_json::Value> {
-	variants.iter().find(|v|
-		v.get("content_type")
-			.and_then(|t| t.as_str())
-			.map(|t| t == "video/mp4")
-			.unwrap_or(false)
-	)
+fn get_mp4(video_info: &VideoInfo, media_type: MediaType) -> ArticleMedia {
+	ArticleMedia {
+		media_type,
+		src: video_info.variants
+			.iter().find(|v| v.content_type == "video/mp4").expect("finding mp4 video")
+			.url.clone(),
+		ratio: ValidRatio::new_u8(
+			NonZeroU8::new(video_info.aspect_ratio.0).expect("non-zero width"),
+			NonZeroU8::new(video_info.aspect_ratio.1).expect("non-zero height"),
+		),
+		queue_load_info: MediaQueueInfo::DirectLoad,
+	}
 }
 
-fn get_mp4(video_info: &serde_json::Value) -> Option<(&str, ValidRatio)> {
-	video_info.get("variants")
-		.and_then(|v| v.as_array())
-		.and_then(|v| first_mp4(v))
-		.and_then(|v| v.get("url"))
-		.and_then(|url| url.as_str())
-		.zip(
-			video_info.get("aspect_ratio")
-				.and_then(|r| r.as_array())
-				.and_then(|r| r.get(0)
-					.and_then(|w| w.as_u64())
-					.zip(r.get(1).and_then(|w| w.as_u64())))
-				.map(|(w, h)| ValidRatio::new_u64(
-					NonZeroU64::new(w).expect("non-zero width"),
-					NonZeroU64::new(h).expect("non-zero height"),
-				))
-		)
-}
-
-pub fn parse_text(mut text: String, entities: &serde_json::Value, extended_entities: &serde_json::Value) -> String {
-	let medias_opt: Option<Vec<&str>> = extended_entities
-		.get("media")
-		.and_then(|media| media.as_array())
-		.map(|medias| medias.iter().filter_map(|m| {
-			m.get("type")
-				.and_then(|t| t.as_str())
-				.and_then(|t| if let "photo" | "video" | "animated_gif" = t {
-					m.get("url")
-				}else {
-					None
+fn parse_media(media: Option<Vec<TweetMedia>>) -> Vec<ArticleMedia> {
+	match media {
+		Some(medias) => {
+			medias.iter()
+				.map(|m| match m {
+					TweetMedia::Photo { media_url_https, sizes, .. } => ArticleMedia {
+						media_type: MediaType::Image,
+						src: media_url_https.clone(),
+						ratio: ValidRatio::new_u32(
+							NonZeroU32::new(sizes.large.w).expect("non-zero width"),
+							NonZeroU32::new(sizes.large.h).expect("non-zero height"),
+						),
+						queue_load_info: MediaQueueInfo::DirectLoad,
+					},
+					TweetMedia::AnimatedGif { video_info, .. } => get_mp4(video_info, MediaType::VideoGif),
+					TweetMedia::Video { video_info, .. } => get_mp4(video_info, MediaType::Video),
 				})
-				.and_then(|u| u.as_str())
+				.collect()
+		}
+		None => Vec::new()
+	}
+}
+
+pub fn parse_text(mut text: String, entities: Entities, extended_entities: &Option<ExtendedEntities>) -> (String, Html) {
+	let medias_opt: Option<Vec<&String>> = extended_entities.as_ref().map(|e|
+			e.media.iter().map(|m| match m {
+				TweetMedia::Photo { url, .. } |
+				TweetMedia::AnimatedGif { url, .. } |
+				TweetMedia::Video { url, .. }
+				=> url
 			}).collect()
 		);
 
-	let urls_opt: Option<Vec<(&str, &str)>> = entities
-		.get("urls")
-		.and_then(|url| url.as_array())
-		.map(|urls|
-			urls.iter()
-				.filter_map(|url| url["url"].as_str().zip(url["display_url"].as_str())
-			).collect()
-		);
+	let urls: Vec<(String, &String)> = entities.urls.iter().map(|url|
+		(url.url.clone(), &url.display_url)
+	).collect();
 
 	if let Some(medias) = medias_opt {
 		for media in medias {
@@ -319,11 +366,11 @@ pub fn parse_text(mut text: String, entities: &serde_json::Value, extended_entit
 		}
 	}
 
-	if let Some(urls) = urls_opt {
-		for (compressed, display) in urls {
-			text = text.replace(compressed, display);
-		}
+	for (compressed, display) in urls {
+		text = text.replace(compressed.as_str(), display.as_str());
 	}
 
-	text.trim().to_owned()
+	text = text.trim().to_owned();
+	let html = html! { { text.clone() } };
+	(text, html)
 }

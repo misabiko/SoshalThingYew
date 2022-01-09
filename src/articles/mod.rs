@@ -1,7 +1,7 @@
 use std::rc::Weak;
 use std::cell::RefCell;
 use std::fmt::{Debug, Display, Formatter};
-use std::num::{NonZeroU32, NonZeroU64};
+use std::num::{NonZeroU32, NonZeroU64, NonZeroU8};
 use js_sys::Date;
 use serde::{Serialize, Deserialize};
 use yew::prelude::*;
@@ -39,6 +39,10 @@ impl ArticleRefType<Box<dyn ArticleData>> {
 pub struct ValidRatio(f32);
 
 impl ValidRatio {
+	pub fn new_u8(width: NonZeroU8, height: NonZeroU8) -> Self {
+		Self(height.get() as f32 / width.get() as f32)
+	}
+
 	pub fn new_u32(width: NonZeroU32, height: NonZeroU32) -> Self {
 		Self(height.get() as f32 / width.get() as f32)
 	}
