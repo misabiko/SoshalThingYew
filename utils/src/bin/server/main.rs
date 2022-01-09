@@ -3,9 +3,10 @@ use actix_identity::{Identity, CookieIdentityPolicy, IdentityService};
 use serde::Serialize;
 use std::fmt::{Display, Formatter};
 use actix_files::NamedFile;
-use crate::twitter::TwitterState;
+use rand::Rng;
 
 mod twitter;
+use crate::twitter::TwitterState;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -95,12 +96,11 @@ async fn main() -> Result<()> {
 	std::env::set_var("RUST_LOG", "actix_web=debug");
 	env_logger::init();
 
-	//TODO Use cookie key
-	//TODO Set secure to true when HTTPS
+	let cookie_key = rand::thread_rng().gen::<[u8; 32]>();
+
 	HttpServer::new(move || {
 		App::new()
-			.wrap(IdentityService::new(CookieIdentityPolicy::new(&[0; 32])
-				.secure(false)))
+			.wrap(IdentityService::new(CookieIdentityPolicy::new(&cookie_key).secure(true)))
 			.wrap(Logger::default())
 			.app_data(data.clone())
 			.service(
