@@ -20,9 +20,9 @@ use crate::services::{
 	twitter::endpoints::{UserTimelineEndpoint, HomeTimelineEndpoint, ListEndpoint, SingleTweetEndpoint},
 };
 use crate::error::{Error, RatelimitedResult};
-use crate::services::storages::{get_service_session, SessionStorageService};
+use crate::services::storages::{get_service_storage, ServiceStorage};
 
-pub async fn fetch_tweets(url: &str, storage: &SessionStorageService) -> RatelimitedResult<Vec<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)>> {
+pub async fn fetch_tweets(url: &str, storage: &ServiceStorage) -> RatelimitedResult<Vec<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)>> {
 	let response = reqwest::Client::builder().build()?
 		.get(format!("{}{}", base_url(), url))
 		.send().await?
@@ -204,7 +204,7 @@ impl Agent for TwitterAgent {
 					let path = format!("/proxy/twitter/{}/{}", if borrow.liked() { "unlike" } else { "like" }, borrow.id());
 
 					self.link.send_future(async move {
-						Msg::FetchResponse(id, fetch_tweets(&path, &get_service_session("Twitter")).await)
+						Msg::FetchResponse(id, fetch_tweets(&path, &get_service_storage("Twitter")).await)
 					})
 				}
 			}
@@ -216,7 +216,7 @@ impl Agent for TwitterAgent {
 					let path = format!("/proxy/twitter/{}/{}", if borrow.reposted() { "unretweet" } else { "retweet" }, borrow.id());
 
 					self.link.send_future(async move {
-						Msg::FetchResponse(id, fetch_tweets(&path, &get_service_session("Twitter")).await)
+						Msg::FetchResponse(id, fetch_tweets(&path, &get_service_storage("Twitter")).await)
 					})
 				}
 			}
@@ -241,11 +241,11 @@ impl Agent for TwitterAgent {
 			},
 			Request::FetchTweets(refresh_time, id, path) =>
 				self.link.send_future(async move {
-					Msg::EndpointFetchResponse(refresh_time, id, fetch_tweets(&path, &get_service_session("Twitter")).await)
+					Msg::EndpointFetchResponse(refresh_time, id, fetch_tweets(&path, &get_service_storage("Twitter")).await)
 				}),
 			Request::FetchTweet(refresh_time, id, path) =>
 				self.link.send_future(async move {
-					Msg::EndpointFetchResponse(refresh_time, id, fetch_tweets(&path, &get_service_session("Twitter")).await)
+					Msg::EndpointFetchResponse(refresh_time, id, fetch_tweets(&path, &get_service_storage("Twitter")).await)
 				})
 		}
 	}

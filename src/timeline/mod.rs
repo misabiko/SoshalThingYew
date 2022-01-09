@@ -22,7 +22,8 @@ use crate::services::endpoint_agent::{EndpointAgent, Request as EndpointRequest,
 use crate::modals::ModalCard;
 use crate::choose_endpoints::ChooseEndpoints;
 use crate::components::{Dropdown, DropdownLabel, FA, IconSize};
-use crate::services::article_actions::{ArticleActionsAgent, Response as ArticleActionsResponse};
+use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest, Response as ArticleActionsResponse};
+use crate::services::storages::{hide_article, mark_article_as_read};
 use crate::timeline::filters::FilterInstance;
 
 pub type TimelineId = i8;
@@ -64,7 +65,7 @@ pub struct Timeline {
 	show_choose_endpoint: bool,
 	container_ref: NodeRef,
 	autoscroll: Rc<RefCell<Autoscroll>>,
-	_article_actions: Box<dyn Bridge<ArticleActionsAgent>>,
+	article_actions: Box<dyn Bridge<ArticleActionsAgent>>,
 	timeline_agent: Dispatcher<TimelineAgent>,
 	use_section: bool,
 	section: (usize, usize),
@@ -106,6 +107,8 @@ pub enum Msg {
 	Redraw,
 	AddFilter(Filter),
 	RemoveFilter(usize),
+	MarkAllAsRead,
+	HideAll,
 }
 
 #[derive(Properties, Clone)]
@@ -200,7 +203,7 @@ impl Component for Timeline {
 				speed: 3.0,
 				anim: None,
 			})),
-			_article_actions: ArticleActionsAgent::bridge(ctx.link().callback(Msg::ActionsCallback)),
+			article_actions: ArticleActionsAgent::bridge(ctx.link().callback(Msg::ActionsCallback)),
 			timeline_agent: TimelineAgent::dispatcher(),
 			use_section: false,
 			section: (0, 50),
@@ -396,7 +399,10 @@ impl Component for Timeline {
 			Msg::ActionsCallback(response) => {
 				match response {
 					//Could filter articles for perfs
-					ArticleActionsResponse::RedrawTimelines(_articles) => true
+					ArticleActionsResponse::RedrawTimelines(_articles) => {
+						log::debug!("Redraw timeline");
+						true
+					}
 				}
 			}
 			Msg::SetMainTimeline => {
@@ -433,6 +439,58 @@ impl Component for Timeline {
 				self.filters.remove(index);
 				true
 			}
+			Msg::MarkAllAsRead => {
+				for article in self.sectioned_articles() {
+					let strong = article.upgrade().unwrap();
+					let mut borrow = strong.borrow_mut();
+
+					match borrow.referenced_article() {
+						ArticleRefType::NoRef | ArticleRefType::Quote(_) => {
+							let new_marked_as_read = !borrow.marked_as_read();
+							borrow.set_marked_as_read(new_marked_as_read);
+
+							mark_article_as_read(borrow.service(), borrow.id(), new_marked_as_read);
+						},
+						ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => {
+							let strong = a.upgrade().unwrap();
+							let mut borrow = strong.borrow_mut();
+
+							let new_marked_as_read = !borrow.marked_as_read();
+							borrow.set_marked_as_read(new_marked_as_read);
+							mark_article_as_read(borrow.service(), borrow.id(), new_marked_as_read);
+						}
+					};
+				}
+
+				self.article_actions.send(ArticleActionsRequest::RedrawTimelines(self.sectioned_articles()));
+				false
+			}
+			Msg::HideAll => {
+				for article in self.sectioned_articles() {
+					let strong = article.upgrade().unwrap();
+					let mut borrow = strong.borrow_mut();
+
+					match borrow.referenced_article() {
+						ArticleRefType::NoRef | ArticleRefType::Quote(_) => {
+							let new_hidden = !borrow.hidden();
+							borrow.set_hidden(new_hidden);
+
+							hide_article(borrow.service(), borrow.id(), new_hidden);
+						},
+						ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => {
+							let strong = a.upgrade().unwrap();
+							let mut borrow = strong.borrow_mut();
+
+							let new_hidden = borrow.hidden();
+							borrow.set_hidden(new_hidden);
+							hide_article(borrow.service(), borrow.id(), new_hidden);
+						}
+					};
+				}
+
+				self.article_actions.send(ArticleActionsRequest::RedrawTimelines(self.sectioned_articles()));
+				false
+			}
 		}
 	}
 
@@ -441,35 +499,7 @@ impl Component for Timeline {
 			return html! {}
 		}
 
-		let mut articles = self.articles.clone();
-		for instance in &self.filters {
-			if instance.enabled {
-				articles = articles.into_iter().filter(|a| {
-					let strong = a.upgrade();
-					if let Some(a) = strong {
-						instance.filter.filter(&a.borrow()) != instance.inverted
-					}else {
-						false
-					}
-				}).collect();
-			}
-		}
-
-		if let Some(method) = self.sort_method.0 {
-			articles.sort_by(|a, b| {
-				match self.sort_method.1 {
-					false => method.compare(&a, &b),
-					true => method.compare(&a, &b).reverse(),
-				}
-			});
-		}
-
-		if self.use_section {
-			articles = articles.into_iter()
-				.skip(self.section.0)
-				.take(self.section.1)
-				.collect();
-		}
+		let articles = self.sectioned_articles();
 
 		let articles: Vec<ArticleTuple> = articles.into_iter()
 			.map(|a| {
@@ -600,10 +630,15 @@ impl Timeline {
 						</div>
 					},
 				} }
-				<div class="block control">
-					<label class="label">{"Timeline Width"}</label>
-					<input class="input" type="number" value={self.width.to_string()} min=1 oninput={on_width_input}/>
-				</div>
+				{ match ctx.props().main_timeline {
+					true => html! {},
+					false => html! {
+						<div class="block control">
+							<label class="label">{"Timeline Width"}</label>
+							<input class="input" type="number" value={self.width.to_string()} min=1 oninput={on_width_input}/>
+						</div>
+					}
+				} }
 				<div class="block control">
 					<Dropdown current_label={DropdownLabel::Text(self.container.name().to_string())}>
 						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeContainer(Container::Column))}> {"Column"} </a>
@@ -716,6 +751,12 @@ impl Timeline {
 					}
 				}
 				<div class="block control">
+					<button class="button" onclick={ctx.link().callback(|_| Msg::MarkAllAsRead)}>{"Mark listed articles as read"}</button>
+				</div>
+				<div class="block control">
+					<button class="button" onclick={ctx.link().callback(|_| Msg::HideAll)}>{"Hide listed articles"}</button>
+				</div>
+				<div class="block control">
 					<button class="button" onclick={ctx.link().callback(|_| Msg::Redraw)}>{"Redraw timeline"}</button>
 				</div>
 				<div class="block control">
@@ -817,5 +858,39 @@ impl Timeline {
 				</div>
 			</div>
 		}
+	}
+
+	fn sectioned_articles(&self) -> Vec<Weak<RefCell<dyn ArticleData>>> {
+		let mut articles = self.articles.clone();
+		for instance in &self.filters {
+			if instance.enabled {
+				articles = articles.into_iter().filter(|a| {
+					let strong = a.upgrade();
+					if let Some(a) = strong {
+						instance.filter.filter(&a.borrow()) != instance.inverted
+					}else {
+						false
+					}
+				}).collect();
+			}
+		}
+
+		if let Some(method) = self.sort_method.0 {
+			articles.sort_by(|a, b| {
+				match self.sort_method.1 {
+					false => method.compare(&a, &b),
+					true => method.compare(&a, &b).reverse(),
+				}
+			});
+		}
+
+		if self.use_section {
+			articles = articles.into_iter()
+				.skip(self.section.0)
+				.take(self.section.1)
+				.collect();
+		}
+
+		articles
 	}
 }

@@ -7,7 +7,7 @@ use serde::Deserialize;
 use yew::prelude::*;
 
 use crate::articles::{ArticleData, ArticleMedia, MediaType, MediaQueueInfo, ArticleRefType, ValidRatio};
-use crate::services::storages::SessionStorageService;
+use crate::services::storages::ServiceStorage;
 
 #[derive(Deserialize)]
 pub struct Entities {
@@ -231,7 +231,7 @@ impl ArticleData for TweetArticleData {
 }
 
 impl TweetArticleData {
-	pub fn from(json: &serde_json::Value, storage: &SessionStorageService) -> (Rc<RefCell<Self>>, StrongArticleRefType) {
+	pub fn from(json: &serde_json::Value, storage: &ServiceStorage) -> (Rc<RefCell<Self>>, StrongArticleRefType) {
 		let id = json["id"].as_u64().unwrap();
 
 		let referenced_article: StrongArticleRefType = {
@@ -307,8 +307,8 @@ impl TweetArticleData {
 					Rc::downgrade(quoted)
 				),
 			},
-			marked_as_read: storage.articles_marked_as_read.contains(&id.to_string()),
-			hidden: false,
+			marked_as_read: storage.session.articles_marked_as_read.contains(&id.to_string()),
+			hidden: storage.local.hidden_articles.contains(&id.to_string()),
 			text_html,
 		}));
 		(data, referenced_article)

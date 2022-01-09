@@ -57,7 +57,7 @@ pub struct SoshalTimelineStorage {
 	#[serde(default = "default_1")]
 	width: u8,
 	#[serde(default)]
-	filters: Vec<FilterInstance>,
+	filters: Option<Vec<FilterInstance>>,
 	#[serde(default = "default_sort_method")]
 	sort_method: Option<(SortMethod, bool)>,
 	#[serde(default)]

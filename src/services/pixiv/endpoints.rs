@@ -11,7 +11,7 @@ use super::article::{PixivArticleData, PixivArticleCached};
 use crate::articles::{ArticleData, ArticleMedia, MediaQueueInfo, MediaType, ValidRatio};
 use crate::services::{Endpoint, EndpointSerialized};
 use crate::services::endpoint_agent::{EndpointId, RefreshTime};
-use crate::services::storages::{SessionStorageService, get_service_session};
+use crate::services::storages::{ServiceStorage, get_service_storage};
 use crate::log_error;
 
 #[derive(Deserialize)]
@@ -86,9 +86,9 @@ pub struct FollowAPIIllust {
 	pub create_date: String,
 }
 
-impl From<(serde_json::Value, &FullPostAPI, &SessionStorageService)> for PixivArticleData {
-	fn from((raw_json, data, storage): (serde_json::Value, &FullPostAPI, &SessionStorageService)) -> Self {
-		let cached: Option<PixivArticleCached> = storage.cached_articles.get(&data.id)
+impl From<(serde_json::Value, &FullPostAPI, &ServiceStorage)> for PixivArticleData {
+	fn from((raw_json, data, storage): (serde_json::Value, &FullPostAPI, &ServiceStorage)) -> Self {
+		let cached: Option<PixivArticleCached> = storage.session.cached_articles.get(&data.id)
 			.and_then(|json| serde_json::from_value(json.clone()).ok());
 		let author_avatar_url = match cached {
 			Some(PixivArticleCached { author_avatar_url, .. }) => author_avatar_url,
@@ -108,8 +108,8 @@ impl From<(serde_json::Value, &FullPostAPI, &SessionStorageService)> for PixivAr
 			author_name: data.user_name.clone(),
 			author_id: data.user_id.parse::<u32>().unwrap(),
 			author_avatar_url,
-			marked_as_read: false,
-			hidden: false,
+			marked_as_read: storage.session.articles_marked_as_read.contains(data.id.as_str()),
+			hidden: storage.local.hidden_articles.contains(data.id.as_str()),
 			is_fully_fetched: true,
 			raw_json,
 			like_count: data.like_count,
@@ -120,15 +120,15 @@ impl From<(serde_json::Value, &FullPostAPI, &SessionStorageService)> for PixivAr
 	}
 }
 
-impl From<(serde_json::Value, FullPostAPI, &SessionStorageService)> for PixivArticleData {
-	fn from((raw_json, data, storage): (serde_json::Value, FullPostAPI, &SessionStorageService)) -> Self {
+impl From<(serde_json::Value, FullPostAPI, &ServiceStorage)> for PixivArticleData {
+	fn from((raw_json, data, storage): (serde_json::Value, FullPostAPI, &ServiceStorage)) -> Self {
 		PixivArticleData::from((raw_json, &data, storage))
 	}
 }
 
-impl From<(serde_json::Value, &FollowAPIIllust, &SessionStorageService)> for PixivArticleData {
-	fn from((raw_json, data, storage): (serde_json::Value, &FollowAPIIllust, &SessionStorageService)) -> Self {
-		let cached: Option<PixivArticleCached> = storage.cached_articles.get(&data.id)
+impl From<(serde_json::Value, &FollowAPIIllust, &ServiceStorage)> for PixivArticleData {
+	fn from((raw_json, data, storage): (serde_json::Value, &FollowAPIIllust, &ServiceStorage)) -> Self {
+		let cached: Option<PixivArticleCached> = storage.session.cached_articles.get(&data.id)
 			.and_then(|json| serde_json::from_value(json.clone()).ok());
 		let (media, is_fully_fetched) = match cached {
 			Some(PixivArticleCached { media, .. }) => (media, true),
@@ -148,8 +148,8 @@ impl From<(serde_json::Value, &FollowAPIIllust, &SessionStorageService)> for Pix
 			author_name: data.user_name.clone(),
 			author_id: data.user_id.parse::<u32>().unwrap(),
 			author_avatar_url: data.profile_image_url.clone(),
-			marked_as_read: storage.articles_marked_as_read.contains(data.id.as_str()),
-			hidden: false,
+			marked_as_read: storage.session.articles_marked_as_read.contains(data.id.as_str()),
+			hidden: storage.local.hidden_articles.contains(data.id.as_str()),
 			is_fully_fetched,
 			raw_json,
 			like_count: 0,
@@ -160,7 +160,7 @@ impl From<(serde_json::Value, &FollowAPIIllust, &SessionStorageService)> for Pix
 	}
 }
 
-fn parse_article(element: web_sys::Element, storage: &SessionStorageService) -> Option<Rc<RefCell<PixivArticleData>>> {
+fn parse_article(element: web_sys::Element, storage: &ServiceStorage) -> Option<Rc<RefCell<PixivArticleData>>> {
 	let anchors = element.get_elements_by_tag_name("a");
 	let (id, id_str) = match anchors.get_with_index(0) {
 		Some(a) => match a.get_attribute("data-gtm-value") {
@@ -203,7 +203,7 @@ fn parse_article(element: web_sys::Element, storage: &SessionStorageService) -> 
 		None => return None,
 	};
 
-	let cached: Option<serde_json::Result<PixivArticleCached>> = storage.cached_articles.get(&id_str)
+	let cached: Option<serde_json::Result<PixivArticleCached>> = storage.session.cached_articles.get(&id_str)
 		.map(|json| serde_json::from_value(json.clone()));
 	let (media, is_fully_fetched) = match cached {
 		Some(Ok(PixivArticleCached { media, .. })) => (media, true),
@@ -247,8 +247,8 @@ fn parse_article(element: web_sys::Element, storage: &SessionStorageService) -> 
 		title,
 		author_id,
 		author_name,
-		marked_as_read: false,
-		hidden: false,
+		marked_as_read: storage.session.articles_marked_as_read.contains(&id.to_string()),
+		hidden: storage.local.hidden_articles.contains(&id.to_string()),
 		is_fully_fetched,
 		raw_json: serde_json::Value::Null,
 		like_count: 0,
@@ -305,7 +305,7 @@ impl Endpoint for FollowPageEndpoint {
 			Ok(Some(posts)) => {
 				let children = posts.children();
 				log::debug!("Found {} posts.", children.length());
-				let storage = get_service_session("Pixiv");
+				let storage = get_service_storage("Pixiv");
 				for i in 0..children.length() {
 					if let Some(article) = children.get_with_index(i).and_then(|a| parse_article(a, &storage)) {
 						articles.push(article);

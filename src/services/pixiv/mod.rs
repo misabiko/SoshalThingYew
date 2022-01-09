@@ -13,7 +13,7 @@ use crate::error::RatelimitedResult;
 use crate::services::article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest};
 use crate::services::endpoint_agent::{EndpointAgent, Request as EndpointRequest, EndpointId, RefreshTime, EndpointConstructors};
 use crate::services::pixiv::endpoints::{APIPayload, FollowAPIResponse, FullPostAPI};
-use crate::services::storages::{SessionStorageService, get_service_session, cache_articles};
+use crate::services::storages::{ServiceStorage, get_service_storage, cache_articles};
 
 pub struct PixivAgent {
 	link: AgentLink<Self>,
@@ -121,7 +121,7 @@ impl Agent for PixivAgent {
 
 				self.fetching_articles.insert(borrow.id().parse::<u32>().unwrap());
 				self.link.send_future(async move {
-					Msg::FetchResponse(fetch_post(&path, &get_service_session("Pixiv")).await.map(|(article, _)| (vec![article], None)))
+					Msg::FetchResponse(fetch_post(&path, &get_service_storage("Pixiv")).await.map(|(article, _)| (vec![article], None)))
 				});
 			}
 		}
@@ -152,7 +152,7 @@ impl Agent for PixivAgent {
 			Request::RefreshEndpoint(endpoint_id, refresh_time) => self.endpoint_agent.send(EndpointRequest::RefreshEndpoint(endpoint_id, refresh_time)),
 			Request::FetchPosts(refresh_time, endpoint_id, path) =>
 				self.link.send_future(async move {
-					Msg::EndpointFetchResponse(refresh_time, endpoint_id, fetch_posts(&path, &get_service_session("Pixiv")).await)
+					Msg::EndpointFetchResponse(refresh_time, endpoint_id, fetch_posts(&path, &get_service_storage("Pixiv")).await)
 				})
 		};
 	}
@@ -175,7 +175,7 @@ impl PixivAgent {
 
 					self.fetching_articles.insert(id);
 					self.link.send_future(async move {
-						Msg::FetchResponse(fetch_post(&path, &get_service_session("Pixiv")).await.map(|(article, _)| (vec![article], None)))
+						Msg::FetchResponse(fetch_post(&path, &get_service_storage("Pixiv")).await.map(|(article, _)| (vec![article], None)))
 					});
 				}
 			}
@@ -194,7 +194,7 @@ impl PixivAgent {
 }
 
 //TODO Stop using RatelimitedResult
-async fn fetch_posts(url: &str, storage: &SessionStorageService) -> RatelimitedResult<Vec<Rc<RefCell<PixivArticleData>>>> {
+async fn fetch_posts(url: &str, storage: &ServiceStorage) -> RatelimitedResult<Vec<Rc<RefCell<PixivArticleData>>>> {
 	let response = reqwest::Client::builder().build()?
 		.get(url)
 		.send().await?;
@@ -215,7 +215,7 @@ async fn fetch_posts(url: &str, storage: &SessionStorageService) -> RatelimitedR
 	}
 }
 
-async fn fetch_post(url: &str, storage: &SessionStorageService) -> RatelimitedResult<Rc<RefCell<PixivArticleData>>> {
+async fn fetch_post(url: &str, storage: &ServiceStorage) -> RatelimitedResult<Rc<RefCell<PixivArticleData>>> {
 	let response = reqwest::Client::builder().build()?
 		.get(url)
 		.send().await?;
