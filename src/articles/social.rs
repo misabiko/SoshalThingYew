@@ -110,7 +110,7 @@ impl Component for SocialArticle {
 								{ self.view_timestamp(&actual_borrow) }
 							</div>
 							{ match ctx.props().hide_text || self.is_filtered_out(&actual_borrow) {
-								false => html! {<p class="articleParagraph">{ actual_borrow.view_text() }</p>},
+								false => html! {<p class="articleParagraph" ref={ctx.props().paragraph_ref.clone()}>{ actual_borrow.view_text() }</p>},
 								true => html! {},
 							} }
 						</div>

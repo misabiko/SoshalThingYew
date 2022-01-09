@@ -3,6 +3,7 @@ use std::rc::Weak;
 use yew::prelude::*;
 use yew_agent::{Dispatcher, Dispatched, Bridge, Bridged};
 use web_sys::console;
+use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::JsValue;
 use std::convert::identity;
 
@@ -14,10 +15,23 @@ use crate::modals::Modal;
 use crate::log_warn;
 use crate::services::storages::mark_article_as_read;
 
+#[wasm_bindgen]
+extern "C" {
+	#[wasm_bindgen(js_namespace = twemoji, js_name = parse)]
+	fn twemoji_parse(node: web_sys::Node, options: TwemojiOptions);
+}
+
+#[wasm_bindgen]
+pub struct TwemojiOptions {
+	folder: &'static str,
+	ext: &'static str,
+}
+
 pub struct ArticleComponent {
 	in_modal: bool,
 	article_actions: Dispatcher<ArticleActionsAgent>,
 	video_ref: NodeRef,
+	paragraph_ref: NodeRef,
 	media_load_states: Vec<MediaLoadState>,
 	media_load_queue: Box<dyn Bridge<MediaLoadAgent>>,
 }
@@ -98,6 +112,7 @@ pub struct ViewProps {
 	pub hide_text: bool,
 	pub in_modal: bool,
 	pub video_ref: NodeRef,
+	pub paragraph_ref: NodeRef,
 	//Maybe use ctx.link().get_parent()?
 	pub parent_callback: Callback<Msg>,
 	pub media_load_states: Vec<MediaLoadState>,
@@ -129,6 +144,7 @@ impl Clone for ViewProps {
 			hide_text: self.hide_text,
 			in_modal: self.in_modal,
 			video_ref: self.video_ref.clone(),
+			paragraph_ref: self.paragraph_ref.clone(),
 			parent_callback: self.parent_callback.clone(),
 			media_load_states: self.media_load_states.clone(),
 			column_count: self.column_count,
@@ -162,6 +178,7 @@ impl Component for ArticleComponent {
 			in_modal: false,
 			article_actions: ArticleActionsAgent::dispatcher(),
 			video_ref: NodeRef::default(),
+			paragraph_ref: NodeRef::default(),
 			media_load_states: ctx.props().article.media().iter().map(|m|
 				if !ctx.props().lazy_loading {
 					MediaLoadState::Loaded
@@ -324,6 +341,7 @@ impl Component for ArticleComponent {
 					hide_text={ctx.props().hide_text.clone()}
 					in_modal={self.in_modal.clone()}
 					video_ref={self.video_ref.clone()}
+					paragraph_ref={self.paragraph_ref.clone()}
 					parent_callback={ctx.link().callback(identity)}
 					media_load_states={self.media_load_states.clone()}
 					column_count={ctx.props().column_count}
@@ -340,6 +358,7 @@ impl Component for ArticleComponent {
 					hide_text={ctx.props().hide_text.clone()}
 					in_modal={self.in_modal.clone()}
 					video_ref={self.video_ref.clone()}
+					paragraph_ref={self.paragraph_ref.clone()}
 					parent_callback={ctx.link().callback(identity)}
 					media_load_states={self.media_load_states.clone()}
 					column_count={ctx.props().column_count}
@@ -367,6 +386,18 @@ impl Component for ArticleComponent {
 			}
 		}else {
 			article_html
+		}
+	}
+
+	fn rendered(&mut self, _ctx: &Context<Self>, first_render: bool) {
+		//TODO "Node not found to remove VText"
+		if first_render {
+			if let Some(paragraph_ref) = self.paragraph_ref.get() {
+				twemoji_parse(paragraph_ref, TwemojiOptions {
+					folder: "svg",
+					ext: ".svg",
+				})
+			}
 		}
 	}
 }

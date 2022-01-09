@@ -382,8 +382,6 @@ pub fn parse_text(original: String, entities: Entities, extended_entities: &Opti
 		}
 	}
 
-	//let trimmed_text = trimmed_text.trim_end().to_owned();
-
 	let mut final_text = trimmed_text.clone();
 
 	let mut html_parts = Vec::new();
