@@ -456,7 +456,9 @@ pub fn base_url() -> String {
 }
 
 async fn fetch_auth_info() -> Result<AuthInfo> {
-	Ok(reqwest::Client::builder().build()?
+	Ok(reqwest::Client::builder()
+		//.timeout(Duration::from_secs(10))
+		.build()?
 		.get(format!("{}/proxy/auth_info", base_url()))
 		.send().await?
 		.json::<AuthInfo>().await?)

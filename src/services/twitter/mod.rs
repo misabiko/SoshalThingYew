@@ -23,7 +23,9 @@ use crate::error::{Error, RatelimitedResult};
 use crate::services::storages::{get_service_storage, ServiceStorage};
 
 pub async fn fetch_tweets(url: Url, storage: &ServiceStorage) -> RatelimitedResult<Vec<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)>> {
-	let response = reqwest::Client::builder().build()?
+	let response = reqwest::Client::builder()
+		//.timeout(Duration::from_secs(10))
+		.build()?
 		.get(url)
 		.send().await?
 		.error_for_status()

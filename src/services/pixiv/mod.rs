@@ -195,7 +195,9 @@ impl PixivAgent {
 
 //TODO Stop using RatelimitedResult
 async fn fetch_posts(url: &str, storage: &ServiceStorage) -> RatelimitedResult<Vec<Rc<RefCell<PixivArticleData>>>> {
-	let response = reqwest::Client::builder().build()?
+	let response = reqwest::Client::builder()
+		//.timeout(Duration::from_secs(10))
+		.build()?
 		.get(url)
 		.send().await?;
 
@@ -216,7 +218,9 @@ async fn fetch_posts(url: &str, storage: &ServiceStorage) -> RatelimitedResult<V
 }
 
 async fn fetch_post(url: &str, storage: &ServiceStorage) -> RatelimitedResult<Rc<RefCell<PixivArticleData>>> {
-	let response = reqwest::Client::builder().build()?
+	let response = reqwest::Client::builder()
+		//.timeout(Duration::from_secs(10))
+		.build()?
 		.get(url)
 		.send().await?;
 
