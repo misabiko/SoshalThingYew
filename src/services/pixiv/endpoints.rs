@@ -343,6 +343,10 @@ impl FollowAPIEndpoint {
 			page: current_page,
 		}
 	}
+
+	pub fn from_json(id: EndpointId, params: serde_json::Value) -> Self {
+		Self::new(id, params["r18"].as_bool().unwrap(), params["current_page"].as_u64().unwrap() as u16)
+	}
 }
 
 impl Endpoint for FollowAPIEndpoint {

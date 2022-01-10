@@ -11,8 +11,8 @@ use article::{PixivArticleData, PixivArticleCached};
 use crate::articles::ArticleData;
 use crate::error::RatelimitedResult;
 use crate::services::article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest};
-use crate::services::endpoint_agent::{EndpointAgent, Request as EndpointRequest, EndpointId, RefreshTime, EndpointConstructors};
-use crate::services::pixiv::endpoints::{APIPayload, FollowAPIResponse, FullPostAPI};
+use crate::services::endpoint_agent::{EndpointAgent, Request as EndpointRequest, EndpointId, RefreshTime, EndpointConstructors, EndpointConstructor};
+use crate::services::pixiv::endpoints::{APIPayload, FollowAPIEndpoint, FollowAPIResponse, FullPostAPI};
 use crate::services::storages::{ServiceStorage, get_service_storage, cache_articles};
 
 pub struct PixivAgent {
@@ -46,7 +46,16 @@ impl Agent for PixivAgent {
 		endpoint_agent.send(EndpointRequest::InitService(
 			"Pixiv".to_owned(),
 			EndpointConstructors {
-				endpoint_types: vec![],
+				endpoint_types: vec![
+					EndpointConstructor {
+						name: "Follow API",
+						param_template: vec![
+							("r18", serde_json::Value::Bool(false)),
+							("current_page", serde_json::Value::Number(0.into())),
+						],
+						callback: Rc::new(|id, params| Box::new(FollowAPIEndpoint::from_json(id, params))),
+					},
+				],
 				user_endpoint: None,
 			}));
 

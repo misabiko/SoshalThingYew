@@ -25,6 +25,7 @@ use services::{
 	endpoint_agent::{EndpointId, EndpointAgent, Request as EndpointRequest, Response as EndpointResponse, TimelineCreationRequest},
 	pixiv::PixivAgent,
 	twitter::{endpoints::*, TwitterAgent, Request as TwitterRequest, Response as TwitterResponse},
+	youtube::YoutubeAgent,
 };
 use sidebar::Sidebar;
 use timeline::{Props as TimelineProps, Timeline, TimelineId, Container};
@@ -69,6 +70,7 @@ pub struct Model {
 	page_info: Option<PageInfo>,
 	twitter: Box<dyn Bridge<TwitterAgent>>,
 	_pixiv: Dispatcher<PixivAgent>,
+	_youtube: Dispatcher<YoutubeAgent>,
 	timeline_counter: TimelineId,
 	main_timeline: TimelineId,
 	last_display_single: DisplayMode,
@@ -112,6 +114,7 @@ impl Component for Model {
 		let mut twitter = TwitterAgent::bridge(ctx.link().callback(Msg::TwitterResponse));
 		twitter.send(TwitterRequest::Sidebar);
 		let _pixiv = PixivAgent::dispatcher();
+		let _youtube = YoutubeAgent::dispatcher();
 
 		let mut _timeline_agent = TimelineAgent::bridge(ctx.link().callback(Msg::TimelineAgentResponse));
 		_timeline_agent.send(TimelineAgentRequest::RegisterTimelineContainer);
@@ -183,6 +186,7 @@ impl Component for Model {
 			page_info,
 			twitter,
 			_pixiv,
+			_youtube,
 			timeline_counter: TimelineId::MIN,
 			main_timeline: TimelineId::MIN,
 			services_sidebar: ctx.props().services_sidebar.clone(),

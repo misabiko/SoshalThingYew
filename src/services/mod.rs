@@ -8,6 +8,7 @@ pub mod article_actions;
 
 pub mod twitter;
 pub mod pixiv;
+pub mod youtube;
 pub mod storages;
 
 pub use endpoint_agent::{EndpointId, EndpointAgent, RefreshTime};
