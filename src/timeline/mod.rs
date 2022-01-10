@@ -701,12 +701,6 @@ impl Timeline {
 				</div>
 				<div class="control">
 					<label class="checkbox">
-						<input type="checkbox" checked={self.compact} onclick={ctx.link().callback(|_| Msg::ToggleCompact)}/>
-						{ " Compact articles" }
-					</label>
-				</div>
-				<div class="control">
-					<label class="checkbox">
 						<input type="checkbox" checked={self.animated_as_gifs} onclick={ctx.link().callback(|_| Msg::ToggleAnimatedAsGifs)}/>
 						{ " Show all animated as gifs" }
 					</label>
@@ -717,12 +711,25 @@ impl Timeline {
 						{ " Lazy media loading" }
 					</label>
 				</div>
-				<div class="block control">
-					<label class="checkbox">
-						<input type="checkbox" checked={self.hide_text} onclick={ctx.link().callback(|_| Msg::ToggleHideText)}/>
-						{ " Hide text" }
-					</label>
-				</div>
+				{ match self.article_view {
+					ArticleView::Social => html! {
+						<>
+							<div class="control">
+								<label class="checkbox">
+									<input type="checkbox" checked={self.compact} onclick={ctx.link().callback(|_| Msg::ToggleCompact)}/>
+									{ " Compact articles" }
+								</label>
+							</div>
+							<div class="block control">
+								<label class="checkbox">
+									<input type="checkbox" checked={self.hide_text} onclick={ctx.link().callback(|_| Msg::ToggleHideText)}/>
+									{ " Hide text" }
+								</label>
+							</div>
+						</>
+					},
+					ArticleView::Gallery => html! {},
+				} }
 				<div class="block control">
 					<button class="button is-danger" onclick={ctx.link().callback(|_| Msg::ClearArticles)}>{"Clear Articles"}</button>
 				</div>
