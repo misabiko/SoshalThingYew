@@ -18,13 +18,14 @@ use filters::Filter;
 use sort_methods::SortMethod;
 use agent::{TimelineAgent, Request as TimelineAgentRequest};
 use crate::articles::{ArticleView, ArticleData, ArticleRefType};
-use crate::services::endpoint_agent::{EndpointAgent, Request as EndpointRequest, TimelineEndpoints};
+use crate::services::endpoint_agent::{EndpointAgent, Request as EndpointRequest};
 use crate::modals::ModalCard;
 use crate::choose_endpoints::ChooseEndpoints;
 use crate::components::{Dropdown, DropdownLabel, FA, IconSize};
 use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest, Response as ArticleActionsResponse};
 use crate::services::storages::{hide_article, mark_article_as_read};
 use crate::timeline::filters::FilterInstance;
+use crate::TimelineEndpointWrapper;
 
 pub type TimelineId = i8;
 
@@ -49,7 +50,7 @@ struct Autoscroll {
 pub type ArticleTuple = (Weak<RefCell<dyn ArticleData>>, Box<dyn ArticleData>, ArticleRefType<Box<dyn ArticleData>>);
 
 pub struct Timeline {
-	endpoints: Rc<RefCell<TimelineEndpoints>>,
+	endpoints: Rc<RefCell<Vec<TimelineEndpointWrapper>>>,
 	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
 	options_shown: bool,
 	compact: bool,
@@ -118,7 +119,7 @@ pub struct Props {
 	#[prop_or_default]
 	pub hide: bool,
 	#[prop_or_default]
-	pub endpoints: Option<TimelineEndpoints>,
+	pub endpoints: Option<Vec<TimelineEndpointWrapper>>,
 	#[prop_or_default]
 	pub main_timeline: bool,
 	#[prop_or(Container::Column)]
@@ -170,7 +171,7 @@ impl Component for Timeline {
 	fn create(ctx: &Context<Self>) -> Self {
 		let endpoints = match ctx.props().endpoints.clone() {
 			Some(endpoints) => Rc::new(RefCell::new(endpoints)),
-			None => Rc::new(RefCell::new(TimelineEndpoints::default()))
+			None => Rc::new(RefCell::new(Vec::new()))
 		};
 
 		let mut endpoint_agent = EndpointAgent::dispatcher();

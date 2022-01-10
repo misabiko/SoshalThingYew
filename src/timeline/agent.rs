@@ -5,8 +5,8 @@ use serde::{Serialize, Deserialize};
 
 use super::{TimelineId, Props as TimelineProps, Container};
 use crate::services::EndpointSerialized;
-use crate::services::endpoint_agent::{TimelineEndpoints, Request as EndpointRequest, EndpointAgent};
-use crate::{TimelinePropsClosure, TimelinePropsEndpointsClosure};
+use crate::services::endpoint_agent::{Request as EndpointRequest, EndpointAgent};
+use crate::{TimelineEndpointWrapper, TimelinePropsClosure, TimelinePropsEndpointsClosure};
 use crate::log_warn;
 use crate::timeline::filters::FilterInstance;
 use crate::timeline::sort_methods::SortMethod;
@@ -28,7 +28,7 @@ pub enum Request {
 	SetMainTimeline(TimelineId),
 	RemoveTimeline(TimelineId),
 	LoadStorageTimelines,
-	LoadedStorageTimelines(Vec<TimelineEndpoints>),
+	LoadedStorageTimelines(Vec<Vec<TimelineEndpointWrapper>>),
 }
 
 pub enum Response {
@@ -41,17 +41,11 @@ pub enum Response {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct TimelineEndpointsSerialized {
-	pub start: Vec<EndpointSerialized>,
-	pub refresh: Vec<EndpointSerialized>,
-}
-
-#[derive(Serialize, Deserialize)]
 pub struct SoshalTimelineStorage {
 	title: String,
 	#[serde(default)]
 	container: Container,
-	endpoints: TimelineEndpointsSerialized,
+	endpoints: Vec<EndpointSerialized>,
 	#[serde(default = "default_1")]
 	column_count: u8,
 	#[serde(default = "default_1")]

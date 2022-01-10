@@ -37,12 +37,15 @@ fn add_follow_timelines() {
 
 	let mut endpoint_agent = EndpointAgent::dispatcher();
 	endpoint_agent.send(EndpointRequest::BatchAddEndpoints(
-		vec![Box::new(move |id| {
-			Box::new(FollowPageEndpoint::new(id))
-		})],
-		vec![Box::new(move |id| {
-			Box::new(FollowAPIEndpoint::new(id, r18, current_page - 1))
-		})],
+		vec![(
+			Box::new(move |id| {
+				Box::new(FollowPageEndpoint::new(id))
+			}), true, false
+		), (
+			Box::new(move |id| {
+				Box::new(FollowAPIEndpoint::new(id, r18, current_page - 1))
+			}), false, true
+		)],
 		TimelineCreationRequest::NameEndpoints("Pixiv".to_owned())
 	));
 }

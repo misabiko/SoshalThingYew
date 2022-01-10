@@ -75,6 +75,10 @@ pub struct EndpointSerialized {
 	pub filters: Vec<FilterInstance>,
 	#[serde(default)]
 	pub auto_refresh: bool,
+	#[serde(default)]
+	pub on_start: bool,
+	#[serde(default)]
+	pub on_refresh: bool,
 }
 
 pub trait Endpoint {

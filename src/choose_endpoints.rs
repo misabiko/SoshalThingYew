@@ -8,7 +8,7 @@ use wasm_bindgen::JsCast;
 use web_sys::HtmlInputElement;
 use serde_json::Value;
 
-use crate::services::endpoint_agent::{Request as EndpointRequest, EndpointAgent, TimelineEndpoints, EndpointId, RefreshTime, EndpointConstructors, Response as EndpointResponse, EndpointView};
+use crate::services::endpoint_agent::{Request as EndpointRequest, EndpointAgent, EndpointId, RefreshTime, EndpointConstructors, Response as EndpointResponse, EndpointView, TimelineEndpointWrapper};
 use crate::components::{Dropdown, DropdownLabel};
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse};
 
@@ -46,7 +46,7 @@ pub enum Msg {
 
 #[derive(Properties, Clone)]
 pub struct Props {
-	pub timeline_endpoints: Weak<RefCell<TimelineEndpoints>>,
+	pub timeline_endpoints: Weak<RefCell<Vec<TimelineEndpointWrapper>>>,
 	#[prop_or_default]
 	pub inside_add_timeline: bool,
 }
@@ -207,25 +207,39 @@ impl Component for ChooseEndpoints {
 			}
 			Msg::AddTimelineEndpoint(refresh_time, id) => {
 				let timeline_endpoints = ctx.props().timeline_endpoints.upgrade().unwrap();
-				match refresh_time {
-					RefreshTime::Start => timeline_endpoints.borrow_mut().start.push(id.into()),
-					RefreshTime::OnRefresh => timeline_endpoints.borrow_mut().refresh.push(id.into()),
-				};
+				timeline_endpoints.borrow_mut().push(match refresh_time {
+					RefreshTime::Start => TimelineEndpointWrapper::new(id, true, false),
+					RefreshTime::OnRefresh => TimelineEndpointWrapper::new(id, false, true),
+				});
 				true
 			}
 			Msg::AddTimelineEndpointBoth(id) => {
 				let timeline_endpoints = ctx.props().timeline_endpoints.upgrade().unwrap();
 				let mut borrow = timeline_endpoints.borrow_mut();
-				borrow.start.push(id.into());
-				borrow.refresh.push(id.into());
+				borrow.push(TimelineEndpointWrapper::new_both(id));
 				true
 			}
 			Msg::RemoveTimelineEndpoint(refresh_time, id) => {
 				let timeline_endpoints = ctx.props().timeline_endpoints.upgrade().unwrap();
-				match refresh_time {
-					RefreshTime::Start => timeline_endpoints.borrow_mut().start.retain(|e| e.id != id),
-					RefreshTime::OnRefresh => timeline_endpoints.borrow_mut().refresh.retain(|e| e.id != id),
-				};
+				let mut borrow = timeline_endpoints.borrow_mut();
+				if let Some(index) = borrow.iter().position(|e| e.id == id) {
+					match refresh_time {
+						RefreshTime::Start => {
+							if borrow[index].on_refresh {
+								borrow[index].on_start = false;
+							}else {
+								borrow.remove(index);
+							}
+						},
+						RefreshTime::OnRefresh => {
+							if borrow[index].on_start {
+								borrow[index].on_refresh = false;
+							}else {
+								borrow.remove(index);
+							}
+						},
+					};
+				}
 				true
 			}
 		}
@@ -245,9 +259,9 @@ impl ChooseEndpoints {
 	fn component_refresh_time_endpoints(&self, ctx: &Context<Self>, refresh_time: RefreshTime) -> Html {
 		let strong_endpoints = ctx.props().timeline_endpoints.upgrade().unwrap();
 		let endpoints_borrowed = strong_endpoints.borrow();
-		let (label, endpoints_iter) = match refresh_time {
-			RefreshTime::Start => ("Start".to_owned(), endpoints_borrowed.start.iter()),
-			RefreshTime::OnRefresh => ("Refresh".to_owned(), endpoints_borrowed.refresh.iter()),
+		let (label, endpoints): (String, Vec<&TimelineEndpointWrapper>) = match refresh_time {
+			RefreshTime::Start => ("Start".to_owned(), endpoints_borrowed.iter().filter(|e| e.on_start).collect()),
+			RefreshTime::OnRefresh => ("Refresh".to_owned(), endpoints_borrowed.iter().filter(|e| e.on_refresh).collect()),
 		};
 
 		let new_endpoint = match &self.endpoint_form {
@@ -386,7 +400,7 @@ impl ChooseEndpoints {
 		html! {
 			<div class="field">
 				<label class="label">{label}</label>
-				{ for endpoints_iter.map(|e| self.view_endpoint(ctx, refresh_time, e.id)) }
+				{ for endpoints.into_iter().map(|e| self.view_endpoint(ctx, refresh_time, e.id)) }
 				<div class="control">
 					{ existing_dropdown }
 				</div>

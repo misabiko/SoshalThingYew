@@ -9,44 +9,31 @@ use gloo_timers::callback::Interval;
 use super::{Endpoint, EndpointSerialized, RateLimit};
 use crate::error::{Error, RatelimitedResult};
 use crate::articles::ArticleData;
-use crate::timeline::agent::TimelineEndpointsSerialized;
 use crate::timeline::filters::FilterInstance;
 use crate::{TimelineCreationMode, TimelineId, TimelinePropsEndpointsClosure};
 use crate::notifications::{NotificationAgent, Request as NotificationRequest, Notification};
 
 pub type EndpointId = i32;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct TimelineEndpointWrapper {
 	pub id: EndpointId,
+	pub on_start: bool,
+	pub on_refresh: bool,
 	pub filters: Vec<FilterInstance>,
 }
 
-impl From<EndpointId> for TimelineEndpointWrapper {
-	fn from(id: EndpointId) -> Self {
-		Self { id, filters: Vec::new() }
+impl TimelineEndpointWrapper {
+	pub fn new(id: EndpointId, on_start: bool, on_refresh: bool) -> Self {
+		Self { id, on_start, on_refresh, filters: Vec::new() }
 	}
-}
 
-impl PartialEq for TimelineEndpointWrapper {
-	fn eq(&self, other: &Self) -> bool {
-		self.id == other.id
-	}
-}
-
-//Maybe HashMap<RefreshTime, HashSet<EndpointId>> ?
-#[derive(Clone, PartialEq, Default)]
-pub struct TimelineEndpoints {
-	pub start: Vec<TimelineEndpointWrapper>,
-	pub refresh: Vec<TimelineEndpointWrapper>,
-}
-
-impl TimelineEndpoints {
-	pub fn new_with_endpoint_both(endpoint_id: EndpointId) -> Self {
-		let endpoints = vec![endpoint_id.into()];
+	pub fn new_both(id: EndpointId) -> Self {
 		Self {
-			start: endpoints.clone(),
-			refresh: endpoints,
+			id,
+			on_start: true,
+			on_refresh: true,
+			filters: Vec::new()
 		}
 	}
 }
@@ -119,19 +106,19 @@ pub enum Msg {
 }
 
 pub enum Request {
-	InitTimeline(TimelineId, Rc<RefCell<TimelineEndpoints>>, Callback<Vec<Weak<RefCell<dyn ArticleData>>>>),
+	InitTimeline(TimelineId, Rc<RefCell<Vec<TimelineEndpointWrapper>>>, Callback<Vec<Weak<RefCell<dyn ArticleData>>>>),
 	RemoveTimeline(TimelineId),
-	Refresh(Weak<RefCell<TimelineEndpoints>>),
-	LoadBottom(Weak<RefCell<TimelineEndpoints>>),
-	LoadTop(Weak<RefCell<TimelineEndpoints>>),
+	Refresh(Weak<RefCell<Vec<TimelineEndpointWrapper>>>),
+	LoadBottom(Weak<RefCell<Vec<TimelineEndpointWrapper>>>),
+	LoadTop(Weak<RefCell<Vec<TimelineEndpointWrapper>>>),
 	RefreshEndpoint(EndpointId, RefreshTime),
 	EndpointFetchResponse(RefreshTime, EndpointId, RatelimitedResult<Vec<Rc<RefCell<dyn ArticleData>>>>),
 	AddArticles(RefreshTime, EndpointId, Vec<Rc<RefCell<dyn ArticleData>>>),
 	AddEndpoint(Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>),
-	BatchAddEndpoints(Vec<Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>>, Vec<Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>>, TimelineCreationRequest),
+	BatchAddEndpoints(Vec<(Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>, bool, bool)>, TimelineCreationRequest),
 	InitService(String, EndpointConstructors),
 	UpdateRateLimit(EndpointId, RateLimit),
-	BatchNewEndpoints(Vec<(TimelineEndpointsSerialized, TimelinePropsEndpointsClosure)>),
+	BatchNewEndpoints(Vec<(Vec<EndpointSerialized>, TimelinePropsEndpointsClosure)>),
 	RegisterTimelineContainer,
 	GetState,
 	StartAutoRefresh(EndpointId),
@@ -141,7 +128,7 @@ pub enum Request {
 
 pub enum Response {
 	UpdatedState(HashMap<String, EndpointConstructors>, Vec<EndpointView>),
-	BatchRequestResponse(Vec<(TimelineEndpoints, TimelinePropsEndpointsClosure)>),
+	BatchRequestResponse(Vec<(Vec<TimelineEndpointWrapper>, TimelinePropsEndpointsClosure)>),
 	AddTimeline(TimelineCreationMode),
 }
 
@@ -149,7 +136,7 @@ pub struct EndpointAgent {
 	link: AgentLink<Self>,
 	endpoint_counter: EndpointId,
 	pub endpoints: HashMap<EndpointId, EndpointInfo>,
-	pub timelines: HashMap<TimelineId, (Weak<RefCell<TimelineEndpoints>>, Callback<Vec<Weak<RefCell<dyn ArticleData>>>>)>,
+	pub timelines: HashMap<TimelineId, (Weak<RefCell<Vec<TimelineEndpointWrapper>>>, Callback<Vec<Weak<RefCell<dyn ArticleData>>>>)>,
 	pub services: HashMap<String, EndpointConstructors>,
 	subscribers: HashSet<HandlerId>,
 	timeline_container: Option<HandlerId>,
@@ -188,10 +175,10 @@ impl Agent for EndpointAgent {
 				for (_timeline_id, timeline) in &self.timelines {
 					let timeline_strong = timeline.0.upgrade().unwrap();
 					let borrow = timeline_strong.borrow();
-					let endpoints = match &refresh_time {
-						RefreshTime::OnRefresh => &borrow.refresh,
-						RefreshTime::Start => &borrow.start,
-					};
+					let endpoints: Vec<&TimelineEndpointWrapper> = borrow.iter().filter(|e| match refresh_time {
+						RefreshTime::Start => e.on_start,
+						RefreshTime::OnRefresh => e.on_refresh,
+					}).collect();
 
 					if let Some(endpoint_wrapper) = endpoints.iter().find(|e| e.id == endpoint_id) {
 						timeline.1.emit(response.0.iter()
@@ -257,7 +244,7 @@ impl Agent for EndpointAgent {
 			Request::InitTimeline(timeline_id, endpoints, callback) => {
 				self.timelines.insert(timeline_id, (Rc::downgrade(&endpoints), callback));
 
-				for timeline_endpoint in &endpoints.borrow().start {
+				for timeline_endpoint in endpoints.borrow().iter().filter(|e| e.on_start) {
 					let info = self.endpoints.get_mut(&timeline_endpoint.id).unwrap();
 					if info.endpoint.get_mut_ratelimit().map(|r| r.can_refresh()).unwrap_or(true) {
 						info.endpoint.refresh(RefreshTime::Start);
@@ -271,7 +258,7 @@ impl Agent for EndpointAgent {
 			}
 			Request::Refresh(endpoints_weak) => {
 				let endpoints = endpoints_weak.upgrade().unwrap();
-				for timeline_endpoint in endpoints.borrow().refresh.clone() {
+				for timeline_endpoint in endpoints.borrow().iter().filter(|e| e.on_refresh) {
 					let info = self.endpoints.get_mut(&timeline_endpoint.id).unwrap();
 					if info.endpoint.get_mut_ratelimit().map(|r| r.can_refresh()).unwrap_or(true) {
 						info.endpoint.refresh(RefreshTime::OnRefresh);
@@ -283,7 +270,7 @@ impl Agent for EndpointAgent {
 			}
 			Request::LoadBottom(endpoints_weak) => {
 				let endpoints = endpoints_weak.upgrade().unwrap();
-				for timeline_endpoint in endpoints.borrow().refresh.clone() {
+				for timeline_endpoint in endpoints.borrow().iter().filter(|e| e.on_refresh) {
 					let info = self.endpoints.get_mut(&timeline_endpoint.id).unwrap();
 					if info.endpoint.get_mut_ratelimit().map(|r| r.can_refresh()).unwrap_or(true) {
 						info.endpoint.load_bottom(RefreshTime::OnRefresh);
@@ -295,7 +282,7 @@ impl Agent for EndpointAgent {
 			}
 			Request::LoadTop(endpoints_weak) => {
 				let endpoints = endpoints_weak.upgrade().unwrap();
-				for timeline_endpoint in endpoints.borrow().refresh.clone() {
+				for timeline_endpoint in endpoints.borrow().iter().filter(|e| e.on_refresh) {
 					let info = self.endpoints.get_mut(&timeline_endpoint.id).unwrap();
 					if info.endpoint.get_mut_ratelimit().map(|r| r.can_refresh()).unwrap_or(true) {
 						info.endpoint.load_top(RefreshTime::OnRefresh);
@@ -328,22 +315,15 @@ impl Agent for EndpointAgent {
 
 				self.link.send_message(Msg::UpdatedState);
 			},
-			Request::BatchAddEndpoints(start_closures, refresh_closures, timeline_creation_request) => {
+			Request::BatchAddEndpoints(closures, timeline_creation_request) => {
 				if let Some(timeline_container) = self.timeline_container {
-					let start = start_closures.into_iter().map(|closure| {
+					let endpoints = closures.into_iter().map(|(closure, on_start, on_refresh)| {
 						let id = self.endpoint_counter;
 						self.endpoints.insert(id, EndpointInfo::new((closure)(self.endpoint_counter)));
 						self.endpoint_counter += 1;
-						id.into()
-					}).collect();
-					let refresh = refresh_closures.into_iter().map(|closure| {
-						let id = self.endpoint_counter;
-						self.endpoints.insert(id, EndpointInfo::new((closure)(self.endpoint_counter)));
-						self.endpoint_counter += 1;
-						id.into()
+						TimelineEndpointWrapper::new(id, on_start, on_refresh)
 					}).collect();
 
-					let endpoints = TimelineEndpoints { start, refresh };
 					self.link.respond(timeline_container.clone(), match timeline_creation_request {
 						TimelineCreationRequest::NameEndpoints(name) => Response::AddTimeline(TimelineCreationMode::NameEndpoints(name, endpoints)),
 						TimelineCreationRequest::Props(props) => Response::AddTimeline(TimelineCreationMode::Props(Box::new(|timeline_id| (props)(timeline_id, endpoints)))),
@@ -361,16 +341,13 @@ impl Agent for EndpointAgent {
 			Request::UpdateRateLimit(endpoint_id, ratelimit) => {
 				self.endpoints.get_mut(&endpoint_id).unwrap().endpoint.update_ratelimit(ratelimit)
 			},
-			Request::BatchNewEndpoints(timelines) => {
-				let endpoints: Vec<(TimelineEndpoints, TimelinePropsEndpointsClosure)> = timelines.into_iter().map(|(constructor, callback)| {
-					let start = constructor.start.iter()
-						.map(|e| self.find_endpoint_or_create(e))
-						.collect();
-					let refresh = constructor.refresh.iter()
-						.map(|e| self.find_endpoint_or_create(e))
+			Request::BatchNewEndpoints(endpoints) => {
+				let endpoints: Vec<(Vec<TimelineEndpointWrapper>, TimelinePropsEndpointsClosure)> = endpoints.into_iter().map(|(constructor, callback)| {
+					let endpoints = constructor.iter()
+						.map(|e| (self.find_endpoint_or_create(e, e.on_start, e.on_refresh)))
 						.collect();
 
-					(TimelineEndpoints { start, refresh }, callback)
+					(endpoints, callback)
 				}).collect();
 
 
@@ -429,7 +406,7 @@ impl EndpointAgent {
 		})
 	}
 
-	fn find_endpoint_or_create(&mut self, storage: &EndpointSerialized) -> TimelineEndpointWrapper {
+	fn find_endpoint_or_create(&mut self, storage: &EndpointSerialized, on_start: bool, on_refresh: bool) -> TimelineEndpointWrapper {
 		let id = match self.endpoint_from_constructor(storage) {
 			Some(id) => id,
 			None => {
@@ -448,7 +425,7 @@ impl EndpointAgent {
 			self.link.send_input(Request::StartAutoRefresh(id))
 		}
 
-		TimelineEndpointWrapper { id, filters: storage.filters.clone() }
+		TimelineEndpointWrapper { id, on_start, on_refresh, filters: storage.filters.clone() }
 	}
 
 	fn send_state(&self, id: &HandlerId) {

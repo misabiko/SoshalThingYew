@@ -7,14 +7,13 @@ use yew_agent::{Bridge, Bridged};
 use super::ModalCard;
 use crate::timeline::{Props as TimelineProps};
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse};
-use crate::services::endpoint_agent::TimelineEndpoints;
 use crate::choose_endpoints::ChooseEndpoints;
-use crate::TimelinePropsClosure;
+use crate::{TimelineEndpointWrapper, TimelinePropsClosure};
 
 pub struct AddTimelineModal {
 	enabled: bool,
 	title_ref: NodeRef,
-	endpoints: Rc<RefCell<TimelineEndpoints>>,
+	endpoints: Rc<RefCell<Vec<TimelineEndpointWrapper>>>,
 	_agent: Box<dyn Bridge<TimelineAgent>>,
 }
 
@@ -40,7 +39,7 @@ impl Component for AddTimelineModal {
 		Self {
 			enabled: false,
 			title_ref: NodeRef::default(),
-			endpoints: Rc::new(RefCell::new(TimelineEndpoints::default())),
+			endpoints: Rc::new(RefCell::new(Vec::new())),
 			_agent,
 		}
 	}
@@ -61,7 +60,7 @@ impl Component for AddTimelineModal {
 					}}
 				}));
 
-				self.endpoints.replace(TimelineEndpoints::default());
+				self.endpoints.replace(Vec::new());
 				self.enabled = false;
 				true
 			}
@@ -74,9 +73,7 @@ impl Component for AddTimelineModal {
 					if let Some(title) = self.title_ref.cast::<HtmlInputElement>() {
 						title.set_value("Timeline");
 					}
-					let mut borrow = self.endpoints.borrow_mut();
-					borrow.start.clear();
-					borrow.refresh.clear();
+					self.endpoints.borrow_mut().clear();
 
 					self.enabled = true;
 					true
@@ -85,9 +82,7 @@ impl Component for AddTimelineModal {
 					if let Some(title) = self.title_ref.cast::<HtmlInputElement>() {
 						title.set_value(&username);
 					}
-					let mut borrow = self.endpoints.borrow_mut();
-					borrow.start.clear();
-					borrow.refresh.clear();
+					self.endpoints.borrow_mut().clear();
 
 					self.enabled = true;
 					true

@@ -22,13 +22,14 @@ use modals::AddTimelineModal;
 use notifications::{NotificationAgent, Request as NotificationRequest, Response as NotificationResponse};
 use services::{
 	Endpoint,
-	endpoint_agent::{EndpointId, EndpointAgent, Request as EndpointRequest, Response as EndpointResponse, TimelineEndpoints, TimelineCreationRequest},
+	endpoint_agent::{EndpointId, EndpointAgent, Request as EndpointRequest, Response as EndpointResponse, TimelineCreationRequest},
 	pixiv::PixivAgent,
 	twitter::{endpoints::*, TwitterAgent, Request as TwitterRequest, Response as TwitterResponse},
 };
 use sidebar::Sidebar;
 use timeline::{Props as TimelineProps, Timeline, TimelineId, Container};
 use timeline::agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse};
+use crate::services::endpoint_agent::TimelineEndpointWrapper;
 use crate::services::storages::SoshalLocalStorage;
 
 #[derive(PartialEq, Clone, Copy, Serialize, Deserialize)]
@@ -48,10 +49,10 @@ impl Default for DisplayMode {
 }
 
 pub type TimelinePropsClosure = Box<dyn FnOnce(TimelineId) -> TimelineProps>;
-pub type TimelinePropsEndpointsClosure = Box<dyn FnOnce(TimelineId, TimelineEndpoints) -> TimelineProps>;
+pub type TimelinePropsEndpointsClosure = Box<dyn FnOnce(TimelineId, Vec<TimelineEndpointWrapper>) -> TimelineProps>;
 
 pub enum TimelineCreationMode {
-	NameEndpoints(String, TimelineEndpoints),
+	NameEndpoints(String, Vec<TimelineEndpointWrapper>),
 	Props(TimelinePropsClosure),
 }
 
@@ -78,7 +79,7 @@ pub struct Model {
 
 pub enum Msg {
 	AddEndpoint(Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>),
-	BatchAddEndpoints(Vec<Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>>, Vec<Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>>, TimelineCreationRequest),
+	BatchAddEndpoints(Vec<(Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>, bool, bool)>, TimelineCreationRequest),
 	AddTimeline(TimelineCreationMode),
 	ToggleFavViewer,
 	ToggleDisplayMode,
@@ -196,8 +197,8 @@ impl Component for Model {
 				self.endpoint_agent.send(EndpointRequest::AddEndpoint(e));
 				false
 			}
-			Msg::BatchAddEndpoints(start, refresh, creation_request) => {
-				self.endpoint_agent.send(EndpointRequest::BatchAddEndpoints(start, refresh, creation_request));
+			Msg::BatchAddEndpoints(endpoints, creation_request) => {
+				self.endpoint_agent.send(EndpointRequest::BatchAddEndpoints(endpoints, creation_request));
 				false
 			}
 			Msg::AddTimeline(creation_mode) => {
@@ -393,7 +394,7 @@ pub fn parse_url() -> (Option<String>, Option<web_sys::UrlSearchParams>) {
 
 pub fn parse_pathname(ctx: &Context<Model>, pathname: &str, search_opt: &Option<web_sys::UrlSearchParams>) {
 	if let Some(tweet_id) = pathname.strip_prefix("/twitter/status/").and_then(|s| s.parse::<u64>().ok()) {
-		let callback = ctx.link().callback(|id| Msg::AddTimeline(TimelineCreationMode::NameEndpoints("Tweet".to_owned(), TimelineEndpoints::new_with_endpoint_both(id))));
+		let callback = ctx.link().callback(|id| Msg::AddTimeline(TimelineCreationMode::NameEndpoints("Tweet".to_owned(), vec![TimelineEndpointWrapper::new_both(id)])));
 
 		ctx.link().send_message(
 			Msg::AddEndpoint(Box::new(move |id| {
@@ -413,7 +414,7 @@ pub fn parse_pathname(ctx: &Context<Model>, pathname: &str, search_opt: &Option<
 			),
 			None => (false, false)
 		};
-		let callback = ctx.link().callback(|id| Msg::AddTimeline(TimelineCreationMode::NameEndpoints("User".to_owned(), TimelineEndpoints::new_with_endpoint_both(id))));
+		let callback = ctx.link().callback(|id| Msg::AddTimeline(TimelineCreationMode::NameEndpoints("User".to_owned(), vec![TimelineEndpointWrapper::new_both(id)])));
 
 		ctx.link().send_message(
 			Msg::AddEndpoint(Box::new(move |id| {
@@ -422,7 +423,7 @@ pub fn parse_pathname(ctx: &Context<Model>, pathname: &str, search_opt: &Option<
 			}))
 		);
 	} else if pathname.starts_with("/twitter/home") {
-		let callback = ctx.link().callback( |id| Msg::AddTimeline(TimelineCreationMode::NameEndpoints("Home".to_owned(), TimelineEndpoints::new_with_endpoint_both(id))));
+		let callback = ctx.link().callback( |id| Msg::AddTimeline(TimelineCreationMode::NameEndpoints("Home".to_owned(), vec![TimelineEndpointWrapper::new_both(id)])));
 		ctx.link().send_message(
 			Msg::AddEndpoint(Box::new(move |id| {
 				callback.emit(id);
@@ -431,7 +432,7 @@ pub fn parse_pathname(ctx: &Context<Model>, pathname: &str, search_opt: &Option<
 		);
 	} else if let Some(list_params) = pathname.strip_prefix("/twitter/list/").map(|s| s.split("/").collect::<Vec<&str>>()) {
 		if let [username, slug] = list_params[..] {
-			let callback = ctx.link().callback(|id| Msg::AddTimeline(TimelineCreationMode::NameEndpoints("List".to_owned(), TimelineEndpoints::new_with_endpoint_both(id))));
+			let callback = ctx.link().callback(|id| Msg::AddTimeline(TimelineCreationMode::NameEndpoints("List".to_owned(), vec![TimelineEndpointWrapper::new_both(id)])));
 			let username = username.to_owned();
 			let slug = slug.to_owned();
 

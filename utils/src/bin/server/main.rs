@@ -88,7 +88,7 @@ async fn index(_req: HttpRequest) -> Result<NamedFile> {
 
 #[actix_web::main]
 async fn main() -> Result<()> {
-	env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
+	env_logger::init_from_env(env_logger::Env::default().default_filter_or("debug"));
 
 	let data = web::Data::new(State {
 		twitter: twitter::state().await.ok(),

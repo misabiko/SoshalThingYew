@@ -6,7 +6,7 @@ use crate::articles::{ArticleData, ArticleMedia, ArticleRefType, MediaType};
 
 pub type FilterPredicate = fn(&Weak<RefCell<dyn ArticleData>>, inverted: &bool) -> bool;
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Filter {
 	Media,
 	Animated,
@@ -107,7 +107,8 @@ impl Filter {
 	}
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+//TODO Add Eq where it makes sense
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FilterInstance {
 	pub filter: Filter,
 	pub enabled: bool,
