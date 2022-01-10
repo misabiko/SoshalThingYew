@@ -14,6 +14,9 @@ pub enum Filter {
 	NotHidden,
 	Liked,
 	Reposted,
+	PlainTweet,
+	Repost,
+	Quote,
 }
 
 impl Filter {
@@ -26,6 +29,9 @@ impl Filter {
 				Filter::NotHidden => "Hidden",
 				Filter::Liked => "Not Liked",
 				Filter::Reposted => "Not Reposted",
+				Filter::PlainTweet => "Not Plain Tweet",
+				Filter::Repost => "Not Repost",
+				Filter::Quote => "No Quote",
 			}
 		}else {
 			match self {
@@ -35,6 +41,9 @@ impl Filter {
 				Filter::NotHidden => "Not hidden",
 				Filter::Liked => "Liked",
 				Filter::Reposted => "Reposted",
+				Filter::PlainTweet => "Plain Tweet",
+				Filter::Repost => "Repost",
+				Filter::Quote => "Has Quote",
 			}
 		}
 	}
@@ -46,6 +55,9 @@ impl Filter {
 			Filter::NotHidden,
 			Filter::Liked,
 			Filter::Reposted,
+			Filter::PlainTweet,
+			Filter::Repost,
+			Filter::Quote,
 		].iter()
 	}
 
@@ -101,6 +113,25 @@ impl Filter {
 					=> a.upgrade().map(|r| r.borrow().reposted()).unwrap_or(false) || article.reposted(),
 					ArticleRefType::QuoteRepost(a, q)
 					=> q.upgrade().map(|r| r.borrow().reposted()).unwrap_or(false) || a.upgrade().map(|r| r.borrow().reposted()).unwrap_or(false) || article.reposted(),
+				}
+			}
+			Filter::PlainTweet => {
+				if let ArticleRefType::NoRef = article.referenced_article() {
+					true
+				}else {
+					false
+				}
+			}
+			Filter::Repost => {
+				match article.referenced_article() {
+					ArticleRefType::Repost(_) | ArticleRefType::QuoteRepost(_, _) => true,
+					ArticleRefType::NoRef | ArticleRefType::Quote(_) => false,
+				}
+			}
+			Filter::Quote => {
+				match article.referenced_article() {
+					ArticleRefType::Quote(_) | ArticleRefType::QuoteRepost(_, _) => true,
+					ArticleRefType::NoRef | ArticleRefType::Repost(_) => false,
 				}
 			}
 		}
