@@ -88,7 +88,7 @@ async fn index(_req: HttpRequest) -> Result<NamedFile> {
 
 #[actix_web::main]
 async fn main() -> Result<()> {
-	env_logger::init_from_env(env_logger::Env::default().default_filter_or("debug"));
+	env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
 
 	let data = web::Data::new(State {
 		twitter: twitter::state().await.ok(),
@@ -107,7 +107,7 @@ async fn main() -> Result<()> {
 					.service(auth_info)
 			)
 			//TODO Fix /twitter/status/{id} shortcut
-			.route("/twitter/{_:.*}", web::to(index))
+			//.route("/twitter/{_:.*}", web::to(index))
 			.service(actix_files::Files::new("/", "./dist").index_file("index.html"))
 	})
 	.bind("127.0.0.1:8080")?

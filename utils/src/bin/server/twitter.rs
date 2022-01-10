@@ -97,21 +97,21 @@ fn get_token<'a>(id: &'a Identity, tokens: &'a HashMap<u64, egg_mode::Token>, be
 		Some(user_id_str) => match user_id_str.parse::<u64>() {
 			Ok(user_id) => match &tokens.get(&user_id) {
 				Some(access_token) => {
-					log::info!("Welcome! {}", &user_id);
+					log::debug!("Welcome! {}", &user_id);
 					*access_token
 				}
 				None => {
-					log::info!("Couldn't find token for {}", &user_id);
+					log::warn!("Couldn't find token for {}", &user_id);
 					bearer_token
 				}
 			}
 			Err(err) => {
-				log::info!("{}", err);
+				log::warn!("{}", err);
 				bearer_token
 			}
 		}
 		None => {
-			log::info!("Welcome Anonymous!");
+			log::debug!("Welcome Anonymous!");
 			bearer_token
 		}
 	}
