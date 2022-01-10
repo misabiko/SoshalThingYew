@@ -386,7 +386,7 @@ impl Component for ArticleComponent {
 		}
 	}
 
-	fn rendered(&mut self, _ctx: &Context<Self>, first_render: bool) {
+	/*fn rendered(&mut self, _ctx: &Context<Self>, first_render: bool) {
 		//TODO "Node not found to remove VText"
 		if first_render && JsValue::from_str("twemoji").js_in(&gloo_utils::window()) {
 			if let Some(component_ref) = self.component_ref.get() {
@@ -396,5 +396,5 @@ impl Component for ArticleComponent {
 				})
 			}
 		}
-	}
+	}*/
 }
