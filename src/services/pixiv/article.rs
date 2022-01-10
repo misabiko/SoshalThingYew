@@ -1,10 +1,12 @@
 use std::cell::Ref;
 use js_sys::Date;
 use serde::{Serialize, Deserialize};
+use derivative::Derivative;
 
 use crate::articles::{ArticleData, ArticleMedia, MediaQueueInfo};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct PixivArticleData {
 	pub id: u32,
 	pub creation_time: Date,
@@ -16,6 +18,7 @@ pub struct PixivArticleData {
 	pub marked_as_read: bool,
 	pub hidden: bool,
 	pub is_fully_fetched: bool,
+	#[derivative(Debug = "ignore")]
 	pub raw_json: serde_json::Value,
 	pub like_count: u32,
 	pub liked: bool,

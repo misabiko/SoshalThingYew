@@ -5,6 +5,7 @@ use wasm_bindgen::JsValue;
 use std::num::{NonZeroU32, NonZeroU16};
 use serde::Deserialize;
 use yew::prelude::*;
+use derivative::Derivative;
 
 use crate::articles::{ArticleData, ArticleMedia, MediaType, MediaQueueInfo, ArticleRefType, ValidRatio};
 use crate::services::storages::ServiceStorage;
@@ -131,7 +132,8 @@ pub struct TwitterUser {
 
 pub type StrongArticleRefType = ArticleRefType<Rc<RefCell<TweetArticleData>>>;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct TweetArticleData {
 	pub id: u64,
 	pub text: String,
@@ -142,10 +144,12 @@ pub struct TweetArticleData {
 	pub like_count: u32,
 	pub retweet_count: u32,
 	pub media: Vec<ArticleMedia>,
+	#[derivative(Debug = "ignore")]
 	pub raw_json: serde_json::Value,
 	pub referenced_article: ArticleRefType<Weak<RefCell<TweetArticleData>>>,
 	pub marked_as_read: bool,
 	pub hidden: bool,
+	#[derivative(Debug = "ignore")]
 	pub text_html: Html,
 }
 

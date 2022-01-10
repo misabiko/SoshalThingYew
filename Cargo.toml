@@ -36,6 +36,7 @@ rand = "0.8.4"
 getrandom = { version = "0.2.3", features = ["js"] }
 gloo-storage = "0.2.0"
 gloo-timers = "0.2.2"
+derivative = "2.2.0"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.28"
