@@ -10,7 +10,11 @@
 	css.rel = "stylesheet";
 	css.href = chrome.runtime.getURL("/dist/" + index["css"]);
 
-	document.head.append(bulma, css);
+	const twemoji = document.createElement("script");
+	twemoji.src = "https://twemoji.maxcdn.com/v/latest/twemoji.min.js";
+	twemoji.crossOrigin = "anonymous";
+
+	document.head.append(bulma, css, twemoji);
 
 	const src = chrome.runtime.getURL("/dist/" + index["js"]);
 	const contentMain = await import(src);
