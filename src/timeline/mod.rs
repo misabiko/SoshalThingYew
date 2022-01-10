@@ -106,7 +106,7 @@ pub enum Msg {
 	UpdateSection(Option<usize>, Option<usize>),
 	ToggleLazyLoading,
 	Redraw,
-	AddFilter(Filter),
+	AddFilter(Filter, bool),
 	RemoveFilter(usize),
 	MarkAllAsRead,
 	HideAll,
@@ -429,8 +429,8 @@ impl Component for Timeline {
 				true
 			}
 			Msg::Redraw => true,
-			Msg::AddFilter(filter) => {
-				self.filters.push(FilterInstance::new(filter));
+			Msg::AddFilter(filter, inverted) => {
+				self.filters.push(FilterInstance {filter, inverted, enabled: true});
 				true
 			}
 			Msg::RemoveFilter(index) => {
@@ -806,8 +806,15 @@ impl Timeline {
 				}) }
 				<Dropdown current_label={DropdownLabel::Text("New Filter".to_owned())}>
 					{ for Filter::iter().map(|filter| html! {
-						<a class="dropdown-item" onclick={ctx.link().callback(move |_| Msg::AddFilter(*filter))}>
+						<a class="dropdown-item" onclick={ctx.link().callback(move |_| Msg::AddFilter(*filter, false))}>
 							{ filter.name(false) }
+						</a>
+					}) }
+				</Dropdown>
+				<Dropdown current_label={DropdownLabel::Text("New Inverted Filter".to_owned())}>
+					{ for Filter::iter().map(|filter| html! {
+						<a class="dropdown-item" onclick={ctx.link().callback(move |_| Msg::AddFilter(*filter, true))}>
+							{ filter.name(true) }
 						</a>
 					}) }
 				</Dropdown>
