@@ -100,7 +100,7 @@ async fn auth_info(id: Identity, data: Data<State>) -> HttpResponse {
 
 #[actix_web::main]
 async fn main() -> Result<()> {
-	env_logger::init_from_env(env_logger::Env::default().default_filter_or("debug"));
+	env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
 
 	//TODO std::mem::take instead of cloning
 	let credentials: Option<Credentials> = std::fs::read_to_string("credentials.json").ok()
@@ -130,5 +130,10 @@ async fn main() -> Result<()> {
 	.bind("127.0.0.1:8080")?
 	.run()
 	.await
-	.map_err(|err| err.into())
+	.map_err(|err| Error::from(err))?;
+
+	//TODO Actually log this
+	log::info!("Server listening at http://localhost:8080");
+
+	Ok(())
 }
