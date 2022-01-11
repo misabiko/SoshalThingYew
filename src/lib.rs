@@ -25,7 +25,7 @@ use services::{
 	endpoint_agent::{EndpointId, EndpointAgent, Request as EndpointRequest, Response as EndpointResponse, TimelineCreationRequest},
 	pixiv::PixivAgent,
 	twitter::{endpoints::*, TwitterAgent, Request as TwitterRequest, Response as TwitterResponse},
-	youtube::YoutubeAgent,
+	youtube::{YouTubeAgent, Request as YouTubeRequest, Response as YouTubeResponse},
 };
 use sidebar::Sidebar;
 use timeline::{Props as TimelineProps, Timeline, TimelineId, Container};
@@ -60,6 +60,7 @@ pub enum TimelineCreationMode {
 #[derive(serde::Deserialize)]
 pub struct AuthInfo {
 	twitter: Option<String>,
+	youtube: bool,
 }
 
 pub struct Model {
@@ -70,7 +71,7 @@ pub struct Model {
 	page_info: Option<PageInfo>,
 	twitter: Box<dyn Bridge<TwitterAgent>>,
 	_pixiv: Dispatcher<PixivAgent>,
-	_youtube: Dispatcher<YoutubeAgent>,
+	youtube: Box<dyn Bridge<YouTubeAgent>>,
 	timeline_counter: TimelineId,
 	main_timeline: TimelineId,
 	last_display_single: DisplayMode,
@@ -88,6 +89,7 @@ pub enum Msg {
 	TimelineAgentResponse(TimelineAgentResponse),
 	EndpointResponse(EndpointResponse),
 	TwitterResponse(TwitterResponse),
+	YouTubeResponse(YouTubeResponse),
 	FetchedAuthInfo(Result<AuthInfo>),
 	NotificationResponse(NotificationResponse),
 }
@@ -114,7 +116,8 @@ impl Component for Model {
 		let mut twitter = TwitterAgent::bridge(ctx.link().callback(Msg::TwitterResponse));
 		twitter.send(TwitterRequest::Sidebar);
 		let _pixiv = PixivAgent::dispatcher();
-		let _youtube = YoutubeAgent::dispatcher();
+		let mut youtube = YouTubeAgent::bridge(ctx.link().callback(Msg::YouTubeResponse));
+		youtube.send(YouTubeRequest::Sidebar);
 
 		let mut _timeline_agent = TimelineAgent::bridge(ctx.link().callback(Msg::TimelineAgentResponse));
 		_timeline_agent.send(TimelineAgentRequest::RegisterTimelineContainer);
@@ -186,7 +189,7 @@ impl Component for Model {
 			page_info,
 			twitter,
 			_pixiv,
-			_youtube,
+			youtube,
 			timeline_counter: TimelineId::MIN,
 			main_timeline: TimelineId::MIN,
 			services_sidebar: ctx.props().services_sidebar.clone(),
@@ -293,10 +296,17 @@ impl Component for Model {
 				};
 				true
 			}
+			Msg::YouTubeResponse(response) => {
+				match response {
+					YouTubeResponse::Sidebar(html) => self.services_sidebar.insert("YouTube".to_owned(), html),
+				};
+				true
+			}
 			Msg::FetchedAuthInfo(response) => {
 				match response {
 					Ok(auth_info) => {
 						self.twitter.send(TwitterRequest::Auth(auth_info.twitter));
+						self.youtube.send(YouTubeRequest::Auth(auth_info.youtube));
 					}
 					Err(err) => log::error!("{}", err),
 				};

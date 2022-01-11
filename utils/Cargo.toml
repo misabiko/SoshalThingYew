@@ -19,3 +19,4 @@ env_logger = "0.9.0"
 mime = "0.3.16"
 log = "0.4.14"
 rand = "0.8.4"
+youtube-api = { git = "https://github.com/maxjoehnk/youtube-rs.git" }

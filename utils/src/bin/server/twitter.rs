@@ -12,23 +12,23 @@ use egg_mode::user::UserID;
 
 use crate::{Error, Result, State};
 
-#[derive(Deserialize)]
-struct Credentials {
+#[derive(Deserialize, Clone)]
+pub struct TwitterCredentials {
 	consumer_key: String,
 	consumer_secret: String,
 }
 
 #[derive(Debug)]
-pub struct TwitterState {
+pub struct TwitterData {
 	con_token: egg_mode::KeyPair,
 	req_token: Mutex<Option<egg_mode::KeyPair>>,
 	bearer_token: egg_mode::Token,
 	tokens: Mutex<HashMap<u64, egg_mode::Token>>,
 }
 
-pub async fn state() -> Result<TwitterState> {
+pub async fn state(credentials_file: Option<TwitterCredentials>) -> Result<TwitterData> {
 	let credentials = match (std::env::var("consumer_key"), std::env::var("consumer_secret")) {
-		(Ok(consumer_key), Ok(consumer_secret)) => Ok(Credentials { consumer_key, consumer_secret }),
+		(Ok(consumer_key), Ok(consumer_secret)) => Ok(TwitterCredentials { consumer_key, consumer_secret }),
 		(Ok(_), Err(err)) => {
 			log::warn!("Found consumer_key environment variable, but no secret.\n{:?}", err);
 			Err(())
@@ -40,9 +40,7 @@ pub async fn state() -> Result<TwitterState> {
 		(Err(_), Err(_)) => Err(()),
 	}
 	.or_else(|_|
-		std::fs::read_to_string("credentials.json")
-			.map_err(Error::from)
-			.and_then(|c| serde_json::from_str(&c).map_err(Error::from))
+		credentials_file.ok_or(Error::from("No Twitter credentials.".to_owned()))
 			.map_err(|err| Error::from(format!("Please add credentials.json or set environment variables\n{:#?}", err)))
 	);
 
@@ -51,7 +49,7 @@ pub async fn state() -> Result<TwitterState> {
 			let con_token = egg_mode::KeyPair::new(credentials.consumer_key, credentials.consumer_secret);
 			log::info!("Twitter credentials successfully retrieved.");
 
-			Ok(TwitterState {
+			Ok(TwitterData {
 				req_token: Mutex::new(None),
 				bearer_token: egg_mode::auth::bearer_token(&con_token).await?,
 				tokens: Mutex::new(HashMap::new()),
@@ -88,8 +86,8 @@ pub fn service() -> impl HttpServiceFactory {
 		.service(likes)
 		.service(home_timeline)
 		.service(list)
-		.service(twitter_login)
-		.service(twitter_login_callback)
+		.service(login)
+		.service(login_callback)
 }
 
 fn get_token<'a>(id: &'a Identity, tokens: &'a HashMap<u64, egg_mode::Token>, bearer_token: &'a egg_mode::Token) -> &'a egg_mode::Token {
@@ -321,7 +319,7 @@ async fn unretweet(id: Identity, tweet_id: Path<u64>, data: Data<State>) -> Resu
 }
 
 #[get("login")]
-async fn twitter_login(data: Data<State>) -> Result<HttpResponse> {
+async fn login(data: Data<State>) -> Result<HttpResponse> {
 	let new_req_token = egg_mode::auth::request_token(&data.twitter.as_ref().unwrap().con_token, "http://localhost:8080/proxy/twitter/callback").await?;
 	*data.twitter.as_ref().unwrap().req_token.lock().expect("locking token mutex") = Some(new_req_token.clone());
 
@@ -339,7 +337,7 @@ struct LoginCallbackQuery {
 }
 
 #[get("callback")]
-async fn twitter_login_callback(id: Identity, query: Query<LoginCallbackQuery>, data: Data<State>) -> Result<HttpResponse> {
+async fn login_callback(id: Identity, query: Query<LoginCallbackQuery>, data: Data<State>) -> Result<HttpResponse> {
 	if let Some(req_token) = &*data.twitter.as_ref().unwrap().req_token.lock().expect("locking token mutex") {
 		let (access_token, user_id, _username) = egg_mode::auth::access_token(
 			data.twitter.as_ref().unwrap().con_token.clone(),

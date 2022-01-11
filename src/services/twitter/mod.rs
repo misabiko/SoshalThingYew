@@ -56,7 +56,7 @@ pub async fn fetch_tweets(url: Url, storage: &ServiceStorage) -> RatelimitedResu
 }
 
 #[derive(Debug)]
-pub enum AuthState {
+enum AuthState {
 	NotLoggedIn,
 	LoggedIn(u64)
 }

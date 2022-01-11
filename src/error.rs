@@ -9,6 +9,7 @@ use crate::services::RateLimit;
 pub type Result<T> = std::result::Result<T, Error>;
 pub type RatelimitedResult<T> = std::result::Result<(T, Option<RateLimit>), Error>;
 
+//TODO support Error directly
 #[macro_export]
 macro_rules! log_error {
 	($message:expr, $error:expr) => {{

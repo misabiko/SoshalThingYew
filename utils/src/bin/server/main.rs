@@ -1,12 +1,15 @@
-use actix_web::{get, web, App, HttpResponse, HttpServer, middleware::Logger, HttpRequest};
+use actix_web::{get, web, App, HttpResponse, HttpServer, middleware::Logger};
 use actix_identity::{Identity, CookieIdentityPolicy, IdentityService};
 use serde::Serialize;
 use std::fmt::{Display, Formatter};
-use actix_files::NamedFile;
+use actix_web::web::Data;
 use rand::Rng;
+use serde::Deserialize;
 
 mod twitter;
-use crate::twitter::TwitterState;
+mod youtube;
+use crate::twitter::{TwitterCredentials, TwitterData};
+use crate::youtube::{YouTubeCredentials, YouTubeData};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -65,33 +68,46 @@ impl From<serde_json::Error> for Error {
 
 impl actix_web::ResponseError for Error {}
 
-#[derive(Debug)]
+#[derive(Deserialize)]
+pub struct Credentials {
+	twitter: Option<TwitterCredentials>,
+	youtube: Option<YouTubeCredentials>,
+}
+
 pub struct State {
-	pub twitter: Option<TwitterState>,
+	pub twitter: Option<TwitterData>,
+	pub youtube: Option<YouTubeData>,
 }
 
 #[derive(Serialize)]
 struct AuthInfo {
 	pub twitter: Option<String>,
+	pub youtube: bool,
 }
 
 #[get("/auth_info")]
-async fn auth_info(id: Identity) -> HttpResponse {
+async fn auth_info(id: Identity, data: Data<State>) -> HttpResponse {
 	HttpResponse::Ok().json(AuthInfo {
 		twitter: id.identity(),
+		//TODO Use identity for youtube
+		youtube: data.youtube.as_ref().map(|s| s.is_logged_in()).unwrap_or(false)
 	})
 }
 
-async fn index(_req: HttpRequest) -> Result<NamedFile> {
+/*async fn index(_req: HttpRequest) -> Result<NamedFile> {
 	Ok(NamedFile::open("index.html")?)
-}
+}*/
 
 #[actix_web::main]
 async fn main() -> Result<()> {
-	env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
+	env_logger::init_from_env(env_logger::Env::default().default_filter_or("debug"));
 
+	//TODO std::mem::take instead of cloning
+	let credentials: Option<Credentials> = std::fs::read_to_string("credentials.json").ok()
+		.and_then(|c| serde_json::from_str(&c).ok());
 	let data = web::Data::new(State {
-		twitter: twitter::state().await.ok(),
+		twitter: twitter::state(credentials.as_ref().and_then(|c| c.twitter.clone())).await.ok(),
+		youtube: youtube::state(credentials.as_ref().and_then(|c| c.youtube.clone())).await.ok(),
 	});
 
 	let cookie_key = rand::thread_rng().gen::<[u8; 32]>();
@@ -104,6 +120,7 @@ async fn main() -> Result<()> {
 			.service(
 				web::scope("/proxy")
 					.service(twitter::service())
+					.service(youtube::service())
 					.service(auth_info)
 			)
 			//TODO Fix /twitter/status/{id} shortcut

@@ -7,7 +7,7 @@ use serde_json::json;
 use gloo_timers::callback::Interval;
 
 use super::{Endpoint, EndpointSerialized, RateLimit};
-use crate::error::{Error, RatelimitedResult};
+use crate::error::{Result, Error, RatelimitedResult};
 use crate::articles::ArticleData;
 use crate::timeline::filters::FilterInstance;
 use crate::{TimelineCreationMode, TimelineId, TimelinePropsEndpointsClosure};
@@ -344,7 +344,15 @@ impl Agent for EndpointAgent {
 			Request::BatchNewEndpoints(endpoints) => {
 				let endpoints: Vec<(Vec<TimelineEndpointWrapper>, TimelinePropsEndpointsClosure)> = endpoints.into_iter().map(|(constructor, callback)| {
 					let endpoints = constructor.iter()
-						.map(|e| (self.find_endpoint_or_create(e, e.on_start, e.on_refresh)))
+						.filter_map(|e|
+							match self.find_endpoint_or_create(e, e.on_start, e.on_refresh) {
+								Ok(e) => Some(e),
+								Err(err) => {
+									log::error!("{}", err);
+									None
+								}
+							}
+						)
 						.collect();
 
 					(endpoints, callback)
@@ -406,26 +414,32 @@ impl EndpointAgent {
 		})
 	}
 
-	fn find_endpoint_or_create(&mut self, storage: &EndpointSerialized, on_start: bool, on_refresh: bool) -> TimelineEndpointWrapper {
-		let id = match self.endpoint_from_constructor(storage) {
-			Some(id) => id,
+	fn find_endpoint_or_create(&mut self, storage: &EndpointSerialized, on_start: bool, on_refresh: bool) -> Result<TimelineEndpointWrapper> {
+		match self.endpoint_from_constructor(storage) {
+			Some(id) => Ok(id),
 			None => {
-				let constructor = self.services[&storage.service].endpoint_types[storage.endpoint_type].clone();
-				let params = storage.params.clone();
+				match self.services.get(&storage.service) {
+					None => Err(format!("{} isn't registered as a service. Available: {:?}", &storage.service, self.services.keys()).into()),
+					Some(service) => {
+						let constructor = service.endpoint_types[storage.endpoint_type].clone();
+						let params = storage.params.clone();
 
-				let id = self.endpoint_counter;
-				self.endpoints.insert(self.endpoint_counter, EndpointInfo::new((constructor.callback)(id, params.clone())));
-				self.endpoint_counter += 1;
+						let id = self.endpoint_counter;
+						self.endpoints.insert(self.endpoint_counter, EndpointInfo::new((constructor.callback)(id, params.clone())));
+						self.endpoint_counter += 1;
 
-				id
+						Ok(id)
+					}
+				}
 			}
-		};
-
-		if storage.auto_refresh {
-			self.link.send_input(Request::StartAutoRefresh(id))
 		}
+			.map(|id| {
+				if storage.auto_refresh {
+					self.link.send_input(Request::StartAutoRefresh(id))
+				}
 
-		TimelineEndpointWrapper { id, on_start, on_refresh, filters: storage.filters.clone() }
+				TimelineEndpointWrapper { id, on_start, on_refresh, filters: storage.filters.clone() }
+			})
 	}
 
 	fn send_state(&self, id: &HandlerId) {
