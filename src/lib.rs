@@ -170,9 +170,11 @@ impl Component for Model {
 			DisplayMode::Default
 		};
 
-		ctx.link().send_future(async {
-			Msg::FetchedAuthInfo(fetch_auth_info().await)
-		});
+		if !ctx.props().favviewer {
+			ctx.link().send_future(async {
+				Msg::FetchedAuthInfo(fetch_auth_info().await)
+			});
+		}
 
 		Self {
 			_timeline_agent,
