@@ -1,4 +1,3 @@
-use std::cell::Ref;
 use yew::prelude::*;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsValue;
@@ -42,14 +41,10 @@ impl Component for GalleryArticle {
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
-		//TODO Use cloned data instead of borrowing immutable
-		let strong = ctx.props().weak_ref.upgrade().unwrap();
-		let borrow = strong.borrow();
-		let actual_article = match &borrow.referenced_article() {
-			ArticleRefType::NoRef | ArticleRefType::Quote(_) => strong.clone(),
-			ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => a.upgrade().unwrap(),
+		let actual_article = match &ctx.props().ref_article {
+			ArticleRefType::NoRef | ArticleRefType::Quote(_) => &ctx.props().article,
+			ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => a,
 		};
-		let actual_borrow = actual_article.borrow();
 
 		let style = match self.draw_on_top {
 			true => Some("z-index: 20".to_owned()),
@@ -58,8 +53,8 @@ impl Component for GalleryArticle {
 
 		html! {
 			<div {style}>
-				{ self.view_media(ctx, &actual_borrow) }
-				{ self.view_nav(ctx, &actual_borrow) }
+				{ self.view_media(ctx, &actual_article) }
+				{ self.view_nav(ctx, &actual_article) }
 			</div>
 		}
 	}
@@ -89,21 +84,24 @@ impl Component for GalleryArticle {
 }
 
 impl GalleryArticle {
-	fn view_media(&self, ctx: &Context<Self>, actual_article: &Ref<dyn ArticleData>) -> Html {
+	fn view_media(&self, ctx: &Context<Self>, actual_article: &Box<dyn ArticleData>) -> Html {
+		log::debug!("Drawing media {} {}", actual_article.media().len(), ctx.props().media_load_states.len());
 		html! {
 			<>
 				{ for actual_article.media().iter().enumerate().zip(ctx.props().media_load_states.iter()).map(|((i, m), load_state)| {
+					log::debug!("thumb before");
 					let thumb = match &m.queue_load_info {
 						MediaQueueInfo::LazyLoad { thumbnail, .. } => match thumbnail {
 							Some((src, _)) => Some(html! {
-								<img class="articleThumb" src={src.clone()} onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}/>
+								<img key={i} class="articleThumb" src={src.clone()} onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}/>
 							}),
 							None => Some(html! {
-								<img class="articleThumb" style={format!("background-color: grey; height: calc({} * 100vw / {})", &m.ratio, &ctx.props().column_count)}/>
+								<img key={i} class="articleThumb" style={format!("background-color: grey; height: calc({} * 100vw / {})", &m.ratio, &ctx.props().column_count)}/>
 							}),
 						},
 						_ => None,
 					};
+					log::debug!("Thumb {}", thumb.is_some());
 
 					if thumb.is_some() && *load_state == MediaLoadState::NotLoaded {
 						thumb.unwrap()
@@ -114,6 +112,7 @@ impl GalleryArticle {
 							(_, MediaType::Image | MediaType::Gif) => html! {
 								<>
 									<img
+										key={i}
 										src={m.src.clone()}
 										onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}
 										onload={if is_loading { Some(onloaded.clone()) } else { None }}
@@ -130,6 +129,7 @@ impl GalleryArticle {
 							},
 							(false, MediaType::Video) => html! {
 								<video
+									key={i}
 									ref={ctx.props().video_ref.clone()}
 									controls=true
 									onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}
@@ -141,6 +141,7 @@ impl GalleryArticle {
 							},
 							(_, MediaType::VideoGif) | (true, MediaType::Video) => html! {
 								<video
+								 	key={i}
 									ref={ctx.props().video_ref.clone()}
 									controls=true
 									autoplay=true
@@ -160,7 +161,7 @@ impl GalleryArticle {
 		}
 	}
 
-	fn view_nav(&self, ctx: &Context<Self>, actual_article: &Ref<dyn ArticleData>) -> Html {
+	fn view_nav(&self, ctx: &Context<Self>, actual_article: &Box<dyn ArticleData>) -> Html {
 		html! {
 			<>
 				<div class="holderBox holderBoxTop">

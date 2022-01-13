@@ -493,6 +493,7 @@ impl Component for Timeline {
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
+		log::debug!("Drawing timeline");
 		if ctx.props().hide {
 			return html! {}
 		}

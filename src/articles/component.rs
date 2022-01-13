@@ -8,7 +8,7 @@ use wasm_bindgen::JsValue;
 use std::convert::identity;
 
 use super::{ArticleView, SocialArticle, GalleryArticle};
-use crate::articles::{ArticleData, ArticleRefType, MediaQueueInfo};
+use crate::articles::{ArticleData, ArticleRefType, MediaQueueInfo, ArticleMedia};
 use crate::articles::media_load_queue::{MediaLoadAgent, Request as MediaLoadRequest, Response as MediaLoadResponse, MediaLoadState};
 use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest};
 use crate::modals::Modal;
@@ -33,6 +33,7 @@ pub struct ArticleComponent {
 	article_actions: Dispatcher<ArticleActionsAgent>,
 	video_ref: NodeRef,
 	component_ref: NodeRef,
+	previous_media: Vec<ArticleMedia>,
 	media_load_states: Vec<MediaLoadState>,
 	media_load_queue: Box<dyn Bridge<MediaLoadAgent>>,
 }
@@ -178,17 +179,35 @@ impl Component for ArticleComponent {
 			article_actions: ArticleActionsAgent::dispatcher(),
 			video_ref: NodeRef::default(),
 			component_ref: NodeRef::default(),
-			media_load_states: ctx.props().article.media().iter().map(|m|
-				if !ctx.props().lazy_loading {
-					MediaLoadState::Loaded
-				}else {
-					match m.queue_load_info {
-						MediaQueueInfo::LazyLoad { loaded, .. } if loaded => MediaLoadState::Loaded,
-						_ => MediaLoadState::NotLoaded,
-					}
-				}
-			).collect(),
+			previous_media: ctx.props().article.media(),
+			media_load_states: make_media_load_states(ctx.props().lazy_loading, ctx.props().article.media()),
 			media_load_queue,
+		}
+	}
+
+	fn changed(&mut self, ctx: &Context<Self>) -> bool {
+		let new_media = ctx.props().article.media();
+		if self.previous_media != new_media {
+			self.media_load_states = make_media_load_states(ctx.props().lazy_loading, ctx.props().article.media());
+
+			//TODO Avoid first-come-first-serve on initial load
+			if self.previous_media.is_empty() && ctx.props().lazy_loading {
+				let id = ctx.props().article.id();
+				let media = ctx.props().article.media();
+				let media_to_queue = media.iter()
+					.enumerate()
+					.filter_map(|(i, m)|
+						if let MediaQueueInfo::LazyLoad {..} = m.queue_load_info { Some(i) } else { None }
+					);
+
+				for i in media_to_queue {
+					self.media_load_queue.send(MediaLoadRequest::QueueMedia(id.clone(), i, ctx.props().load_priority));
+				}
+			}
+			self.previous_media = new_media;
+			true
+		}else {
+			false
 		}
 	}
 
@@ -328,6 +347,7 @@ impl Component for ArticleComponent {
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
+		log::debug!("Drawing article");
 		let view_html = match &ctx.props().article_view {
 			ArticleView::Social => html! {
 				<SocialArticle
@@ -397,4 +417,17 @@ impl Component for ArticleComponent {
 			}
 		}
 	}*/
+}
+
+fn make_media_load_states(lazy_loading: bool, media: Vec<ArticleMedia>) -> Vec<MediaLoadState> {
+	media.into_iter().map(|m|
+		if !lazy_loading {
+			MediaLoadState::Loaded
+		}else {
+			match m.queue_load_info {
+				MediaQueueInfo::LazyLoad { loaded, .. } if loaded => MediaLoadState::Loaded,
+				_ => MediaLoadState::NotLoaded,
+			}
+		}
+	).collect()
 }
