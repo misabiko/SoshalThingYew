@@ -388,22 +388,22 @@ impl SocialArticle {
 	}
 }
 
+static MONTH_ABBREVS: [&'static str; 12] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 fn short_timestamp(date: &Date) -> String {
 	let time_since = Date::now() - date.get_time();
 
 	if time_since < 1000.0 {
 		"just now".to_owned()
-	} else if time_since < 60000.0 {
+	} else if time_since < 60_000.0 {
 		format!("{}s", (time_since / 1000.0).floor())
-	} else if time_since < 3600000.0 {
+	} else if time_since < 3600_000.0 {
 		format!("{}m", (time_since / 60000.0).floor())
 	} else if time_since < 86400000.0 {
 		format!("{}h", (time_since / (3600000.0)).floor())
 	} else if time_since < 604800000.0 {
 		format!("{}d", (time_since / (86400000.0)).floor())
 	} else {
-		//format!("{} {}", monthAbbrevs[actualDate.getMonth()], actualDate.getDate())
-		//TODO Parse month timestamp
-		"long ago".to_owned()
+		format!("{} {} {}", MONTH_ABBREVS[date.get_month() as usize], date.get_date(), date.get_full_year())
 	}
 }
