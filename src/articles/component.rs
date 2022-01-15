@@ -347,7 +347,6 @@ impl Component for ArticleComponent {
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
-		log::debug!("Drawing article");
 		let view_html = match &ctx.props().article_view {
 			ArticleView::Social => html! {
 				<SocialArticle

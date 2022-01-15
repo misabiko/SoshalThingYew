@@ -245,12 +245,29 @@ impl Component for Model {
 			},
 			Msg::TimelineAgentResponse(response) => match response {
 				TimelineAgentResponse::SetMainTimeline(id) => {
-					log::debug!("Set main timeline! {}", &id);
 					self.main_timeline = id;
 					if let DisplayMode::Default = self.display_mode {
 						self.display_mode = self.last_display_single;
 					};
 					true
+				}
+				TimelineAgentResponse::SetMainContainer(new_container) => {
+					if let DisplayMode::Single { container, .. } = &mut self.display_mode {
+						*container = new_container;
+						true
+					}else {
+						log::warn!("DisplayMode not single");
+						false
+					}
+				}
+				TimelineAgentResponse::SetMainColumnCount(new_count) => {
+					if let DisplayMode::Single { column_count, .. } = &mut self.display_mode {
+						*column_count = new_count;
+						true
+					}else {
+						log::warn!("DisplayMode not single");
+						false
+					}
 				}
 				TimelineAgentResponse::RemoveTimeline(id) => {
 					let index = self.timelines.iter().position(|t| t.id == id);
@@ -359,27 +376,29 @@ impl Component for Model {
 									<Timeline key={props.id} ..props.clone()/>
 								})}
 							},
-							DisplayMode::Single {container, column_count} => html! {
-								{for self.timelines.iter().map(|props| if props.id == self.main_timeline {
-									 html! {
-										<Timeline key={props.id.clone()} main_timeline=true container={container.clone()} column_count={column_count.clone()} ..props.clone()>
-											{
-												match ctx.props().favviewer {
-													true => html! {
-														<button title="Toggle FavViewer" onclick={ctx.link().callback(|_| Msg::ToggleFavViewer)}>
-															<FA icon="eye-slash" size={IconSize::Large}/>
-														</button>
-													},
-													false => html! {}
+							DisplayMode::Single {container, column_count} => {
+								html! {
+									{for self.timelines.iter().map(|props| if props.id == self.main_timeline {
+										 html! {
+											<Timeline key={props.id.clone()} main_timeline=true container={container.clone()} column_count={column_count.clone()} ..props.clone()>
+												{
+													match ctx.props().favviewer {
+														true => html! {
+															<button title="Toggle FavViewer" onclick={ctx.link().callback(|_| Msg::ToggleFavViewer)}>
+																<FA icon="eye-slash" size={IconSize::Large}/>
+															</button>
+														},
+														false => html! {}
+													}
 												}
-											}
-										</Timeline>
-									}
-								}else  {
-									html! {
-										<Timeline hide=true key={props.id} ..props.clone()/>
-									}
-								})}
+											</Timeline>
+										}
+									}else  {
+										html! {
+											<Timeline hide=true key={props.id} ..props.clone()/>
+										}
+									})}
+								}
 							}
 						}
 					}

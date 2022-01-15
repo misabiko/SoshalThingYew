@@ -59,8 +59,8 @@ pub struct Timeline {
 	endpoint_agent: Dispatcher<EndpointAgent>,
 	filters: Vec<FilterInstance>,
 	sort_method: (Option<SortMethod>, bool),
-	container: Container,
-	column_count: u8,
+	_container: Container,
+	_column_count: u8,
 	width: u8,
 	article_view: ArticleView,
 	show_choose_endpoint: bool,
@@ -193,8 +193,8 @@ impl Component for Timeline {
 				Some((method, reversed)) => (Some(method), reversed),
 				None => (None, true)
 			},
-			container: ctx.props().container,
-			column_count: ctx.props().column_count,
+			_container: ctx.props().container,
+			_column_count: ctx.props().column_count,
 			width: ctx.props().width,
 			article_view: ctx.props().article_view,
 			show_choose_endpoint: false,
@@ -269,7 +269,11 @@ impl Component for Timeline {
 				true
 			}
 			Msg::ChangeContainer(c) => {
-				self.container = c;
+				if ctx.props().main_timeline {
+					self.timeline_agent.send(TimelineAgentRequest::SetMainContainer(c))
+				}else {
+					self._container = c;
+				}
 				true
 			}
 			Msg::ChangeArticleView(c) => {
@@ -277,7 +281,11 @@ impl Component for Timeline {
 				true
 			}
 			Msg::ChangeColumnCount(new_column_count) => {
-				self.column_count = new_column_count;
+				if ctx.props().main_timeline {
+					self.timeline_agent.send(TimelineAgentRequest::SetMainColumnCount(new_column_count))
+				}else {
+					self._column_count = new_column_count;
+				}
 				true
 			}
 			Msg::ChangeWidth(new_width) => {
@@ -493,7 +501,6 @@ impl Component for Timeline {
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
-		log::debug!("Drawing timeline");
 		if ctx.props().hide {
 			return html! {}
 		}
@@ -567,12 +574,12 @@ impl Component for Timeline {
 					</div>
 				</div>
 				{ self.view_options(ctx) }
-				{ view_container(&self.container, yew::props! {ContainerProps {
+				{ view_container(&self.container(ctx), yew::props! {ContainerProps {
 					container_ref: self.container_ref.clone(),
 					compact: self.compact,
 					animated_as_gifs: self.animated_as_gifs,
 					hide_text: self.hide_text,
-					column_count: self.column_count,
+					column_count: self.column_count(ctx),
 					rtl: self.rtl,
 					lazy_loading: self.lazy_loading,
 					article_view: self.article_view,
@@ -584,6 +591,22 @@ impl Component for Timeline {
 }
 
 impl Timeline {
+	fn container(&self, ctx: &Context<Self>) -> Container {
+		if ctx.props().main_timeline {
+			ctx.props().container
+		}else {
+			self._container
+		}
+	}
+
+	fn column_count(&self, ctx: &Context<Self>) -> u8 {
+		if ctx.props().main_timeline {
+			ctx.props().column_count
+		}else {
+			self._column_count
+		}
+	}
+
 	//TODO Collapse boxes
 	//TODO Change scrollbar color
 	//TODO Move options to separate file/component?
@@ -620,12 +643,12 @@ impl Timeline {
 
 		html! {
 			<div class="box">
-				{ match self.container {
+				{ match self.container(ctx) {
 					Container::Column => html! {},
 					_ => html! {
 						<div class="block control">
 							<label class="label">{"Column Count"}</label>
-							<input class="input" type="number" value={self.column_count.to_string()} min=1 oninput={on_column_count_input}/>
+							<input class="input" type="number" value={self.column_count(ctx).to_string()} min=1 oninput={on_column_count_input}/>
 						</div>
 					},
 				} }
@@ -639,7 +662,7 @@ impl Timeline {
 					}
 				} }
 				<div class="block control">
-					<Dropdown current_label={DropdownLabel::Text(self.container.name().to_string())}>
+					<Dropdown current_label={DropdownLabel::Text(self.container(ctx).name().to_string())}>
 						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeContainer(Container::Column))}> {"Column"} </a>
 						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeContainer(Container::Row))}> {"Row"} </a>
 						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeContainer(Container::Masonry))}> {"Masonry"} </a>

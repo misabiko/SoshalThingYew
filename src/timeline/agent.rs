@@ -26,6 +26,8 @@ pub enum Request {
 	AddTimeline,
 	AddUserTimeline(String, String),
 	SetMainTimeline(TimelineId),
+	SetMainContainer(Container),
+	SetMainColumnCount(u8),
 	RemoveTimeline(TimelineId),
 	LoadStorageTimelines,
 	LoadedStorageTimelines(Vec<Vec<TimelineEndpointWrapper>>),
@@ -36,6 +38,8 @@ pub enum Response {
 	AddBlankTimeline,
 	AddUserTimeline(String, String),
 	SetMainTimeline(TimelineId),
+	SetMainContainer(Container),
+	SetMainColumnCount(u8),
 	RemoveTimeline(TimelineId),
 	CreateTimelines(Vec<TimelinePropsClosure>),
 }
@@ -105,6 +109,16 @@ impl Agent for TimelineAgent {
 			Request::SetMainTimeline(id) => {
 				if let Some(timeline_container) = self.timeline_container {
 					self.link.respond(timeline_container, Response::SetMainTimeline(id));
+				}
+			}
+			Request::SetMainContainer(container) => {
+				if let Some(timeline_container) = self.timeline_container {
+					self.link.respond(timeline_container, Response::SetMainContainer(container));
+				}
+			}
+			Request::SetMainColumnCount(count) => {
+				if let Some(timeline_container) = self.timeline_container {
+					self.link.respond(timeline_container, Response::SetMainColumnCount(count));
 				}
 			}
 			Request::RemoveTimeline(id) => {

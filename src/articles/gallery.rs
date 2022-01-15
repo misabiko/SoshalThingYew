@@ -85,11 +85,9 @@ impl Component for GalleryArticle {
 
 impl GalleryArticle {
 	fn view_media(&self, ctx: &Context<Self>, actual_article: &Box<dyn ArticleData>) -> Html {
-		log::debug!("Drawing media {} {}", actual_article.media().len(), ctx.props().media_load_states.len());
 		html! {
 			<>
 				{ for actual_article.media().iter().enumerate().zip(ctx.props().media_load_states.iter()).map(|((i, m), load_state)| {
-					log::debug!("thumb before");
 					let thumb = match &m.queue_load_info {
 						MediaQueueInfo::LazyLoad { thumbnail, .. } => match thumbnail {
 							Some((src, _)) => Some(html! {
@@ -101,7 +99,6 @@ impl GalleryArticle {
 						},
 						_ => None,
 					};
-					log::debug!("Thumb {}", thumb.is_some());
 
 					if thumb.is_some() && *load_state == MediaLoadState::NotLoaded {
 						thumb.unwrap()
