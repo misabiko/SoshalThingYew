@@ -86,15 +86,16 @@ impl PartialEq for Props {
 
 #[function_component(ColumnContainer)]
 pub fn column_container(props: &Props) -> Html {
+	let article_view = props.article_view.clone();
 	html! {
 		<div class="articlesContainer columnContainer" ref={props.container_ref.clone()}>
 			{ for props.articles.iter().enumerate().map(|(load_priority, (weak_ref, article, ref_article))| html! {
 				<ArticleComponent
-					key={article.id()}
+					key={format!("{:?}{}", &article_view, article.id())}
 					weak_ref={weak_ref.clone()}
 					article={article.clone_data()}
 					ref_article={ref_article.clone_data()}
-					article_view={props.article_view.clone()}
+					{article_view}
 					compact={props.compact}
 					animated_as_gifs={props.animated_as_gifs}
 					hide_text={props.hide_text}
@@ -113,15 +114,17 @@ pub fn row_container(props: &Props) -> Html {
 		true => Some("direction: rtl"),
 		false => None,
 	};
+
+	let article_view = props.article_view.clone();
 	html! {
 		<div class="articlesContainer rowContainer" ref={props.container_ref.clone()} {style}>
 			{ for props.articles.iter().enumerate().map(|(load_priority, (weak_ref, article, ref_article))| { html! {
 				<ArticleComponent
-					key={article.id()}
+					key={format!("{:?}{}", &article_view, article.id())}
 					weak_ref={weak_ref.clone()}
 					article={article.clone_data()}
 					ref_article={ref_article.clone_data()}
-					article_view={props.article_view.clone()}
+					{article_view}
 					compact={props.compact}
 					animated_as_gifs={props.animated_as_gifs}
 					hide_text={props.hide_text}
@@ -188,17 +191,18 @@ pub fn masonry_container(props: &Props) -> Html {
 	let strongs: Vec<StrongArticleTuple> = props.articles.iter().filter_map(|t| t.0.upgrade().map(|s| (s, t.1.clone_data(), t.2.clone_data()))).collect();
 	let columns = to_columns(strongs.iter(), &props.column_count, &props.rtl);
 
+	let article_view = props.article_view.clone();
 	html! {
 		<div class="articlesContainer masonryContainer" ref={props.container_ref.clone()}>
 			{ for columns.enumerate().map(|(column_index, column)| html! {
 				<div class="masonryColumn" key={column_index}>
 					{ for column.enumerate().map(|(load_priority, (strong_ref, article, ref_article))| html! {
 						<ArticleComponent
-							key={article.id()}
+							key={format!("{:?}{}", &article_view, article.id())}
 							weak_ref={Rc::downgrade(strong_ref)}
 							article={article.clone_data()}
 							ref_article={ref_article.clone_data()}
-							article_view={props.article_view.clone()}
+							{article_view}
 							compact={props.compact}
 							animated_as_gifs={props.animated_as_gifs}
 							hide_text={props.hide_text}

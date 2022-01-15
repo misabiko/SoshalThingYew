@@ -389,7 +389,7 @@ impl Component for ArticleComponent {
 
 		//For some reason, the view needs at least a wrapper otherwise when changing article_view, the container draws everything in reverse order...
 		let article_html = html! {
-			<article {class} articleId={ctx.props().article.id()} key={ctx.props().article.id()} style={ctx.props().style.clone()} ref={self.component_ref.clone()}>
+			<article {class} articleId={ctx.props().article.id()} style={ctx.props().style.clone()} ref={self.component_ref.clone()}>
 				{ view_html }
 			</article>
 		};

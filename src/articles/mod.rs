@@ -150,7 +150,7 @@ impl PartialEq<dyn ArticleData> for dyn ArticleData {
 	}
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ArticleView {
 	Social,
 	Gallery
