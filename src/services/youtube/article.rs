@@ -107,6 +107,11 @@ impl YouTubeArticleData {
 
 impl From<(PlaylistItem, serde_json::Value, &ServiceStorage)> for YouTubeArticleData {
 	fn from((item, raw_json, storage): (PlaylistItem, serde_json::Value, &ServiceStorage)) -> Self {
+		let thumbnail = item.snippet.thumbnails.standard
+			.or(item.snippet.thumbnails.maxres)
+			.or(item.snippet.thumbnails.high)
+			.or(item.snippet.thumbnails.medium)
+			.or(item.snippet.thumbnails.default);
 		YouTubeArticleData {
 			id: item.snippet.resource_id.video_id.clone(),
 			creation_time: Date::new(&JsValue::from_str(&item.snippet.published_at)),
@@ -114,11 +119,12 @@ impl From<(PlaylistItem, serde_json::Value, &ServiceStorage)> for YouTubeArticle
 			//description: item.snippet.description.clone(),
 			thumbnail: ArticleMedia {
 				media_type: MediaType::Image,
-				src: item.snippet.thumbnails.standard.url,
-				ratio: ValidRatio::new_u16(
-					NonZeroU16::new(item.snippet.thumbnails.standard.width).unwrap(),
-					NonZeroU16::new(item.snippet.thumbnails.standard.height).unwrap(),
-				),
+				//TODO std::mem::take(t.url)?
+				src: thumbnail.as_ref().map(|t| t.url.clone()).unwrap_or_default(),
+				ratio: thumbnail.map(|t| ValidRatio::new_u16(
+					NonZeroU16::new(t.width).unwrap(),
+					NonZeroU16::new(t.height).unwrap(),
+				)).unwrap_or_else(|| ValidRatio::one()),
 				queue_load_info: MediaQueueInfo::DirectLoad,
 			},
 			channel: YouTubeChannel {
@@ -166,11 +172,16 @@ struct PlaylistItemResourceId {
 
 #[derive(Deserialize)]
 struct Thumbnails {
-	//default: Thumbnail,
-	//high: Thumbnail,
-	//maxres: Thumbnail,
-	//medium: Thumbnail,
-	standard: Thumbnail,
+	#[serde(default)]
+	default: Option<Thumbnail>,
+	#[serde(default)]
+	high: Option<Thumbnail>,
+	#[serde(default)]
+	maxres: Option<Thumbnail>,
+	#[serde(default)]
+	medium: Option<Thumbnail>,
+	#[serde(default)]
+	standard: Option<Thumbnail>,
 }
 
 #[derive(Deserialize)]
