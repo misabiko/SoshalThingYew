@@ -154,7 +154,7 @@ impl Agent for TimelineAgent {
 						(
 							t.endpoints,
 							Box::new(move |id, endpoints|
-								yew::props! { TimelineProps {
+								 yew::props! { TimelineProps {
 									name,
 									id,
 									endpoints,

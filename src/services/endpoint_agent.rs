@@ -140,7 +140,7 @@ pub enum Request {
 pub enum Response {
 	UpdatedState(HashMap<String, EndpointConstructors>, Vec<EndpointView>),
 	BatchRequestResponse(Vec<(Vec<TimelineEndpointWrapper>, TimelinePropsEndpointsClosure)>),
-	AddTimeline(TimelineCreationMode),
+	AddTimeline(TimelineCreationMode, bool),
 }
 
 impl Agent for EndpointAgent {
@@ -325,8 +325,8 @@ impl Agent for EndpointAgent {
 					}).collect();
 
 					self.link.respond(timeline_container.clone(), match timeline_creation_request {
-						TimelineCreationRequest::NameEndpoints(name) => Response::AddTimeline(TimelineCreationMode::NameEndpoints(name, endpoints)),
-						TimelineCreationRequest::Props(props) => Response::AddTimeline(TimelineCreationMode::Props(Box::new(|timeline_id| (props)(timeline_id, endpoints)))),
+						TimelineCreationRequest::NameEndpoints(name) => Response::AddTimeline(TimelineCreationMode::NameEndpoints(name, endpoints), false),
+						TimelineCreationRequest::Props(props) => Response::AddTimeline(TimelineCreationMode::Props(Box::new(|timeline_id| (props)(timeline_id, endpoints))), false),
 					});
 					self.link.send_message(Msg::UpdatedState);
 				}else {
