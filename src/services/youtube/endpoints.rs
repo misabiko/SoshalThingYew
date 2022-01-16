@@ -65,8 +65,9 @@ impl PlaylistEndpoint {
 }
 
 impl Endpoint for PlaylistEndpoint {
+	//TODO Store string in endpoint
 	fn name(&self) -> String {
-		"Playlist".to_owned()
+		format!("Playlist {}", &self.playlist_id)
 	}
 
 	fn id(&self) -> &EndpointId {
