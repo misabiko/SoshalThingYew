@@ -2,11 +2,15 @@ use yew::prelude::*;
 use web_sys::HtmlInputElement;
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::collections::HashSet;
 use yew_agent::{Bridge, Bridged};
 
 use super::ModalCard;
-use crate::timeline::{Props as TimelineProps};
-use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse};
+use crate::timeline::{
+	Props as TimelineProps,
+	agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse},
+	filters::{Filter, FilterInstance, FiltersOptions, DEFAULT_FILTERS},
+};
 use crate::choose_endpoints::ChooseEndpoints;
 use crate::{TimelineEndpointWrapper, TimelinePropsClosure};
 
@@ -15,12 +19,17 @@ pub struct AddTimelineModal {
 	title_ref: NodeRef,
 	endpoints: Rc<RefCell<Vec<TimelineEndpointWrapper>>>,
 	_agent: Box<dyn Bridge<TimelineAgent>>,
+	filters: HashSet<FilterInstance>,
 }
 
 pub enum Msg {
 	AddTimeline,
 	AgentResponse(TimelineAgentResponse),
 	SetEnabled(bool),
+	ToggleFilterEnabled(FilterInstance),
+	ToggleFilterInverted(FilterInstance),
+	AddFilter((Filter, bool)),
+	RemoveFilter(FilterInstance),
 }
 
 #[derive(Properties, PartialEq, Clone)]
@@ -40,6 +49,7 @@ impl Component for AddTimelineModal {
 			enabled: false,
 			title_ref: NodeRef::default(),
 			endpoints: Rc::new(RefCell::new(Vec::new())),
+			filters: DEFAULT_FILTERS.into(),
 			_agent,
 		}
 	}
@@ -52,11 +62,13 @@ impl Component for AddTimelineModal {
 					None => "Timeline".to_owned(),
 				};
 				let endpoints = self.endpoints.borrow().clone();
+				let filters = self.filters.clone();
 				ctx.props().add_timeline_callback.emit(Box::new(|id| {
 					yew::props! { TimelineProps {
 						name,
 						id,
 						endpoints,
+						filters,
 					}}
 				}));
 
@@ -74,6 +86,7 @@ impl Component for AddTimelineModal {
 						title.set_value("Timeline");
 					}
 					self.endpoints.borrow_mut().clear();
+					self.filters = DEFAULT_FILTERS.into();
 
 					self.enabled = true;
 					true
@@ -83,6 +96,7 @@ impl Component for AddTimelineModal {
 						title.set_value(&username);
 					}
 					self.endpoints.borrow_mut().clear();
+					self.filters = DEFAULT_FILTERS.into();
 
 					self.enabled = true;
 					true
@@ -91,6 +105,30 @@ impl Component for AddTimelineModal {
 			}
 			Msg::SetEnabled(value) => {
 				self.enabled = value;
+				true
+			}
+			Msg::ToggleFilterEnabled(filter_instance) => {
+				self.filters.remove(&filter_instance);
+				self.filters.insert(FilterInstance {
+					enabled: !filter_instance.enabled,
+					..filter_instance
+				});
+				true
+			}
+			Msg::ToggleFilterInverted(filter_instance) => {
+				self.filters.remove(&filter_instance);
+				self.filters.insert(FilterInstance {
+					inverted: !filter_instance.inverted,
+					..filter_instance
+				});
+				true
+			}
+			Msg::AddFilter((filter, inverted)) => {
+				self.filters.insert(FilterInstance {filter, inverted, enabled: true});
+				true
+			}
+			Msg::RemoveFilter(filter_instance) => {
+				self.filters.remove(&filter_instance);
 				true
 			}
 		}
@@ -116,6 +154,13 @@ impl Component for AddTimelineModal {
 					</div>
 				</div>
 				<ChooseEndpoints inside_add_timeline=true timeline_endpoints={Rc::downgrade(&self.endpoints)}/>
+				<FiltersOptions
+					filters={self.filters.clone()}
+					toggle_enabled_callback={ctx.link().callback(Msg::ToggleFilterEnabled)}
+					toggle_inverted_callback={ctx.link().callback(Msg::ToggleFilterInverted)}
+					remove_callback={ctx.link().callback(Msg::RemoveFilter)}
+					add_callback={ctx.link().callback(Msg::AddFilter)}
+				/>
 			</ModalCard>
 		}
 	}

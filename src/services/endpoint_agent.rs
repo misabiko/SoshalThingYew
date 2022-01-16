@@ -9,7 +9,7 @@ use gloo_timers::callback::Interval;
 use super::{Endpoint, EndpointSerialized, RateLimit};
 use crate::error::{Result, Error, RatelimitedResult};
 use crate::articles::ArticleData;
-use crate::timeline::filters::FilterInstance;
+use crate::timeline::filters::{FilterInstance, DEFAULT_FILTERS};
 use crate::{TimelineCreationMode, TimelineId, TimelinePropsEndpointsClosure};
 use crate::notifications::{NotificationAgent, Request as NotificationRequest, Notification};
 
@@ -20,12 +20,12 @@ pub struct TimelineEndpointWrapper {
 	pub id: EndpointId,
 	pub on_start: bool,
 	pub on_refresh: bool,
-	pub filters: Vec<FilterInstance>,
+	pub filters: HashSet<FilterInstance>,
 }
 
 impl TimelineEndpointWrapper {
 	pub fn new(id: EndpointId, on_start: bool, on_refresh: bool) -> Self {
-		Self { id, on_start, on_refresh, filters: Vec::new() }
+		Self { id, on_start, on_refresh, filters: DEFAULT_FILTERS.into() }
 	}
 
 	pub fn new_both(id: EndpointId) -> Self {
@@ -33,7 +33,7 @@ impl TimelineEndpointWrapper {
 			id,
 			on_start: true,
 			on_refresh: true,
-			filters: Vec::new()
+			filters: DEFAULT_FILTERS.into()
 		}
 	}
 }

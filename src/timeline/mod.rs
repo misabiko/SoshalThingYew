@@ -1,5 +1,6 @@
 use std::rc::{Rc, Weak};
 use std::cell::RefCell;
+use std::collections::HashSet;
 use yew::prelude::*;
 use yew_agent::{Bridge, Bridged, Dispatched, Dispatcher};
 use wasm_bindgen::JsCast;
@@ -24,6 +25,7 @@ use crate::choose_endpoints::ChooseEndpoints;
 use crate::components::{Dropdown, DropdownLabel, FA, IconSize};
 use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest, Response as ArticleActionsResponse};
 use crate::services::storages::{hide_article, mark_article_as_read};
+use crate::timeline::filters::DEFAULT_FILTERS;
 use crate::TimelineEndpointWrapper;
 
 pub type TimelineId = i8;
@@ -56,7 +58,7 @@ pub struct Timeline {
 	animated_as_gifs: bool,
 	hide_text: bool,
 	endpoint_agent: Dispatcher<EndpointAgent>,
-	filters: Vec<FilterInstance>,
+	filters: HashSet<FilterInstance>,
 	sort_method: (Option<SortMethod>, bool),
 	_container: Container,
 	_column_count: u8,
@@ -92,8 +94,10 @@ pub enum Msg {
 	Shuffle,
 	SetChooseEndpointModal(bool),
 	Autoscroll,
-	ToggleFilterEnabled(usize),
-	ToggleFilterInverted(usize),
+	ToggleFilterEnabled(FilterInstance),
+	ToggleFilterInverted(FilterInstance),
+	AddFilter((Filter, bool)),
+	RemoveFilter(FilterInstance),
 	SetSortMethod(Option<&'static SortMethod>),
 	ToggleSortReversed,
 	SortOnce(&'static SortMethod),
@@ -105,8 +109,6 @@ pub enum Msg {
 	UpdateSection(Option<usize>, Option<usize>),
 	ToggleLazyLoading,
 	Redraw,
-	AddFilter((Filter, bool)),
-	RemoveFilter(usize),
 	MarkAllAsRead,
 	HideAll,
 }
@@ -134,7 +136,7 @@ pub struct Props {
 	#[prop_or_default]
 	pub articles: Vec<Weak<RefCell<dyn ArticleData>>>,
 	#[prop_or_default]
-	pub filters: Option<Vec<FilterInstance>>,
+	pub filters: Option<HashSet<FilterInstance>>,
 	#[prop_or(Some((SortMethod::Id, false)))]
 	pub sort_method: Option<(SortMethod, bool)>,
 	#[prop_or_default]
@@ -184,10 +186,7 @@ impl Component for Timeline {
 			animated_as_gifs: ctx.props().animated_as_gifs,
 			hide_text: ctx.props().hide_text,
 			endpoint_agent,
-			filters: ctx.props().filters.as_ref().map(|f| f.clone()).unwrap_or_else(|| vec![
-				FilterInstance::new(Filter::NotMarkedAsRead),
-				FilterInstance::new(Filter::NotHidden),
-			]),
+			filters: ctx.props().filters.as_ref().map(|f| f.clone()).unwrap_or_else(|| DEFAULT_FILTERS.into()),
 			sort_method: match ctx.props().sort_method {
 				Some((method, reversed)) => (Some(method), reversed),
 				None => (None, true)
@@ -368,14 +367,29 @@ impl Component for Timeline {
 
 				false
 			}
-			Msg::ToggleFilterEnabled(filter_index) => {
-				let mut filter = self.filters.get_mut(filter_index).unwrap();
-				filter.enabled = !filter.enabled;
+			Msg::ToggleFilterEnabled(filter_instance) => {
+				self.filters.remove(&filter_instance);
+				self.filters.insert(FilterInstance {
+					enabled: !filter_instance.enabled,
+					..filter_instance
+				});
 				true
 			}
-			Msg::ToggleFilterInverted(filter_index) => {
-				let mut filter = self.filters.get_mut(filter_index).unwrap();
-				filter.inverted = !filter.inverted;
+			Msg::ToggleFilterInverted(filter_instance) => {
+				self.filters.remove(&filter_instance);
+				self.filters.insert(FilterInstance {
+					inverted: !filter_instance.inverted,
+					..filter_instance
+				});
+				true
+			}
+			//TODO Move filter stuff to separate file?
+			Msg::AddFilter((filter, inverted)) => {
+				self.filters.insert(FilterInstance {filter, inverted, enabled: true});
+				true
+			}
+			Msg::RemoveFilter(filter_instance) => {
+				self.filters.remove(&filter_instance);
 				true
 			}
 			Msg::SetSortMethod(new_method) => {
@@ -436,15 +450,6 @@ impl Component for Timeline {
 				true
 			}
 			Msg::Redraw => true,
-			//TODO Move filter stuff to separate file?
-			Msg::AddFilter((filter, inverted)) => {
-				self.filters.push(FilterInstance {filter, inverted, enabled: true});
-				true
-			}
-			Msg::RemoveFilter(index) => {
-				self.filters.remove(index);
-				true
-			}
 			Msg::MarkAllAsRead => {
 				for article in self.sectioned_articles() {
 					let strong = article.upgrade().unwrap();

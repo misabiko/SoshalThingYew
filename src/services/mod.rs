@@ -2,6 +2,7 @@ use std::rc::Weak;
 use std::cell::RefCell;
 use reqwest::header::HeaderMap;
 use serde::{Serialize, Deserialize};
+use std::collections::HashSet;
 
 pub mod endpoint_agent;
 pub mod article_actions;
@@ -73,7 +74,7 @@ pub struct EndpointSerialized {
 	pub endpoint_type: usize,
 	pub params: serde_json::Value,
 	#[serde(default)]
-	pub filters: Vec<FilterInstance>,
+	pub filters: HashSet<FilterInstance>,
 	#[serde(default)]
 	pub auto_refresh: bool,
 	#[serde(default)]

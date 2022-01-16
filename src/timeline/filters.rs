@@ -2,13 +2,14 @@ use std::rc::Weak;
 use std::cell::{Ref, RefCell};
 use serde::{Serialize, Deserialize};
 use yew::prelude::*;
+use std::collections::HashSet;
 
 use crate::articles::{ArticleData, ArticleMedia, ArticleRefType, MediaType};
 use crate::components::{Dropdown, DropdownLabel};
 
 pub type FilterPredicate = fn(&Weak<RefCell<dyn ArticleData>>, inverted: &bool) -> bool;
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Filter {
 	Media,
 	Animated,
@@ -141,7 +142,7 @@ impl Filter {
 }
 
 //TODO Add Eq where it makes sense
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct FilterInstance {
 	pub filter: Filter,
 	pub enabled: bool,
@@ -149,7 +150,7 @@ pub struct FilterInstance {
 }
 
 impl FilterInstance {
-	pub fn new(filter: Filter) -> Self {
+	pub const fn new(filter: Filter) -> Self {
 		Self {
 			filter,
 			enabled: true,
@@ -157,7 +158,7 @@ impl FilterInstance {
 		}
 	}
 
-	pub fn new_disabled(filter: Filter) -> Self {
+	pub const fn new_disabled(filter: Filter) -> Self {
 		Self {
 			filter,
 			enabled: false,
@@ -173,19 +174,17 @@ fn is_animated(media: &ArticleMedia) -> bool {
 	}
 }
 
-pub fn view_add_filter() -> Html {
-	html! {
-		<>
-		</>
-	}
-}
+pub const DEFAULT_FILTERS: [FilterInstance; 2] = [
+	FilterInstance::new(Filter::NotMarkedAsRead),
+	FilterInstance::new(Filter::NotHidden),
+];
 
 #[derive(Properties, PartialEq)]
 pub struct FilterOptionsProps {
-	pub filters: Vec<FilterInstance>,
-	pub toggle_enabled_callback: Callback<usize>,
-	pub toggle_inverted_callback: Callback<usize>,
-	pub remove_callback: Callback<usize>,
+	pub filters: HashSet<FilterInstance>,
+	pub toggle_enabled_callback: Callback<FilterInstance>,
+	pub toggle_inverted_callback: Callback<FilterInstance>,
+	pub remove_callback: Callback<FilterInstance>,
 	pub add_callback: Callback<(Filter, bool)>,
 }
 
@@ -193,34 +192,35 @@ pub struct FilterOptionsProps {
 pub fn filters_options(props: &FilterOptionsProps) -> Html {
 	html! {
 		<>
-			{ for props.filters.iter().enumerate().map(|(i, filter)| {
+			{ for props.filters.iter().map(|filter_instance| {
 				let toggle_enabled_callback = props.toggle_enabled_callback.clone();
 				let toggle_inverted_callback = props.toggle_inverted_callback.clone();
 				let remove_callback = props.remove_callback.clone();
 
-				let (enabled_class, enabled_label) = match filter.enabled {
+				let (enabled_class, enabled_label) = match filter_instance.enabled {
 					true => (Some("is-success"), "Enabled"),
 					false => (None, "Disabled"),
 				};
-				let (inverted_class, inverted_label) = match filter.inverted {
+				let (inverted_class, inverted_label) = match filter_instance.inverted {
 					true => (Some("is-info"), "Inverted"),
 					false => (None, "Normal"),
 				};
+				let filter_instance = *filter_instance;
 
 				html! {
 					<div class="block field has-addons">
 						<div class="field-label is-normal">
-							<label class="label">{ filter.filter.name(filter.inverted) }</label>
+							<label class="label">{ filter_instance.filter.name(filter_instance.inverted) }</label>
 						</div>
 						<div class="field-body">
 							<div class="control">
-								<button class={classes!("button", enabled_class)} onclick={Callback::from(move |_| toggle_enabled_callback.emit(i))}>{enabled_label}</button>
+								<button class={classes!("button", enabled_class)} onclick={Callback::from(move |_| toggle_enabled_callback.emit(filter_instance))}>{enabled_label}</button>
 							</div>
 							<div class="control">
-								<button class={classes!("button", inverted_class)} onclick={Callback::from(move |_| toggle_inverted_callback.emit(i))}>{inverted_label}</button>
+								<button class={classes!("button", inverted_class)} onclick={Callback::from(move |_| toggle_inverted_callback.emit(filter_instance))}>{inverted_label}</button>
 							</div>
 							<div class="control">
-								<button class="button" onclick={Callback::from(move |_| remove_callback.emit(i))}>{"Remove"}</button>
+								<button class="button" onclick={Callback::from(move |_| remove_callback.emit(filter_instance))}>{"Remove"}</button>
 							</div>
 						</div>
 					</div>

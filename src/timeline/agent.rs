@@ -2,6 +2,7 @@ use gloo_storage::errors::StorageError;
 use yew_agent::{Agent, AgentLink, HandlerId, Context as AgentContext, Dispatcher, Dispatched};
 use gloo_storage::Storage;
 use serde::{Serialize, Deserialize};
+use std::collections::HashSet;
 
 use super::{TimelineId, Props as TimelineProps, Container};
 use crate::services::EndpointSerialized;
@@ -55,7 +56,7 @@ pub struct SoshalTimelineStorage {
 	#[serde(default = "default_1")]
 	width: u8,
 	#[serde(default)]
-	filters: Option<Vec<FilterInstance>>,
+	filters: Option<HashSet<FilterInstance>>,
 	#[serde(default = "default_sort_method")]
 	sort_method: Option<(SortMethod, bool)>,
 	#[serde(default)]
