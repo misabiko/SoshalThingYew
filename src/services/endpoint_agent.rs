@@ -97,6 +97,17 @@ pub enum TimelineCreationRequest {
 	Props(TimelinePropsEndpointsClosure)
 }
 
+pub struct EndpointAgent {
+	link: AgentLink<Self>,
+	endpoint_counter: EndpointId,
+	pub endpoints: HashMap<EndpointId, EndpointInfo>,
+	pub timelines: HashMap<TimelineId, (Weak<RefCell<Vec<TimelineEndpointWrapper>>>, Callback<Vec<Weak<RefCell<dyn ArticleData>>>>)>,
+	pub services: HashMap<String, EndpointConstructors>,
+	subscribers: HashSet<HandlerId>,
+	timeline_container: Option<HandlerId>,
+	notification_agent: Dispatcher<NotificationAgent>,
+}
+
 pub enum Msg {
 	Refreshed(RefreshTime, EndpointId, (Vec<Rc<RefCell<dyn ArticleData>>>, Option<RateLimit>)),
 	RefreshFail(EndpointId, Error),
@@ -130,17 +141,6 @@ pub enum Response {
 	UpdatedState(HashMap<String, EndpointConstructors>, Vec<EndpointView>),
 	BatchRequestResponse(Vec<(Vec<TimelineEndpointWrapper>, TimelinePropsEndpointsClosure)>),
 	AddTimeline(TimelineCreationMode),
-}
-
-pub struct EndpointAgent {
-	link: AgentLink<Self>,
-	endpoint_counter: EndpointId,
-	pub endpoints: HashMap<EndpointId, EndpointInfo>,
-	pub timelines: HashMap<TimelineId, (Weak<RefCell<Vec<TimelineEndpointWrapper>>>, Callback<Vec<Weak<RefCell<dyn ArticleData>>>>)>,
-	pub services: HashMap<String, EndpointConstructors>,
-	subscribers: HashSet<HandlerId>,
-	timeline_container: Option<HandlerId>,
-	notification_agent: Dispatcher<NotificationAgent>,
 }
 
 impl Agent for EndpointAgent {
@@ -414,15 +414,15 @@ impl EndpointAgent {
 		})
 	}
 
-	fn find_endpoint_or_create(&mut self, storage: &EndpointSerialized, on_start: bool, on_refresh: bool) -> Result<TimelineEndpointWrapper> {
-		match self.endpoint_from_constructor(storage) {
+	fn find_endpoint_or_create(&mut self, serialized: &EndpointSerialized, on_start: bool, on_refresh: bool) -> Result<TimelineEndpointWrapper> {
+		match self.endpoint_from_constructor(serialized) {
 			Some(id) => Ok(id),
 			None => {
-				match self.services.get(&storage.service) {
-					None => Err(format!("{} isn't registered as a service. Available: {:?}", &storage.service, self.services.keys()).into()),
+				match self.services.get(&serialized.service) {
+					None => Err(format!("{} isn't registered as a service. Available: {:?}", &serialized.service, self.services.keys()).into()),
 					Some(service) => {
-						let constructor = service.endpoint_types[storage.endpoint_type].clone();
-						let params = storage.params.clone();
+						let constructor = service.endpoint_types[serialized.endpoint_type].clone();
+						let params = serialized.params.clone();
 
 						let id = self.endpoint_counter;
 						self.endpoints.insert(self.endpoint_counter, EndpointInfo::new((constructor.callback)(id, params.clone())));
@@ -434,11 +434,11 @@ impl EndpointAgent {
 			}
 		}
 			.map(|id| {
-				if storage.auto_refresh {
+				if serialized.auto_refresh {
 					self.link.send_input(Request::StartAutoRefresh(id))
 				}
 
-				TimelineEndpointWrapper { id, on_start, on_refresh, filters: storage.filters.clone() }
+				TimelineEndpointWrapper { id, on_start, on_refresh, filters: serialized.filters.clone() }
 			})
 	}
 

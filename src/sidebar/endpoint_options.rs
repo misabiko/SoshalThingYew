@@ -14,7 +14,7 @@ pub enum Msg {
 	EndpointResponse(EndpointResponse),
 	StartAutoRefresh(EndpointId),
 	StopAutoRefresh(EndpointId),
-	SetAutoRefreshInterval(EndpointId, u32)
+	SetAutoRefreshInterval(EndpointId, u32),
 }
 
 impl Component for EndpointOptions {

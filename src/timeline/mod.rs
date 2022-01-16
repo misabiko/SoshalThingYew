@@ -14,7 +14,7 @@ mod containers;
 
 pub use containers::Container;
 use containers::{view_container, Props as ContainerProps};
-use filters::Filter;
+use filters::{Filter, FilterInstance, FiltersOptions};
 use sort_methods::SortMethod;
 use agent::{TimelineAgent, Request as TimelineAgentRequest};
 use crate::articles::{ArticleView, ArticleData, ArticleRefType};
@@ -24,7 +24,6 @@ use crate::choose_endpoints::ChooseEndpoints;
 use crate::components::{Dropdown, DropdownLabel, FA, IconSize};
 use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest, Response as ArticleActionsResponse};
 use crate::services::storages::{hide_article, mark_article_as_read};
-use crate::timeline::filters::FilterInstance;
 use crate::TimelineEndpointWrapper;
 
 pub type TimelineId = i8;
@@ -106,7 +105,7 @@ pub enum Msg {
 	UpdateSection(Option<usize>, Option<usize>),
 	ToggleLazyLoading,
 	Redraw,
-	AddFilter(Filter, bool),
+	AddFilter((Filter, bool)),
 	RemoveFilter(usize),
 	MarkAllAsRead,
 	HideAll,
@@ -437,7 +436,8 @@ impl Component for Timeline {
 				true
 			}
 			Msg::Redraw => true,
-			Msg::AddFilter(filter, inverted) => {
+			//TODO Move filter stuff to separate file?
+			Msg::AddFilter((filter, inverted)) => {
 				self.filters.push(FilterInstance {filter, inverted, enabled: true});
 				true
 			}
@@ -767,7 +767,7 @@ impl Timeline {
 			<div class="box">
 				<div class="block control">
 					<label class="label">{"Endpoint"}</label>
-					<button class="button" onclick={ctx.link().callback(|_| Msg::SetChooseEndpointModal(true))}>{"Change"}</button>
+					<button class="button" onclick={ctx.link().callback(|_| Msg::SetChooseEndpointModal(true))}>{"Change Endpoints"}</button>
 				</div>
 				{
 					match ctx.props().main_timeline {
@@ -798,50 +798,13 @@ impl Timeline {
 	fn view_filters_options(&self, ctx: &Context<Self>) -> Html {
 		html! {
 			<div class="box">
-				{ for self.filters.iter().enumerate().map(|(i, filter)| {
-					let enabled_i = i;
-					let (enabled_class, enabled_label) = match filter.enabled {
-						true => (Some("is-success"), "Enabled"),
-						false => (None, "Disabled"),
-					};
-					let (inverted_class, inverted_label) = match filter.inverted {
-						true => (Some("is-info"), "Inverted"),
-						false => (None, "Normal"),
-					};
-
-					html! {
-						<div class="block field has-addons">
-							<div class="field-label is-normal">
-								<label class="label">{ filter.filter.name(filter.inverted) }</label>
-							</div>
-							<div class="field-body">
-								<div class="control">
-									<button class={classes!("button", enabled_class)} onclick={ctx.link().callback(move |_| Msg::ToggleFilterEnabled(enabled_i))}>{enabled_label}</button>
-								</div>
-								<div class="control">
-									<button class={classes!("button", inverted_class)} onclick={ctx.link().callback(move |_| Msg::ToggleFilterInverted(i))}>{inverted_label}</button>
-								</div>
-								<div class="control">
-									<button class="button" onclick={ctx.link().callback(move |_| Msg::RemoveFilter(i))}>{"Remove"}</button>
-								</div>
-							</div>
-						</div>
-					}
-				}) }
-				<Dropdown current_label={DropdownLabel::Text("New Filter".to_owned())}>
-					{ for Filter::iter().map(|filter| html! {
-						<a class="dropdown-item" onclick={ctx.link().callback(move |_| Msg::AddFilter(*filter, false))}>
-							{ filter.name(false) }
-						</a>
-					}) }
-				</Dropdown>
-				<Dropdown current_label={DropdownLabel::Text("New Inverted Filter".to_owned())}>
-					{ for Filter::iter().map(|filter| html! {
-						<a class="dropdown-item" onclick={ctx.link().callback(move |_| Msg::AddFilter(*filter, true))}>
-							{ filter.name(true) }
-						</a>
-					}) }
-				</Dropdown>
+				<FiltersOptions
+					filters={self.filters.clone()}
+					toggle_enabled_callback={ctx.link().callback(Msg::ToggleFilterEnabled)}
+					toggle_inverted_callback={ctx.link().callback(Msg::ToggleFilterInverted)}
+					remove_callback={ctx.link().callback(Msg::RemoveFilter)}
+					add_callback={ctx.link().callback(Msg::AddFilter)}
+				/>
 			</div>
 		}
 	}

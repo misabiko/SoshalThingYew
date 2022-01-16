@@ -10,13 +10,17 @@ use serde_json::Value;
 
 use crate::services::endpoint_agent::{Request as EndpointRequest, EndpointAgent, EndpointId, RefreshTime, EndpointConstructors, Response as EndpointResponse, EndpointView, TimelineEndpointWrapper};
 use crate::components::{Dropdown, DropdownLabel};
-use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse};
+use crate::timeline::{
+	filters::{Filter, FilterInstance, FiltersOptions},
+	agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse},
+};
 
 struct EndpointForm {
 	refresh_time: RefreshTime,
 	service: String,
 	endpoint_type: usize,
 	params: Value,
+	filters: Vec<FilterInstance>,
 }
 
 pub struct ChooseEndpoints {
@@ -34,14 +38,22 @@ pub enum Msg {
 	TimelineAgentResponse(TimelineAgentResponse),
 	ToggleStartEndpointDropdown,
 	ToggleRefreshEndpointDropdown,
-	NewEndpoint(RefreshTime),
+	CreateNewEndpointForm(RefreshTime),
 	SetFormService(String),
 	SetFormType(usize),
 	SetFormParamValue((&'static str, Value), String),
 	CreateEndpoint(bool),
-	AddTimelineEndpoint(RefreshTime, EndpointId),
-	AddTimelineEndpointBoth(EndpointId),
+	AddTimelineEndpoint(RefreshTime, EndpointId, Vec<FilterInstance>),
+	AddTimelineEndpointBoth(EndpointId, Vec<FilterInstance>),
 	RemoveTimelineEndpoint(RefreshTime, EndpointId),
+	ToggleFormFilterEnabled(usize),
+	ToggleFormFilterInverted(usize),
+	RemoveFormFilter(usize),
+	AddFormFilter(Filter, bool),
+	ToggleExistingFilterEnabled(usize, usize),
+	ToggleExistingFilterInverted(usize, usize),
+	RemoveExistingFilter(usize, usize),
+	AddExistingFilter(usize, Filter, bool),
 }
 
 #[derive(Properties, Clone)]
@@ -103,6 +115,7 @@ impl Component for ChooseEndpoints {
 					true
 				}
 				TimelineAgentResponse::AddUserTimeline(service, username) => {
+					//TODO Default user timeline filters in options
 					if let Some(endpoint_type) = self.services[&service].user_endpoint {
 						self.endpoint_form = Some(EndpointForm {
 							refresh_time: RefreshTime::Start,
@@ -112,7 +125,8 @@ impl Component for ChooseEndpoints {
 								"username": username,
 								"include_retweets": true,
 								"include_replies": true,
-							})
+							}),
+							filters: Vec::new(),
 						});
 						true
 					}else { false }
@@ -127,12 +141,14 @@ impl Component for ChooseEndpoints {
 				self.show_refresh_endpoint_dropdown = !self.show_refresh_endpoint_dropdown;
 				true
 			}
-			Msg::NewEndpoint(refresh_time) => {
+			Msg::CreateNewEndpointForm(refresh_time) => {
+				//TODO Abstract default service
 				self.endpoint_form = Some(EndpointForm {
 					refresh_time,
 					service: "Twitter".to_owned(),
 					endpoint_type: 0,
 					params: self.services["Twitter"].endpoint_types[0].default_params(),
+					filters: Vec::new(),
 				});
 				true
 			}
@@ -185,17 +201,17 @@ impl Component for ChooseEndpoints {
 			}
 			Msg::CreateEndpoint(both) => {
 				let mut created = false;
-				if let Some(form) = &mut self.endpoint_form {
-					let constructor = self.services[&form.service].endpoint_types[form.endpoint_type].clone();
-					let refresh_time_c = form.refresh_time;
+				if let Some(EndpointForm { service, endpoint_type, refresh_time, params, filters }) = std::mem::take(&mut self.endpoint_form) {
+					let constructor = self.services[&service].endpoint_types[endpoint_type].clone();
+					let refresh_time_c = refresh_time;
 					let callback = if both {
-						ctx.link().callback(move |id| Msg::AddTimelineEndpointBoth(id))
+						ctx.link().callback(move |(id, filters)| Msg::AddTimelineEndpointBoth(id, filters))
 					}else {
-						ctx.link().callback(move |id| Msg::AddTimelineEndpoint(refresh_time_c, id))
+						ctx.link().callback(move |(id, filters)| Msg::AddTimelineEndpoint(refresh_time_c, id, filters))
 					};
-					let params = form.params.clone();
+					let params = params.clone();
 					self.endpoint_agent.send(EndpointRequest::AddEndpoint(Box::new(move |id| {
-						callback.emit(id);
+						callback.emit((id, filters));
 						(constructor.callback)(id, params.clone())
 					})));
 
@@ -205,18 +221,33 @@ impl Component for ChooseEndpoints {
 				self.endpoint_form = None;
 				created
 			}
-			Msg::AddTimelineEndpoint(refresh_time, id) => {
+			Msg::AddTimelineEndpoint(refresh_time, id, filters) => {
 				let timeline_endpoints = ctx.props().timeline_endpoints.upgrade().unwrap();
 				timeline_endpoints.borrow_mut().push(match refresh_time {
-					RefreshTime::Start => TimelineEndpointWrapper::new(id, true, false),
-					RefreshTime::OnRefresh => TimelineEndpointWrapper::new(id, false, true),
+					RefreshTime::Start => TimelineEndpointWrapper {
+						id,
+						on_start: true,
+						on_refresh: false,
+						filters,
+					},
+					RefreshTime::OnRefresh => TimelineEndpointWrapper {
+						id,
+						on_start: false,
+						on_refresh: true,
+						filters,
+					},
 				});
 				true
 			}
-			Msg::AddTimelineEndpointBoth(id) => {
+			Msg::AddTimelineEndpointBoth(id, filters) => {
 				let timeline_endpoints = ctx.props().timeline_endpoints.upgrade().unwrap();
 				let mut borrow = timeline_endpoints.borrow_mut();
-				borrow.push(TimelineEndpointWrapper::new_both(id));
+				borrow.push(TimelineEndpointWrapper {
+					id,
+					on_start: true,
+					on_refresh: true,
+					filters,
+				});
 				true
 			}
 			Msg::RemoveTimelineEndpoint(refresh_time, id) => {
@@ -242,26 +273,88 @@ impl Component for ChooseEndpoints {
 				}
 				true
 			}
+			Msg::ToggleFormFilterEnabled(index) => {
+				let mut filter = self.endpoint_form.as_mut().unwrap().filters.get_mut(index).unwrap();
+				filter.enabled = !filter.enabled;
+				true
+			}
+			Msg::ToggleFormFilterInverted(index) => {
+				let mut filter = self.endpoint_form.as_mut().unwrap().filters.get_mut(index).unwrap();
+				filter.inverted = !filter.inverted;
+				true
+			}
+			Msg::RemoveFormFilter(index) => {
+				self.endpoint_form.as_mut().unwrap().filters.remove(index);
+				true
+			}
+			Msg::AddFormFilter(filter, inverted) => {
+				self.endpoint_form.as_mut().unwrap().filters.push(FilterInstance {filter, inverted, enabled: true});
+				true
+			}
+			Msg::ToggleExistingFilterEnabled(endpoint_index, filter_index) => {
+				let timeline_endpoints = ctx.props().timeline_endpoints.upgrade().unwrap();
+				let mut borrow = timeline_endpoints.borrow_mut();
+				let mut filter = &mut borrow[endpoint_index].filters[filter_index];
+				filter.enabled = !filter.enabled;
+				true
+			}
+			Msg::ToggleExistingFilterInverted(endpoint_index, filter_index) => {
+				let timeline_endpoints = ctx.props().timeline_endpoints.upgrade().unwrap();
+				let mut borrow = timeline_endpoints.borrow_mut();
+				let mut filter = &mut borrow[endpoint_index].filters[filter_index];
+				filter.inverted = !filter.inverted;
+				true
+			}
+			Msg::RemoveExistingFilter(endpoint_index, filter_index) => {
+				let timeline_endpoints = ctx.props().timeline_endpoints.upgrade().unwrap();
+				let mut borrow = timeline_endpoints.borrow_mut();
+				borrow[endpoint_index].filters.remove(filter_index);
+				true
+			}
+			Msg::AddExistingFilter(endpoint_index, filter, inverted) => {
+				let timeline_endpoints = ctx.props().timeline_endpoints.upgrade().unwrap();
+				let mut borrow = timeline_endpoints.borrow_mut();
+				borrow[endpoint_index].filters.push(FilterInstance {filter, inverted, enabled: true});
+				true
+			}
 		}
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
+		//TODO Merge on_start and on_refresh lists
 		html! {
 			<>
-				{ self.component_refresh_time_endpoints(ctx, RefreshTime::Start) }
-				{ self.component_refresh_time_endpoints(ctx, RefreshTime::OnRefresh) }
+				{ self.refresh_time_endpoints(ctx, RefreshTime::Start) }
+				{ self.refresh_time_endpoints(ctx, RefreshTime::OnRefresh) }
 			</>
 		}
 	}
 }
 
 impl ChooseEndpoints {
-	fn component_refresh_time_endpoints(&self, ctx: &Context<Self>, refresh_time: RefreshTime) -> Html {
+	fn refresh_time_endpoints(&self, ctx: &Context<Self>, refresh_time: RefreshTime) -> Html {
 		let strong_endpoints = ctx.props().timeline_endpoints.upgrade().unwrap();
 		let endpoints_borrowed = strong_endpoints.borrow();
 		let (label, endpoints): (String, Vec<&TimelineEndpointWrapper>) = match refresh_time {
 			RefreshTime::Start => ("Start".to_owned(), endpoints_borrowed.iter().filter(|e| e.on_start).collect()),
 			RefreshTime::OnRefresh => ("Refresh".to_owned(), endpoints_borrowed.iter().filter(|e| e.on_refresh).collect()),
+		};
+
+		let existing_dropdown = if !self.endpoint_views.is_empty() {
+			html! {
+				<Dropdown current_label={DropdownLabel::Text("Existing Endpoint".to_owned())}>
+					{ for self.endpoint_views.iter().map(|(id, view)| {
+						let id_c = id.clone();
+						let refresh_time_c = refresh_time.clone();
+						html! {
+							<a class="dropdown-item" onclick={ctx.link().callback(move |_| Msg::AddTimelineEndpoint(refresh_time_c.clone(), id_c.clone(), Vec::new()))}>
+								{ view.name.clone() }
+							</a>
+					}}) }
+				</Dropdown>
+			}
+		}else {
+			html! {}
 		};
 
 		let new_endpoint = match &self.endpoint_form {
@@ -358,6 +451,7 @@ impl ChooseEndpoints {
 								}
 							}
 						})}
+						{ self.view_form_filters(ctx) }
 						<div class="field has-addons">
 							<div class="control">
 								<button class="button" onclick={ctx.link().callback(|_| Msg::CreateEndpoint(false))}>{"Create"}</button>
@@ -371,8 +465,8 @@ impl ChooseEndpoints {
 			}else { html! {} },
 			None => {
 				let on_new_endpoint_callback = match refresh_time {
-					RefreshTime::Start => ctx.link().callback(move |_| Msg::NewEndpoint(RefreshTime::Start)),
-					RefreshTime::OnRefresh => ctx.link().callback(move |_| Msg::NewEndpoint(RefreshTime::OnRefresh)),
+					RefreshTime::Start => ctx.link().callback(move |_| Msg::CreateNewEndpointForm(RefreshTime::Start)),
+					RefreshTime::OnRefresh => ctx.link().callback(move |_| Msg::CreateNewEndpointForm(RefreshTime::OnRefresh)),
 				};
 				html! {
 					<button class="button" onclick={on_new_endpoint_callback}>{"New Endpoint"}</button>
@@ -380,44 +474,54 @@ impl ChooseEndpoints {
 			}
 		};
 
-		let existing_dropdown = if !self.endpoint_views.is_empty() {
-			html! {
-				<Dropdown current_label={DropdownLabel::Text("Existing Endpoint".to_owned())}>
-					{ for self.endpoint_views.iter().map(|(id, view)| {
-						let id_c = id.clone();
-						let refresh_time_c = refresh_time.clone();
-						html! {
-							<a class="dropdown-item" onclick={ctx.link().callback(move |_| Msg::AddTimelineEndpoint(refresh_time_c.clone(), id_c.clone()))}>
-								{ view.name.clone() }
-							</a>
-					}}) }
-				</Dropdown>
-			}
-		}else {
-			html! {}
-		};
-
 		html! {
 			<div class="field">
 				<label class="label">{label}</label>
-				{ for endpoints.into_iter().map(|e| self.view_endpoint(ctx, refresh_time, e.id)) }
+				{ for endpoints.into_iter().enumerate().map(|(i, e)| self.view_endpoint(ctx, refresh_time, e.id, i)) }
 				<div class="control">
 					{ existing_dropdown }
 				</div>
-				{ new_endpoint.clone() }
+				<div class="control">
+					{ new_endpoint }
+				</div>
 			</div>
 		}
 	}
 
-	fn view_endpoint(&self, ctx: &Context<Self>, refresh_time: RefreshTime, endpoint_id: EndpointId) -> Html {
+	fn view_endpoint(&self, ctx: &Context<Self>, refresh_time: RefreshTime, endpoint_id: EndpointId, index: usize) -> Html {
 		html! {
-			<>
+			<div class="block">
 				{ self.endpoint_views.get(&endpoint_id).map(|e| e.name.clone()).unwrap_or_default() }
+				{ self.view_existing_filters(ctx, index) }
 				<button
 					class="button"
 					onclick={ctx.link().callback(move |_| Msg::RemoveTimelineEndpoint(refresh_time.clone(), endpoint_id.clone()))}
 				>{"Remove"}</button>
-			</>
+			</div>
+		}
+	}
+
+	fn view_existing_filters(&self, ctx: &Context<Self>, endpoint_index: usize) -> Html {
+		html! {
+			<FiltersOptions
+				filters={ctx.props().timeline_endpoints.upgrade().unwrap().borrow()[endpoint_index].filters.clone()}
+				toggle_enabled_callback={ctx.link().callback(move |filter_index| Msg::ToggleExistingFilterEnabled(endpoint_index, filter_index))}
+				toggle_inverted_callback={ctx.link().callback(move |filter_index| Msg::ToggleExistingFilterInverted(endpoint_index, filter_index))}
+				remove_callback={ctx.link().callback(move |filter_index| Msg::RemoveExistingFilter(endpoint_index, filter_index))}
+				add_callback={ctx.link().callback(move |(filter, inverted)| Msg::AddExistingFilter(endpoint_index, filter, inverted))}
+			/>
+		}
+	}
+
+	fn view_form_filters(&self, ctx: &Context<Self>) -> Html {
+		html! {
+			<FiltersOptions
+				filters={self.endpoint_form.as_ref().unwrap().filters.clone()}
+				toggle_enabled_callback={ctx.link().callback(Msg::ToggleFormFilterEnabled)}
+				toggle_inverted_callback={ctx.link().callback(Msg::ToggleFormFilterInverted)}
+				remove_callback={ctx.link().callback(Msg::RemoveFormFilter)}
+				add_callback={ctx.link().callback(|(filter, inverted)| Msg::AddFormFilter(filter, inverted))}
+			/>
 		}
 	}
 }

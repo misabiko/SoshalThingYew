@@ -1,8 +1,10 @@
 use std::rc::Weak;
 use std::cell::{Ref, RefCell};
 use serde::{Serialize, Deserialize};
+use yew::prelude::*;
 
 use crate::articles::{ArticleData, ArticleMedia, ArticleRefType, MediaType};
+use crate::components::{Dropdown, DropdownLabel};
 
 pub type FilterPredicate = fn(&Weak<RefCell<dyn ArticleData>>, inverted: &bool) -> bool;
 
@@ -168,5 +170,83 @@ fn is_animated(media: &ArticleMedia) -> bool {
 	match media.media_type {
 		MediaType::Video | MediaType::VideoGif | MediaType::Gif => true,
 		MediaType::Image => false,
+	}
+}
+
+pub fn view_add_filter() -> Html {
+	html! {
+		<>
+		</>
+	}
+}
+
+#[derive(Properties, PartialEq)]
+pub struct FilterOptionsProps {
+	pub filters: Vec<FilterInstance>,
+	pub toggle_enabled_callback: Callback<usize>,
+	pub toggle_inverted_callback: Callback<usize>,
+	pub remove_callback: Callback<usize>,
+	pub add_callback: Callback<(Filter, bool)>,
+}
+
+#[function_component(FiltersOptions)]
+pub fn filters_options(props: &FilterOptionsProps) -> Html {
+	html! {
+		<>
+			{ for props.filters.iter().enumerate().map(|(i, filter)| {
+				let toggle_enabled_callback = props.toggle_enabled_callback.clone();
+				let toggle_inverted_callback = props.toggle_inverted_callback.clone();
+				let remove_callback = props.remove_callback.clone();
+
+				let (enabled_class, enabled_label) = match filter.enabled {
+					true => (Some("is-success"), "Enabled"),
+					false => (None, "Disabled"),
+				};
+				let (inverted_class, inverted_label) = match filter.inverted {
+					true => (Some("is-info"), "Inverted"),
+					false => (None, "Normal"),
+				};
+
+				html! {
+					<div class="block field has-addons">
+						<div class="field-label is-normal">
+							<label class="label">{ filter.filter.name(filter.inverted) }</label>
+						</div>
+						<div class="field-body">
+							<div class="control">
+								<button class={classes!("button", enabled_class)} onclick={Callback::from(move |_| toggle_enabled_callback.emit(i))}>{enabled_label}</button>
+							</div>
+							<div class="control">
+								<button class={classes!("button", inverted_class)} onclick={Callback::from(move |_| toggle_inverted_callback.emit(i))}>{inverted_label}</button>
+							</div>
+							<div class="control">
+								<button class="button" onclick={Callback::from(move |_| remove_callback.emit(i))}>{"Remove"}</button>
+							</div>
+						</div>
+					</div>
+				}
+			}) }
+			// TODO has-addons
+			<Dropdown current_label={DropdownLabel::Text("New Filter".to_owned())}>
+				{ for Filter::iter().map(|filter| {
+					let add_callback = props.add_callback.clone();
+					html! {
+						<a class="dropdown-item" onclick={Callback::from(move |_| add_callback.emit((*filter, false)))}>
+							{ filter.name(false) }
+						</a>
+					}
+				}) }
+			</Dropdown>
+			<Dropdown current_label={DropdownLabel::Text("New Inverted Filter".to_owned())}>
+				{ for Filter::iter().map(|filter| {
+					let add_callback = props.add_callback.clone();
+					html! {
+						<a class="dropdown-item" onclick={Callback::from(move |_| add_callback.emit((*filter, true)))}>
+							{ filter.name(true) }
+						</a>
+					}
+				}) }
+			</Dropdown>
+		</>
 	}
 }
