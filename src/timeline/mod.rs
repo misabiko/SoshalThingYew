@@ -137,7 +137,7 @@ pub struct Props {
 	pub articles: Vec<Weak<RefCell<dyn ArticleData>>>,
 	#[prop_or_default]
 	pub filters: Option<HashSet<FilterInstance>>,
-	#[prop_or(Some((SortMethod::Id, false)))]
+	#[prop_or_default]
 	pub sort_method: Option<(SortMethod, bool)>,
 	#[prop_or_default]
 	pub compact: bool,
@@ -178,6 +178,7 @@ impl Component for Timeline {
 		let mut endpoint_agent = EndpointAgent::dispatcher();
 		endpoint_agent.send(EndpointRequest::InitTimeline(ctx.props().id.clone(), endpoints.clone(), ctx.link().callback(Msg::NewArticles)));
 
+		log::debug!("Sort: {:?}", ctx.props().sort_method);
 		Self {
 			endpoints,
 			articles: ctx.props().articles.clone(),

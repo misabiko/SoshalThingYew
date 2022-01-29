@@ -373,6 +373,7 @@ impl Endpoint for FollowAPIEndpoint {
 		self.agent.send(Request::FetchPosts(
 			refresh_time,
 			self.id,
+			//TODO Use Url
 			format!("https://www.pixiv.net/ajax/follow_latest/illust?{}", query.to_string()),
 		))
 	}
