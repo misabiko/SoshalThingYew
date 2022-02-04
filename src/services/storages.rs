@@ -32,6 +32,7 @@ pub struct LocalStorageService {
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct SoshalLocalStorage {
+	#[serde(default)]
 	pub services: HashMap<String, LocalStorageService>,
 	pub display_mode: DisplayMode,
 }

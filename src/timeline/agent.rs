@@ -50,6 +50,7 @@ pub struct SoshalTimelineStorage {
 	title: String,
 	#[serde(default)]
 	container: Container,
+	#[serde(default)]
 	endpoints: Vec<EndpointSerialized>,
 	#[serde(default = "default_1")]
 	column_count: u8,
