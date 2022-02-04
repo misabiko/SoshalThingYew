@@ -9,6 +9,9 @@ members = [
     "src-tauri"
 ]
 
+[features]
+dummy_service = []
+
 [dependencies]
 yew = "0.19.3"
 yew-agent = "0.1.0"

@@ -11,6 +11,8 @@ pub mod twitter;
 pub mod pixiv;
 pub mod youtube;
 pub mod storages;
+//#[cfg(feature = "dummy_service")]
+pub mod dummy_service;
 
 pub use endpoint_agent::{EndpointId, EndpointAgent, RefreshTime};
 use crate::error::Error;
