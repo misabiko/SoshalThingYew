@@ -25,7 +25,7 @@ pub enum Request {
 	RegisterChooseEndpoints,
 	RegisterTimelineContainer,
 	AddTimeline,
-	AddUserTimeline(String, String),
+	AddUserTimeline(&'static str, String),
 	SetMainTimeline(TimelineId),
 	SetMainContainer(Container),
 	SetMainColumnCount(u8),
@@ -37,7 +37,7 @@ pub enum Request {
 pub enum Response {
 	AddTimeline,
 	AddBlankTimeline,
-	AddUserTimeline(String, String),
+	AddUserTimeline(&'static str, String),
 	SetMainTimeline(TimelineId),
 	SetMainContainer(Container),
 	SetMainColumnCount(u8),

@@ -178,7 +178,6 @@ impl Component for Timeline {
 		let mut endpoint_agent = EndpointAgent::dispatcher();
 		endpoint_agent.send(EndpointRequest::InitTimeline(ctx.props().id.clone(), endpoints.clone(), ctx.link().callback(Msg::NewArticles)));
 
-		log::debug!("Sort: {:?}", ctx.props().sort_method);
 		Self {
 			endpoints,
 			articles: ctx.props().articles.clone(),

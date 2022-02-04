@@ -102,7 +102,7 @@ pub struct EndpointAgent {
 	endpoint_counter: EndpointId,
 	pub endpoints: HashMap<EndpointId, EndpointInfo>,
 	pub timelines: HashMap<TimelineId, (Weak<RefCell<Vec<TimelineEndpointWrapper>>>, Callback<Vec<Weak<RefCell<dyn ArticleData>>>>)>,
-	pub services: HashMap<String, EndpointConstructors>,
+	pub services: HashMap<&'static str, EndpointConstructors>,
 	subscribers: HashSet<HandlerId>,
 	timeline_container: Option<HandlerId>,
 	notification_agent: Dispatcher<NotificationAgent>,
@@ -127,7 +127,7 @@ pub enum Request {
 	AddArticles(RefreshTime, EndpointId, Vec<Rc<RefCell<dyn ArticleData>>>),
 	AddEndpoint(Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>),
 	BatchAddEndpoints(Vec<(Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>, bool, bool)>, TimelineCreationRequest),
-	InitService(String, EndpointConstructors),
+	InitService(&'static str, EndpointConstructors),
 	UpdateRateLimit(EndpointId, RateLimit),
 	BatchNewEndpoints(Vec<(Vec<EndpointSerialized>, TimelinePropsEndpointsClosure)>),
 	RegisterTimelineContainer,
@@ -138,7 +138,7 @@ pub enum Request {
 }
 
 pub enum Response {
-	UpdatedState(HashMap<String, EndpointConstructors>, Vec<EndpointView>),
+	UpdatedState(HashMap<&'static str, EndpointConstructors>, Vec<EndpointView>),
 	BatchRequestResponse(Vec<(Vec<TimelineEndpointWrapper>, TimelinePropsEndpointsClosure)>),
 	AddTimeline(TimelineCreationMode, bool),
 }
@@ -418,7 +418,7 @@ impl EndpointAgent {
 		match self.endpoint_from_constructor(serialized) {
 			Some(id) => Ok(id),
 			None => {
-				match self.services.get(&serialized.service) {
+				match self.services.get(&serialized.service.as_str()) {
 					None => Err(format!("{} isn't registered as a service. Available: {:?}", &serialized.service, self.services.keys()).into()),
 					Some(service) => {
 						let constructor = service.endpoint_types[serialized.endpoint_type].clone();

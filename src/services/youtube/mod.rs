@@ -61,7 +61,7 @@ impl Agent for YouTubeAgent {
 	fn create(link: AgentLink<Self>) -> Self {
 		let mut endpoint_agent = EndpointAgent::dispatcher();
 		endpoint_agent.send(EndpointRequest::InitService(
-			"YouTube".to_owned(),
+			"YouTube",
 			EndpointConstructors {
 				endpoint_types: vec![
 					EndpointConstructor {

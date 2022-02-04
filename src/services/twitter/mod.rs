@@ -98,7 +98,7 @@ impl Agent for TwitterAgent {
 	fn create(link: AgentLink<Self>) -> Self {
 		let mut endpoint_agent = EndpointAgent::dispatcher();
 		endpoint_agent.send(EndpointRequest::InitService(
-			"Twitter".to_owned(),
+			"Twitter",
 			 EndpointConstructors {
 				 //TODO Needs to sync other eq_storage when modifying this
 				endpoint_types: vec![

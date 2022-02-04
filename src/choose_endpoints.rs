@@ -17,7 +17,7 @@ use crate::timeline::{
 
 struct EndpointForm {
 	refresh_time: RefreshTime,
-	service: String,
+	service: &'static str,
 	endpoint_type: usize,
 	params: Value,
 	filters: HashSet<FilterInstance>,
@@ -30,7 +30,7 @@ pub struct ChooseEndpoints {
 	show_refresh_endpoint_dropdown: bool,
 	endpoint_views: HashMap<EndpointId, EndpointView>,
 	endpoint_form: Option<EndpointForm>,
-	services: HashMap<String, EndpointConstructors>,
+	services: HashMap<&'static str, EndpointConstructors>,
 }
 
 pub enum Msg {
@@ -39,7 +39,7 @@ pub enum Msg {
 	ToggleStartEndpointDropdown,
 	ToggleRefreshEndpointDropdown,
 	CreateNewEndpointForm(RefreshTime),
-	SetFormService(String),
+	SetFormService(&'static str),
 	SetFormType(usize),
 	SetFormParamValue((&'static str, Value), String),
 	CreateEndpoint(bool),
@@ -145,7 +145,7 @@ impl Component for ChooseEndpoints {
 				//TODO Abstract default service
 				self.endpoint_form = Some(EndpointForm {
 					refresh_time,
-					service: "Twitter".to_owned(),
+					service: "Twitter",
 					endpoint_type: 0,
 					params: self.services["Twitter"].endpoint_types[0].default_params(),
 					filters: HashSet::new(),
@@ -388,7 +388,7 @@ impl ChooseEndpoints {
 				html! {
 					<div class="control">
 						<label class="label">{ "Service" }</label>
-						<Dropdown current_label={DropdownLabel::Text(form.service.clone())}>
+						<Dropdown current_label={DropdownLabel::Text(form.service.to_owned())}>
 							{ for services.iter().map(|service| {
 								let service_name = service.0.clone();
 								let service_name_2 = service.0.clone();

@@ -19,7 +19,7 @@ pub struct SocialArticle {
 pub enum Msg {
 	ParentCallback(ParentMsg),
 	ToggleCompact,
-	AddUserTimeline(String, String),
+	AddUserTimeline(&'static str, String),
 }
 
 impl Component for SocialArticle {
@@ -83,7 +83,7 @@ impl Component for SocialArticle {
 		let on_username_click = ctx.link().callback(move |e: MouseEvent| {
 			let borrow = actual_c.borrow();
 			e.prevent_default();
-			Msg::AddUserTimeline(borrow.service().to_owned(), borrow.author_username())
+			Msg::AddUserTimeline(borrow.service(), borrow.author_username())
 		});
 
 		html! {
@@ -370,7 +370,7 @@ impl SocialArticle {
 	}
 
 	fn view_repost_label(&self, ctx: &Context<Self>, repost: &Ref<dyn ArticleData>) -> Html {
-		let service = repost.service().to_owned();
+		let service = repost.service();
 		let username = repost.author_username();
 		let onclick = ctx.link().callback(move |e: MouseEvent| {
 			e.prevent_default();

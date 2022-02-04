@@ -44,7 +44,7 @@ impl Agent for PixivAgent {
 	fn create(link: AgentLink<Self>) -> Self {
 		let mut endpoint_agent = EndpointAgent::dispatcher();
 		endpoint_agent.send(EndpointRequest::InitService(
-			"Pixiv".to_owned(),
+			"Pixiv",
 			EndpointConstructors {
 				endpoint_types: vec![
 					EndpointConstructor {
