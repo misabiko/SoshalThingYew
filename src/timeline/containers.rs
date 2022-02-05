@@ -101,7 +101,7 @@ pub fn column_container(props: &Props) -> Html {
 					hide_text={props.hide_text}
 					lazy_loading={props.lazy_loading}
 					load_priority={load_priority as u32}
-					column_count={props.column_count}
+					column_count=1
 				/>
 			}) }
 		</div>
