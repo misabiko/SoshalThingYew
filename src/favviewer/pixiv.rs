@@ -5,12 +5,13 @@ use gloo_timers::callback::Timeout;
 
 use crate::favviewer::{FavViewerStyle, PageInfo, default_hidden_style};
 use crate::{Model, Props as ModelProps, DisplayMode, EndpointAgent};
+use crate::modals::settings::{SettingsAgent, Request as SettingsAgentRequest};
 use crate::timeline::Container;
 use crate::services::{
-	endpoint_agent::{Request as EndpointRequest},
+	endpoint_agent::{Request as EndpointRequest, TimelineCreationRequest},
 	pixiv::endpoints::*,
+	storages::get_or_init_favviewer_settings,
 };
-use crate::services::endpoint_agent::TimelineCreationRequest;
 
 fn make_follow_activator(onclick: Callback<MouseEvent>) -> Html {
 	let favviewer_button_mount = gloo_utils::document()
@@ -93,12 +94,16 @@ pub fn setup(href: &str) -> bool {
 			}, document_head.into()
 		));
 
+		let display_mode = get_or_init_favviewer_settings(DisplayMode::Single {
+			container: Container::Masonry,
+			column_count: 5,
+		});
+		let mut settings_agent = SettingsAgent::dispatcher();
+		settings_agent.send(SettingsAgentRequest::InitFavViewerSettings(display_mode));
+
 		yew::start_app_with_props_in_element::<Model>(mount_point, yew::props! { ModelProps {
 			favviewer: true,
-			display_mode: DisplayMode::Single {
-				container: Container::Masonry,
-				column_count: 5,
-			},
+			display_mode,
 			page_info: Some(PageInfo::Setup {
 				style_html,
 				initial_style: FavViewerStyle::Hidden,

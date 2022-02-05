@@ -5,16 +5,19 @@ mod endpoint_options;
 
 use endpoint_options::EndpointOptions;
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest};
+use crate::modals::settings::{SettingsAgent, Request as SettingsAgentRequest};
 use crate::components::{FA, IconSize, IconType};
 
 pub struct Sidebar {
 	expanded: bool,
 	add_timeline_agent: Dispatcher<TimelineAgent>,
+	settings_agent: Dispatcher<SettingsAgent>,
 }
 
 pub enum Msg {
 	ToggleExpanded,
 	AddTimeline,
+	ShowSettings,
 }
 
 #[derive(Properties, PartialEq, Clone)]
@@ -28,9 +31,13 @@ impl Component for Sidebar {
 	type Properties = Props;
 
 	fn create(_ctx: &Context<Self>) -> Self {
+		let mut settings_agent = SettingsAgent::dispatcher();
+		settings_agent.send(SettingsAgentRequest::RegisterSidebar);
+
 		Self {
 			expanded: false,
 			add_timeline_agent: TimelineAgent::dispatcher(),
+			settings_agent,
 		}
 	}
 
@@ -42,6 +49,10 @@ impl Component for Sidebar {
 			}
 			Msg::AddTimeline => {
 				self.add_timeline_agent.send(TimelineAgentRequest::AddTimeline);
+				false
+			}
+			Msg::ShowSettings => {
+				self.settings_agent.send(SettingsAgentRequest::ShowModal);
 				false
 			}
 		}
@@ -69,8 +80,11 @@ impl Component for Sidebar {
 						</button>
 						{ for ctx.props().children.iter() }
 					</div>
-					<div title="Github">
-						<a href="https://github.com/misabiko/SoshalThingYew">
+					<div>
+						<button onclick={ctx.link().callback(|_| Msg::ShowSettings)} title="Settings">
+							<FA icon="cog" size={IconSize::X2}/>
+						</button>
+						<a href="https://github.com/misabiko/SoshalThingYew" title="Github">
 							<button>
 								<FA icon="github" icon_type={IconType::Brand} size={IconSize::X2}/>
 							</button>

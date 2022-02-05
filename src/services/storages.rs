@@ -2,6 +2,7 @@ use gloo_storage::Storage;
 use std::collections::{HashMap, HashSet};
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
+
 use crate::DisplayMode;
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -173,4 +174,20 @@ pub fn hide_article(service_name: &str, id: String, value: bool) {
 
 	gloo_storage::LocalStorage::set("SoshalThingYew", &session_storage)
 		.expect("couldn't write session storage");
+}
+
+pub fn update_favviewer_settings(settings: DisplayMode) {
+	gloo_storage::LocalStorage::set("SoshalThingYew FavViewer", &settings)
+		.expect("couldn't write session storage");
+}
+
+pub fn get_or_init_favviewer_settings(settings: DisplayMode) -> DisplayMode {
+	match gloo_storage::LocalStorage::get("SoshalThingYew FavViewer") {
+		Ok(storage) => storage,
+		Err(_) => {
+			gloo_storage::LocalStorage::set("SoshalThingYew FavViewer", &settings)
+				.expect("couldn't write session storage");
+			settings
+		},
+	}
 }

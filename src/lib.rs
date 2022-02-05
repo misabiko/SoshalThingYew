@@ -18,7 +18,8 @@ mod sidebar;
 use components::{FA, IconSize};
 use error::Result;
 use favviewer::PageInfo;
-use modals::AddTimelineModal;
+use modals::add_timeline::AddTimelineModal;
+use modals::settings::SettingsModal;
 use notifications::{NotificationAgent, Request as NotificationRequest, Response as NotificationResponse};
 use services::{
 	Endpoint,
@@ -80,6 +81,7 @@ pub struct Model {
 	services_sidebar: HashMap<String, Html>,
 	_notification_agent: Box<dyn Bridge<NotificationAgent>>,
 	notifications: Vec<Html>,
+	sidebar_favviewer: bool,
 }
 
 pub enum Msg {
@@ -94,6 +96,7 @@ pub enum Msg {
 	YouTubeResponse(YouTubeResponse),
 	FetchedAuthInfo(Result<AuthInfo>),
 	NotificationResponse(NotificationResponse),
+	ToggleSidebarFavViewer,
 }
 
 #[derive(Properties, PartialEq, Default)]
@@ -139,7 +142,7 @@ impl Component for Model {
 				Some(PageInfo::Ready {
 					style_html: style_html.clone(),
 					style: initial_style.clone(),
-					favviewer_button: (make_activator)(ctx.link().callback(| _ | Msg::ToggleFavViewer))
+					favviewer_button: (make_activator)(ctx.link().callback(| _ | Msg::ToggleFavViewer)),
 				})
 			}
 			_ => None,
@@ -201,6 +204,7 @@ impl Component for Model {
 			services_sidebar: ctx.props().services_sidebar.clone(),
 			_notification_agent,
 			notifications: Vec::new(),
+			sidebar_favviewer: false,
 		}
 	}
 
@@ -347,6 +351,10 @@ impl Component for Model {
 				};
 				true
 			}
+			Msg::ToggleSidebarFavViewer => {
+				self.sidebar_favviewer = !self.sidebar_favviewer;
+				true
+			}
 		}
 	}
 
@@ -364,18 +372,19 @@ impl Component for Model {
 		html! {
 			<>
 				<AddTimelineModal add_timeline_callback={ctx.link().callback(|(props, set_as_main_timeline)| Msg::AddTimeline(TimelineCreationMode::Props(props), set_as_main_timeline))}/>
+				<SettingsModal/>
 				<div id="soshal-notifications">
 					{ for self.notifications.iter().cloned() }
 				</div>
 				{ self.page_info.as_ref().map(|p| p.view()).unwrap_or_default() }
 				{
-					match ctx.props().favviewer {
-						false => html! {
+					match self.sidebar_favviewer || !ctx.props().favviewer {
+						true => html! {
 							<Sidebar services={self.services_sidebar.values().cloned().collect::<Vec<Html>>()}>
 								{ display_mode_toggle }
 							</Sidebar>
 						},
-						true => html! {},
+						false => html! {},
 					}
 				}
 				<div id="timelineContainer">
@@ -394,9 +403,14 @@ impl Component for Model {
 												{
 													match ctx.props().favviewer {
 														true => html! {
-															<button title="Toggle FavViewer" onclick={ctx.link().callback(|_| Msg::ToggleFavViewer)}>
-																<FA icon="eye-slash" size={IconSize::Large}/>
-															</button>
+															<>
+																<button title="Toggle FavViewer" onclick={ctx.link().callback(|_| Msg::ToggleFavViewer)}>
+																	<FA icon="eye-slash" size={IconSize::Large}/>
+																</button>
+																<button title="Show Sidebar" onclick={ctx.link().callback(|_| Msg::ToggleSidebarFavViewer)}>
+																	<FA icon="ellipsis-v" size={IconSize::Large}/>
+																</button>
+															</>
 														},
 														false => html! {}
 													}
