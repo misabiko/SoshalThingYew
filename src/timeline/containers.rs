@@ -110,6 +110,7 @@ pub fn column_container(props: &Props) -> Html {
 
 #[function_component(RowContainer)]
 pub fn row_container(props: &Props) -> Html {
+	//TODO Keep scroll bar on the right
 	let style = match props.rtl {
 		true => Some("direction: rtl"),
 		false => None,

@@ -205,10 +205,8 @@ impl Component for ArticleComponent {
 				}
 			}
 			self.previous_media = new_media;
-			true
-		}else {
-			false
 		}
+		true
 	}
 
 	fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
