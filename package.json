@@ -4,6 +4,7 @@
     "bulma": "^0.9.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.19.0",
     "cypress": "^9"
   }
 }

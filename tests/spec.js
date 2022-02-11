@@ -1,9 +1,11 @@
-describe('SoshalThing', () => {
-	it('visits the app root url', () => {
-		cy.visit('/');
+const { expect, test } = require('@playwright/test');
+
+test.describe('SoshalThing', () => {
+	test('visits the app root url', async ({ page }) => {
+		await page.goto('/');
 	})
 
-	it('timeline without endpoint', () => {
+	/*it('timeline without endpoint', () => {
 		cy.session("timeline without endpoint", () => {
 			window.localStorage.setItem("SoshalThingYew", JSON.stringify({
 				display_mode: {
@@ -76,5 +78,5 @@ describe('SoshalThing', () => {
 			]));
 		});
 		cy.visit('/');
-	})
+	})*/
 })
