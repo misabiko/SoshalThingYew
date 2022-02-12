@@ -102,16 +102,9 @@ test.describe('main timeline', () => {
 	});
 });
 
-test.skip('repost feedback', async ({page}) => {
+test('like feedback', async ({page}) => {
 	await page.goto('/');
 	await page.mainFrame().evaluate(() => {
-		window.localStorage.setItem('SoshalThingYew', JSON.stringify({
-			display_mode: {
-				type: "Single",
-				container: "Column",
-				column_count: 1,
-			}
-		}));
 		window.localStorage.setItem('SoshalThingYew Timelines', JSON.stringify([{
 			"title": "Timeline",
 			"endpoints": [
@@ -126,4 +119,31 @@ test.skip('repost feedback', async ({page}) => {
 		}]));
 	});
 	await page.reload();
+
+	await page.click('.article .likeButton');
+
+	await expect(page.locator('.article .likeButton')).toHaveClass(/likedPostButton/);
+});
+
+test('repost feedback', async ({page}) => {
+	await page.goto('/');
+	await page.mainFrame().evaluate(() => {
+		window.localStorage.setItem('SoshalThingYew Timelines', JSON.stringify([{
+			"title": "Timeline",
+			"endpoints": [
+				{
+					"service": "Dummy Service",
+					"endpoint_type": 0,
+					"params": {},
+					"on_start": true,
+					"on_refresh": true
+				}
+			]
+		}]));
+	});
+	await page.reload();
+
+	await page.click('.article .repostButton');
+
+	await expect(page.locator('.article .repostButton')).toHaveClass(/repostedPostButton/);
 });

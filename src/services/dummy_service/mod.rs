@@ -1,22 +1,28 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
+use std::cell::RefCell;
 use js_sys::Date;
 use yew_agent::{Agent, AgentLink, Context, Dispatcher, Dispatched, HandlerId};
 use crate::articles::{ArticleData, ArticleMedia};
-use crate::EndpointRequest;
+use crate::{Endpoint, EndpointId, EndpointRequest};
 
-use crate::services::endpoint_agent::{EndpointAgent, EndpointConstructors};
+use crate::services::endpoint_agent::{EndpointAgent, EndpointConstructor, EndpointConstructors};
+use crate::services::{EndpointSerialized, RefreshTime};
+use crate::services::article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest};
 
 static SERVICE_NAME: &'static str = "Dummy Service";
 
 pub struct DummyServiceAgent {
-	link: AgentLink<Self>,
-	endpoint_agent: Dispatcher<EndpointAgent>,
+	//link: AgentLink<Self>,
+	_endpoint_agent: Dispatcher<EndpointAgent>,
+	actions_agent: Dispatcher<ArticleActionsAgent>,
 	articles: HashMap<u32, Rc<RefCell<DummyArticleData>>>,
 }
 
-pub enum Msg {}
+pub enum Msg {
+	Like(HandlerId, Weak<RefCell<dyn ArticleData>>),
+	Repost(HandlerId, Weak<RefCell<dyn ArticleData>>),
+}
 
 pub enum Request {}
 
@@ -29,24 +35,80 @@ impl Agent for DummyServiceAgent {
 	type Output = Response;
 
 	fn create(link: AgentLink<Self>) -> Self {
-		let mut endpoint_agent = EndpointAgent::dispatcher();
-		endpoint_agent.send(EndpointRequest::InitService(
+		let articles = HashMap::from([
+			(0, Rc::new(RefCell::new(DummyArticleData {
+				id: 0,
+				creation_time: js_sys::Date::new_0(),
+				text: "Text".to_string(),
+				author_name: "Author Name".to_string(),
+				author_avatar_url: "".to_string(),
+				author_url: "".to_string(),
+				url: "".to_string(),
+				marked_as_read: false,
+				hidden: false,
+				liked: false,
+				reposted: false,
+			})))
+		]);
+
+		let weak_articles: Vec<Weak<RefCell<dyn ArticleData>>> = articles.values()
+			.map(|a| Rc::downgrade(a) as Weak<RefCell<dyn ArticleData>>)
+			.collect();
+
+		let mut _endpoint_agent = EndpointAgent::dispatcher();
+		_endpoint_agent.send(EndpointRequest::InitService(
 			SERVICE_NAME,
 			EndpointConstructors {
-				endpoint_types: vec![],
+				endpoint_types: vec![
+					EndpointConstructor {
+						name: "Endpoint",
+						param_template: vec![],
+						callback: Rc::new(move |id, _params| Box::new(DummyEndpoint::new(
+							id,
+							weak_articles.clone(),
+						))),
+					}
+				],
 				user_endpoint: None,
-			}
+			},
 		));
 
+		let mut actions_agent = ArticleActionsAgent::dispatcher();
+		actions_agent.send(ArticleActionsRequest::Init(SERVICE_NAME, ServiceActions {
+			like: Some(link.callback(|(id, article)| Msg::Like(id, article))),
+			repost: Some(link.callback(|(id, article)| Msg::Repost(id, article))),
+			fetch_data: None,
+		}));
+
 		Self {
-			link,
-			endpoint_agent,
-			articles: HashMap::new(),
+			//link,
+			_endpoint_agent,
+			actions_agent,
+			articles,
 		}
 	}
 
 	fn update(&mut self, msg: Self::Message) {
-		match msg {}
+		match msg {
+			Msg::Like(_id, article) => {
+				let strong = article.upgrade().unwrap();
+
+				let article = self.articles.get(&strong.borrow().id().parse::<u32>().unwrap()).unwrap();
+				let old_liked = strong.borrow().liked();
+				article.borrow_mut().liked = !old_liked;
+
+				self.actions_agent.send(ArticleActionsRequest::RedrawTimelines(vec![Rc::downgrade(article) as Weak<RefCell<dyn ArticleData>>]));
+			}
+			Msg::Repost(_id, article) => {
+				let strong = article.upgrade().unwrap();
+
+				let article = self.articles.get(&strong.borrow().id().parse::<u32>().unwrap()).unwrap();
+				let old_reposted = strong.borrow().reposted();
+				article.borrow_mut().reposted = !old_reposted;
+
+				self.actions_agent.send(ArticleActionsRequest::RedrawTimelines(vec![Rc::downgrade(article) as Weak<RefCell<dyn ArticleData>>]));
+			}
+		}
 	}
 
 	fn handle_input(&mut self, msg: Self::Input, _id: HandlerId) {
@@ -66,6 +128,8 @@ pub struct DummyArticleData {
 	url: String,
 	marked_as_read: bool,
 	hidden: bool,
+	liked: bool,
+	reposted: bool,
 }
 
 impl ArticleData for DummyArticleData {
@@ -73,7 +137,7 @@ impl ArticleData for DummyArticleData {
 
 	fn id(&self) -> String { self.id.to_string() }
 
-	fn sortable_id(&self) -> u64 { self.id as u64}
+	fn sortable_id(&self) -> u64 { self.id as u64 }
 
 	fn creation_time(&self) -> Date { self.creation_time.clone() }
 
@@ -101,11 +165,74 @@ impl ArticleData for DummyArticleData {
 		self.hidden = value;
 	}
 
+	fn liked(&self) -> bool {
+		self.liked
+	}
+
+	fn like_count(&self) -> u32 {
+		if self.liked { 1 } else { 0 }
+	}
+
+	fn reposted(&self) -> bool {
+		self.reposted
+	}
+
+	fn repost_count(&self) -> u32 {
+		if self.reposted { 1 } else { 0 }
+	}
+
 	fn clone_data(&self) -> Box<dyn ArticleData> {
 		Box::new(self.clone())
 	}
 
 	fn media_loaded(&mut self, _index: usize) {
 		log::warn!("Dummy Service doesn't do lazy loading.");
+	}
+}
+
+pub struct DummyEndpoint {
+	id: EndpointId,
+	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
+	//agent: Dispatcher<DummyServiceAgent>,
+	endpoint_agent: Dispatcher<EndpointAgent>,
+}
+
+impl DummyEndpoint {
+	pub fn new(id: EndpointId, articles: Vec<Weak<RefCell<dyn ArticleData>>>) -> Self {
+		Self {
+			id,
+			articles,
+			//agent: DummyServiceAgent::dispatcher(),
+			endpoint_agent: EndpointAgent::dispatcher(),
+		}
+	}
+}
+
+impl Endpoint for DummyEndpoint {
+	fn name(&self) -> String {
+		"Dummy Endpoint".to_owned()
+	}
+
+	fn id(&self) -> &EndpointId {
+		&self.id
+	}
+
+	fn articles(&mut self) -> &mut Vec<Weak<RefCell<dyn ArticleData>>> {
+		&mut self.articles
+	}
+
+	fn refresh(&mut self, refresh_time: RefreshTime) {
+		self.endpoint_agent.send(EndpointRequest::AddArticles(
+			refresh_time,
+			self.id,
+			self.articles.iter()
+				.map(|a| a.upgrade().unwrap())
+				.collect(),
+		));
+	}
+
+	fn eq_storage(&self, storage: &EndpointSerialized) -> bool {
+		storage.service == SERVICE_NAME &&
+			storage.endpoint_type == 0
 	}
 }

@@ -30,7 +30,7 @@ enum AuthState {
 pub struct YouTubeAgent {
 	link: AgentLink<Self>,
 	endpoint_agent: Dispatcher<EndpointAgent>,
-	actions_agent: Dispatcher<ArticleActionsAgent>,
+	_actions_agent: Dispatcher<ArticleActionsAgent>,
 	articles: HashMap<String, Rc<RefCell<YouTubeArticleData>>>,
 	auth_state: AuthState,
 	sidebar_handler: Option<HandlerId>,
@@ -75,8 +75,8 @@ impl Agent for YouTubeAgent {
 				user_endpoint: None,
 			}));
 
-		let mut actions_agent = ArticleActionsAgent::dispatcher();
-		actions_agent.send(ArticleActionsRequest::Init("YouTube", ServiceActions {
+		let mut _actions_agent = ArticleActionsAgent::dispatcher();
+		_actions_agent.send(ArticleActionsRequest::Init("YouTube", ServiceActions {
 			like: None,
 			repost: None,
 			fetch_data: None,
@@ -85,7 +85,7 @@ impl Agent for YouTubeAgent {
 		Self {
 			endpoint_agent,
 			link,
-			actions_agent,
+			_actions_agent,
 			articles: HashMap::new(),
 			auth_state: AuthState::NotLoggedIn,
 			sidebar_handler: None,
