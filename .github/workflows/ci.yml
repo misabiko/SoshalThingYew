@@ -40,7 +40,7 @@ jobs:
         # Optional version of trunk to install(eg. 'v0.8.1', 'latest')
         version: 'latest'
     - run: trunk build
-    - run: cargo run -p utils --bin server
+    - run: cargo build -p utils --bin server
     - name: Install Playwright
       run: npx playwright install --with-deps
     - name: Run your tests
