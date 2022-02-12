@@ -36,15 +36,15 @@ jobs:
       run: npx playwright install --with-deps
     - name: Install wasm-pack
       run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+    - uses: jetli/trunk-action@v0.1.0
+      with:
+        # Optional version of trunk to install(eg. 'v0.8.1', 'latest')
+        version: 'latest'
 
     - run: trunk build
     - run: cargo build -p utils --bin server
 
 #    - run: cargo test
     - run: wasm-pack test --headless --chrome
-    - uses: jetli/trunk-action@v0.1.0
-      with:
-        # Optional version of trunk to install(eg. 'v0.8.1', 'latest')
-        version: 'latest'
     - name: Run your tests
       run: npm test
