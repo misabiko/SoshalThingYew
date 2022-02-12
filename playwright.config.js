@@ -8,5 +8,6 @@ const config = {
 	use: {
 		baseURL: 'http://localhost:8080/',
 	},
+	reporter: process.env.CI ? 'github' : 'list',
 };
 module.exports = config;
