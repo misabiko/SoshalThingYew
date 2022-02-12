@@ -361,7 +361,7 @@ impl Component for Model {
 	fn view(&self, ctx: &Context<Self>) -> Html {
 		let (dm_title, dm_icon) = match self.display_mode {
 			DisplayMode::Default => ("Single Timeline", "expand-alt"),
-			DisplayMode::Single { .. } => ("Multiple Timeline", "columns"),
+			DisplayMode::Single { .. } => ("Multiple Timelines", "columns"),
 		};
 		let display_mode_toggle = html! {
 			<button onclick={ctx.link().callback(|_| Msg::ToggleDisplayMode)} title={dm_title}>
@@ -387,46 +387,46 @@ impl Component for Model {
 						false => html! {},
 					}
 				}
-				<div id="timelineContainer">
-					{
-						match &self.display_mode {
-							DisplayMode::Default => html! {
+				{
+					match &self.display_mode {
+						DisplayMode::Default => html! {
+							<div id="timelineContainer" key="timelineContainerDefault">
 								{for self.timelines.iter().map(|props| html! {
 									<Timeline key={props.id} ..props.clone()/>
 								})}
-							},
-							DisplayMode::Single {container, column_count} => {
-								html! {
-									{for self.timelines.iter().map(|props| if props.id == self.main_timeline {
-										 html! {
-											<Timeline key={props.id.clone()} main_timeline=true container={container.clone()} column_count={column_count.clone()} ..props.clone()>
-												{
-													match ctx.props().favviewer {
-														true => html! {
-															<>
-																<button title="Toggle FavViewer" onclick={ctx.link().callback(|_| Msg::ToggleFavViewer)}>
-																	<FA icon="eye-slash" size={IconSize::Large}/>
-																</button>
-																<button title="Show Sidebar" onclick={ctx.link().callback(|_| Msg::ToggleSidebarFavViewer)}>
-																	<FA icon="ellipsis-v" size={IconSize::Large}/>
-																</button>
-															</>
-														},
-														false => html! {}
-													}
+							</div>
+						},
+						DisplayMode::Single {container, column_count} => html! {
+							<div id="timelineContainer" key="timelineContainerSingle">
+								{for self.timelines.iter().map(|props| if props.id == self.main_timeline {
+									 html! {
+										<Timeline key={props.id} main_timeline=true container={container.clone()} column_count={column_count.clone()} ..props.clone()>
+											{
+												match ctx.props().favviewer {
+													true => html! {
+														<>
+															<button title="Toggle FavViewer" onclick={ctx.link().callback(|_| Msg::ToggleFavViewer)}>
+																<FA icon="eye-slash" size={IconSize::Large}/>
+															</button>
+															<button title="Show Sidebar" onclick={ctx.link().callback(|_| Msg::ToggleSidebarFavViewer)}>
+																<FA icon="ellipsis-v" size={IconSize::Large}/>
+															</button>
+														</>
+													},
+													false => html! {}
 												}
-											</Timeline>
-										}
-									}else  {
-										html! {
-											<Timeline hide=true key={props.id} ..props.clone()/>
-										}
-									})}
-								}
-							}
+											}
+										</Timeline>
+									}
+								}else  {
+									html! {
+										<Timeline hide=true key={props.id} ..props.clone()/>
+									}
+								})}
+							</div>
 						}
 					}
-				</div>
+				}
 			</>
 		}
 	}

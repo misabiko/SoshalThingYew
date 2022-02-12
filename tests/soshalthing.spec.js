@@ -52,6 +52,28 @@ test.describe('main timeline', () => {
 		await expect(page.locator('.timeline').first()).toHaveClass(/mainTimeline/);
 	});
 
+	test('setting main timeline retains order', async ({page}) => {
+		await page.goto('/');
+		await page.mainFrame().evaluate(() => {
+			window.localStorage.setItem('SoshalThingYew Timelines', JSON.stringify([
+				{"title": "Timeline1"},
+				{"title": "Timeline2"},
+				{"title": "Timeline3"},
+			]));
+		});
+		await page.reload();
+
+		await page.click('.timeline:nth-child(2) .timelineHeader .timelineButtons button[title = "Expand options"]');
+
+		await page.click('button:has-text("Set as main timeline")');
+
+		await page.click('#sidebarButtons button[title = "Multiple Timelines"]');
+
+		for (let i = 1; i <= 3; ++i)
+			await expect(page.locator(`.timeline:nth-child(${i}) .timelineLeftHeader > strong`))
+				.toHaveText('Timeline' + i, {timeout: 500});
+	});
+
 	test('removing main timeline retains order', async ({page}) => {
 		await page.goto('/');
 		await page.mainFrame().evaluate(() => {
@@ -67,12 +89,16 @@ test.describe('main timeline', () => {
 
 		await page.click('button:has-text("Set as main timeline")');
 
+		await page.click('.timeline:first-child .timelineHeader .timelineButtons button[title = "Expand options"]');
+
 		await page.click('text=Remove timeline');
 
-		await page.click('#sidebarButtons button[title = "Multiple Timeline"]');
+		await page.click('#sidebarButtons button[title = "Multiple Timelines"]');
 
-		await expect(page.locator('.timeline:first-child .timelineLeftHeader > strong')).toHaveText('Timeline1');
-		await expect(page.locator('.timeline:nth-child(2) .timelineLeftHeader > strong')).toHaveText('Timeline3');
+		await expect(page.locator('.timeline:nth-child(1) .timelineLeftHeader > strong'))
+			.toHaveText('Timeline1', {timeout: 500});
+		await expect(page.locator('.timeline:nth-child(2) .timelineLeftHeader > strong'))
+			.toHaveText('Timeline3', {timeout: 500});
 	});
 });
 
