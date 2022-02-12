@@ -41,10 +41,13 @@ jobs:
         # Optional version of trunk to install(eg. 'v0.8.1', 'latest')
         version: 'latest'
     - run: trunk build
-    - name: Cypress run
-      uses: cypress-io/github-action@v2
+    - name: Install Playwright
+      run: npx playwright install --with-deps
+    - name: Run your tests
+      run: npm test
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v2
       with:
-        build: cargo build -p utils --bin server
-        start: cargo run -p utils --bin server
-        wait-on: "http://localhost:8080"
-        wait-on-timeout: 120
+        name: playwright-results
+        path: test-results

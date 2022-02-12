@@ -4,6 +4,3 @@ dist/
 
 credentials.json
 generated_files.json
-
-/cypress/videos/
-/cypress/screenshots/
