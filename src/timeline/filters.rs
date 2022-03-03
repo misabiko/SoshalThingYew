@@ -9,8 +9,19 @@ use crate::articles::{ArticleData, ArticleMedia, ArticleRefType, MediaType};
 use crate::components::{Dropdown, DropdownLabel};
 
 pub type FilterPredicate = fn(&Weak<RefCell<dyn ArticleData>>, inverted: &bool) -> bool;
+const ALL_FILTERS: [Filter; 9] = [
+	Filter::Media,
+	Filter::Animated,
+	Filter::NotMarkedAsRead,
+	Filter::NotHidden,
+	Filter::Liked,
+	Filter::Reposted,
+	Filter::PlainTweet,
+	Filter::Repost { by_username: None },
+	Filter::Quote { by_username: None },
+];
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Filter {
 	Media,
 	Animated,
@@ -19,9 +30,15 @@ pub enum Filter {
 	Liked,
 	Reposted,
 	PlainTweet,
-	Repost,
-	Quote,
+	Repost {
+		by_username: Option<String>
+	},
+	Quote {
+		by_username: Option<String>
+	},
 }
+
+
 
 impl Filter {
 	pub fn name(&self, inverted: bool) -> &'static str {
@@ -52,17 +69,7 @@ impl Filter {
 		}
 	}
 	pub fn iter() -> impl ExactSizeIterator<Item = &'static Filter> {
-		[
-			Filter::Media,
-			Filter::Animated,
-			Filter::NotMarkedAsRead,
-			Filter::NotHidden,
-			Filter::Liked,
-			Filter::Reposted,
-			Filter::PlainTweet,
-			Filter::Repost,
-			Filter::Quote,
-		].iter()
+		ALL_FILTERS.iter()
 	}
 
 	pub fn filter(&self, article: &Ref<dyn ArticleData>) -> bool {
@@ -126,15 +133,21 @@ impl Filter {
 					false
 				}
 			}
-			Filter::Repost => {
+			Filter::Repost { by_username } => {
 				match article.referenced_article() {
-					ArticleRefType::Repost(_) | ArticleRefType::QuoteRepost(_, _) => true,
+					ArticleRefType::Repost(_) | ArticleRefType::QuoteRepost(_, _) => match by_username {
+						Some(username) => &article.author_username() == username,
+						None => true,
+					},
 					ArticleRefType::NoRef | ArticleRefType::Quote(_) => false,
 				}
 			}
-			Filter::Quote => {
+			Filter::Quote { by_username } => {
 				match article.referenced_article() {
-					ArticleRefType::Quote(_) | ArticleRefType::QuoteRepost(_, _) => true,
+					ArticleRefType::Quote(_) | ArticleRefType::QuoteRepost(_, _) => match by_username {
+						Some(username) => &article.author_username() == username,
+						None => true,
+					},
 					ArticleRefType::NoRef | ArticleRefType::Repost(_) => false,
 				}
 			}
@@ -142,7 +155,7 @@ impl Filter {
 	}
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct FilterInstance {
 	pub filter: Filter,
 	pub enabled: bool,
@@ -281,8 +294,13 @@ pub fn filters_options(props: &FilterOptionsProps) -> Html {
 		<>
 			{ for props.filters.iter().map(|filter_instance| {
 				let toggle_enabled_callback = props.callback.clone();
+				let toggle_enabled_filter_instance = filter_instance.clone();
+
 				let toggle_inverted_callback = props.callback.clone();
+				let toggle_inverted_filter_instance = filter_instance.clone();
+
 				let remove_callback = props.callback.clone();
+				let remove_filter_instance = filter_instance.clone();
 
 				let (enabled_class, enabled_label) = match filter_instance.enabled {
 					true => (Some("is-success"), "Enabled"),
@@ -292,7 +310,6 @@ pub fn filters_options(props: &FilterOptionsProps) -> Html {
 					true => (Some("is-info"), "Inverted"),
 					false => (None, "Normal"),
 				};
-				let filter_instance = *filter_instance;
 
 				html! {
 					<div class="block field has-addons">
@@ -301,13 +318,28 @@ pub fn filters_options(props: &FilterOptionsProps) -> Html {
 						</div>
 						<div class="field-body">
 							<div class="control">
-								<button class={classes!("button", enabled_class)} onclick={Callback::from(move |_| toggle_enabled_callback.emit(FilterMsg::ToggleFilterEnabled(filter_instance)))}>{enabled_label}</button>
+								<button
+									class={classes!("button", enabled_class)}
+									onclick={Callback::from(move |_| toggle_enabled_callback.emit(FilterMsg::ToggleFilterEnabled(toggle_enabled_filter_instance.clone())))}
+								>
+									{enabled_label}
+								</button>
 							</div>
 							<div class="control">
-								<button class={classes!("button", inverted_class)} onclick={Callback::from(move |_| toggle_inverted_callback.emit(FilterMsg::ToggleFilterInverted(filter_instance)))}>{inverted_label}</button>
+								<button
+									class={classes!("button", inverted_class)}
+									onclick={Callback::from(move |_| toggle_inverted_callback.emit(FilterMsg::ToggleFilterInverted(toggle_inverted_filter_instance.clone())))}
+								>
+									{inverted_label}
+								</button>
 							</div>
 							<div class="control">
-								<button class="button" onclick={Callback::from(move |_| remove_callback.emit(FilterMsg::RemoveFilter(filter_instance)))}>{"Remove"}</button>
+								<button
+									class="button"
+									onclick={Callback::from(move |_| remove_callback.emit(FilterMsg::RemoveFilter(remove_filter_instance.clone())))}
+								>
+									{"Remove"}
+								</button>
 							</div>
 						</div>
 					</div>
@@ -315,20 +347,22 @@ pub fn filters_options(props: &FilterOptionsProps) -> Html {
 			}) }
 			// TODO has-addons
 			<Dropdown current_label={DropdownLabel::Text("New Filter".to_owned())}>
-				{ for Filter::iter().map(|filter| {
+				{ for Filter::iter().cloned().map(|filter| {
 					let callback = props.callback.clone();
+					let filter_c = filter.clone();
 					html! {
-						<a class="dropdown-item" onclick={Callback::from(move |_| callback.emit(FilterMsg::AddFilter((*filter, false))))}>
+						<a class="dropdown-item" onclick={Callback::from(move |_| callback.emit(FilterMsg::AddFilter((filter_c.clone(), false))))}>
 							{ filter.name(false) }
 						</a>
 					}
 				}) }
 			</Dropdown>
 			<Dropdown current_label={DropdownLabel::Text("New Inverted Filter".to_owned())}>
-				{ for Filter::iter().map(|filter| {
+				{ for Filter::iter().cloned().map(|filter| {
 					let callback = props.callback.clone();
+					let filter_c = filter.clone();
 					html! {
-						<a class="dropdown-item" onclick={Callback::from(move |_| callback.emit(FilterMsg::AddFilter((*filter, true))))}>
+						<a class="dropdown-item" onclick={Callback::from(move |_| callback.emit(FilterMsg::AddFilter((filter_c.clone(), true))))}>
 							{ filter.name(true) }
 						</a>
 					}
