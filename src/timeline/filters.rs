@@ -2,8 +2,9 @@ use std::rc::Weak;
 use std::cell::{Ref, RefCell};
 use serde::{Serialize, Deserialize};
 use yew::prelude::*;
-use std::collections::HashSet;
 use std::ops::{Deref, DerefMut};
+use web_sys::HtmlInputElement;
+use wasm_bindgen::JsCast;
 
 use crate::articles::{ArticleData, ArticleMedia, ArticleRefType, MediaType};
 use crate::components::{Dropdown, DropdownLabel};
@@ -31,14 +32,12 @@ pub enum Filter {
 	Reposted,
 	PlainTweet,
 	Repost {
-		by_username: Option<String>
+		by_username: Option<String>,
 	},
 	Quote {
 		by_username: Option<String>
 	},
 }
-
-
 
 impl Filter {
 	pub fn name(&self, inverted: bool) -> &'static str {
@@ -50,9 +49,9 @@ impl Filter {
 				Filter::NotHidden => "Hidden",
 				Filter::Liked => "Not Liked",
 				Filter::Reposted => "Not Reposted",
-				Filter::PlainTweet => "Not Plain Tweet",
-				Filter::Repost { .. } => "Not Repost",
-				Filter::Quote { .. } => "No Quote",
+				Filter::PlainTweet => "Not a Plain Tweet",
+				Filter::Repost { .. } => "Not a Repost",
+				Filter::Quote { .. } => "No a Quote",
 			}
 		}else {
 			match self {
@@ -68,6 +67,7 @@ impl Filter {
 			}
 		}
 	}
+
 	pub fn iter() -> impl ExactSizeIterator<Item = &'static Filter> {
 		ALL_FILTERS.iter()
 	}
@@ -153,6 +153,60 @@ impl Filter {
 			}
 		}
 	}
+
+	fn parameter_view(&self, callback: Callback<(u8, Event)>) -> Html {
+		match self {
+			Filter::Repost { by_username } | Filter::Quote { by_username } => {
+				html! {
+					<div class="field has-addons">
+						<div class="field-label is-small">
+							<label class="label">{ "Username" }</label>
+						</div>
+						<div class="field-body">
+							<div class="control">
+								<input type="text" class="input" onchange={move |input| callback.emit((0, input))} value={by_username.clone()}/>
+							</div>
+						</div>
+					</div>
+				}
+			}
+			_ => html! {}
+		}
+	}
+
+	fn parameter_change(&mut self, param_index: u8, event: Event) -> bool {
+		match self {
+			Filter::Repost { by_username } | Filter::Quote { by_username } => {
+				match param_index {
+					0 => {
+						let new_username = event.target().unwrap()
+							.dyn_into::<HtmlInputElement>().unwrap()
+							.value();
+						match by_username {
+							Some(username) => if new_username == *username {
+								false
+							}else {
+								if new_username.is_empty() {
+									*by_username = None;
+								}else {
+									*by_username = Some(new_username);
+								}
+								true
+							},
+							None => if new_username.is_empty() {
+								false
+							}else {
+								*by_username = Some(new_username);
+								true
+							},
+						}
+					}
+					_ => false
+				}
+			}
+			_ => false,
+		}
+	}
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -192,15 +246,16 @@ pub const DEFAULT_FILTERS: [FilterInstance; 2] = [
 	FilterInstance::new(Filter::NotHidden),
 ];
 
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FilterCollection(HashSet<FilterInstance>);
-
 pub enum FilterMsg {
-	ToggleFilterEnabled(FilterInstance),
-	ToggleFilterInverted(FilterInstance),
+	ToggleFilterEnabled(usize),
+	ToggleFilterInverted(usize),
 	AddFilter((Filter, bool)),
-	RemoveFilter(FilterInstance),
+	RemoveFilter(usize),
+	ParameterChange(usize, u8, Event),
 }
+
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FilterCollection(Vec<FilterInstance>);
 
 impl<const N: usize> From<[FilterInstance; N]> for FilterCollection {
 	fn from(instances: [FilterInstance; N]) -> Self {
@@ -215,7 +270,7 @@ impl Default for FilterCollection {
 }
 
 impl Deref for FilterCollection {
-	type Target = HashSet<FilterInstance>;
+	type Target = Vec<FilterInstance>;
 
 	fn deref(&self) -> &Self::Target {
 		&self.0
@@ -230,7 +285,7 @@ impl DerefMut for FilterCollection {
 
 impl IntoIterator for FilterCollection {
 	type Item = FilterInstance;
-	type IntoIter = std::collections::hash_set::IntoIter<Self::Item>;
+	type IntoIter = std::vec::IntoIter<Self::Item>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.0.into_iter()
@@ -240,7 +295,7 @@ impl IntoIterator for FilterCollection {
 //Not sure if I'm supposed to redirect into_iter() to iter()...
 impl<'a> IntoIterator for &'a FilterCollection {
 	type Item = &'a FilterInstance;
-	type IntoIter = std::collections::hash_set::Iter<'a, FilterInstance>;
+	type IntoIter = core::slice::Iter<'a, FilterInstance>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.0.iter()
@@ -249,34 +304,29 @@ impl<'a> IntoIterator for &'a FilterCollection {
 
 impl FilterCollection {
 	pub fn new() -> Self {
-		Self(HashSet::new())
+		Self(Vec::new())
 	}
 
 	pub fn update(&mut self, msg: FilterMsg) -> bool {
 		match msg {
-			FilterMsg::ToggleFilterEnabled(filter_instance) => {
-				self.remove(&filter_instance);
-				self.insert(FilterInstance {
-					enabled: !filter_instance.enabled,
-					..filter_instance
-				});
+			FilterMsg::ToggleFilterEnabled(index) => {
+				self[index].enabled = !self[index].enabled;
 				true
 			}
-			FilterMsg::ToggleFilterInverted(filter_instance) => {
-				self.remove(&filter_instance);
-				self.insert(FilterInstance {
-					inverted: !filter_instance.inverted,
-					..filter_instance
-				});
+			FilterMsg::ToggleFilterInverted(index) => {
+				self[index].inverted = !self[index].inverted;
 				true
 			}
 			FilterMsg::AddFilter((filter, inverted)) => {
-				self.insert(FilterInstance {filter, inverted, enabled: true});
+				self.push(FilterInstance {filter, inverted, enabled: true});
 				true
 			}
-			FilterMsg::RemoveFilter(filter_instance) => {
-				self.remove(&filter_instance);
+			FilterMsg::RemoveFilter(index) => {
+				self.remove(index);
 				true
+			}
+			FilterMsg::ParameterChange(index, param_index, event) => {
+				self[index].filter.parameter_change(param_index, event)
 			}
 		}
 	}
@@ -292,15 +342,26 @@ pub struct FilterOptionsProps {
 pub fn filters_options(props: &FilterOptionsProps) -> Html {
 	html! {
 		<>
-			{ for props.filters.iter().map(|filter_instance| {
-				let toggle_enabled_callback = props.callback.clone();
-				let toggle_enabled_filter_instance = filter_instance.clone();
+			{ for props.filters.iter().enumerate().map(|(filter_index, filter_instance)| {
+				let toggle_enabled_onclick = {
+					let callback = props.callback.clone();
+					Callback::from(move |_| callback.emit(FilterMsg::ToggleFilterEnabled(filter_index)))
+				};
 
-				let toggle_inverted_callback = props.callback.clone();
-				let toggle_inverted_filter_instance = filter_instance.clone();
+				let toggle_inverted_onclick = {
+					let callback = props.callback.clone();
+					Callback::from(move |_| callback.emit(FilterMsg::ToggleFilterInverted(filter_index)))
+				};
 
-				let remove_callback = props.callback.clone();
-				let remove_filter_instance = filter_instance.clone();
+				let remove_onclick = {
+					let callback = props.callback.clone();
+					Callback::from(move |_| callback.emit(FilterMsg::RemoveFilter(filter_index)))
+				};
+
+				let param_callback = {
+					let callback = props.callback.clone();
+					Callback::from(move |(param_index, event)| callback.emit(FilterMsg::ParameterChange(filter_index, param_index, event)))
+				};
 
 				let (enabled_class, enabled_label) = match filter_instance.enabled {
 					true => (Some("is-success"), "Enabled"),
@@ -312,37 +373,31 @@ pub fn filters_options(props: &FilterOptionsProps) -> Html {
 				};
 
 				html! {
-					<div class="block field has-addons">
-						<div class="field-label is-normal">
-							<label class="label">{ filter_instance.filter.name(filter_instance.inverted) }</label>
-						</div>
-						<div class="field-body">
-							<div class="control">
-								<button
-									class={classes!("button", enabled_class)}
-									onclick={Callback::from(move |_| toggle_enabled_callback.emit(FilterMsg::ToggleFilterEnabled(toggle_enabled_filter_instance.clone())))}
-								>
-									{enabled_label}
-								</button>
+					<>
+						<div class="field has-addons">
+							<div class="field-label is-normal">
+								<label class="label">{ filter_instance.filter.name(filter_instance.inverted) }</label>
 							</div>
-							<div class="control">
-								<button
-									class={classes!("button", inverted_class)}
-									onclick={Callback::from(move |_| toggle_inverted_callback.emit(FilterMsg::ToggleFilterInverted(toggle_inverted_filter_instance.clone())))}
-								>
-									{inverted_label}
-								</button>
-							</div>
-							<div class="control">
-								<button
-									class="button"
-									onclick={Callback::from(move |_| remove_callback.emit(FilterMsg::RemoveFilter(remove_filter_instance.clone())))}
-								>
-									{"Remove"}
-								</button>
+							<div class="field-body">
+								<div class="control">
+									<button class={classes!("button", enabled_class)} onclick={toggle_enabled_onclick}>
+										{enabled_label}
+									</button>
+								</div>
+								<div class="control">
+									<button class={classes!("button", inverted_class)} onclick={toggle_inverted_onclick}>
+										{inverted_label}
+									</button>
+								</div>
+								<div class="control">
+									<button class="button" onclick={remove_onclick}>
+										{"Remove"}
+									</button>
+								</div>
 							</div>
 						</div>
-					</div>
+						{filter_instance.filter.parameter_view(param_callback)}
+					</>
 				}
 			}) }
 			// TODO has-addons
