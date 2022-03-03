@@ -90,16 +90,7 @@ impl Component for SocialArticle {
 			<>
 				{ retweet_header }
 				<div class="media">
-					{ match actual_borrow.author_avatar_url().as_str() {
-						"" => html! {},
-						url => html! {
-							<figure class="media-left">
-								<p class="image is-64x64">
-									<img src={url.to_owned()} alt={format!("{}'s avatar", &actual_borrow.author_username())}/>
-								</p>
-							</figure>
-						}
-					} }
+					{ self.view_avatar(ctx) }
 					<div class="media-content">
 						<div class="content">
 							<div class="articleHeader">
@@ -384,6 +375,30 @@ impl SocialArticle {
 					{ format!("{} reposted - {}", &repost.author_name(), short_timestamp(&repost.creation_time())) }
 				</a>
 			</div>
+		}
+	}
+
+	fn view_avatar(&self, ctx: &Context<Self>) -> Html {
+		let article = &ctx.props().article;
+		match article.author_avatar_url().as_str() {
+			"" => html! {},
+			url => html! {
+				<figure class="media-left">
+					{ match &ctx.props().ref_article {
+						ArticleRefType::NoRef | ArticleRefType::Quote(_) => html! {
+							<p class="image is-64x64">
+								<img src={url.to_owned()} alt={format!("{}'s avatar", &article.author_username())}/>
+							</p>
+						},
+						ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => html! {
+							<p class="image is-64x64 sharedAvatar">
+								<img src={a.author_avatar_url().as_str().to_owned()} alt={format!("{}'s avatar", &a.author_username())}/>
+								<img src={url.to_owned()} alt={format!("{}'s avatar", &article.author_username())}/>
+							</p>
+						},
+					} }
+				</figure>
+			}
 		}
 	}
 }

@@ -1,8 +1,22 @@
 @use 'core' as *
 
 article.socialArticle
-	figure img
-		border-radius: 4px
+	figure
+		img
+			border-radius: 4px
+
+		p.sharedAvatar
+			position: relative
+
+			img:first-child
+				position: absolute
+				width: 85%
+
+			img:last-child
+				position: absolute
+				width: 40%
+				bottom: 0
+				right: 0
 
 	.postMedia
 		margin-top: 1rem
