@@ -12,12 +12,15 @@ use article::YouTubeArticleData;
 use crate::articles::ArticleData;
 use crate::error::{Result, Error};
 use crate::notifications::{Notification, NotificationAgent, Request as NotificationRequest};
-use crate::services::endpoint_agent::{EndpointAgent, EndpointConstructor, EndpointId, Request as EndpointRequest};
-use crate::services::article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest};
-use crate::services::endpoint_agent::EndpointConstructors;
-use crate::services::RefreshTime;
-use crate::services::storages::get_service_storage;
-use crate::services::youtube::endpoints::{fetch_videos, PlaylistEndpoint};
+use crate::services::{
+	service,
+	RefreshTime,
+	endpoint_agent::{EndpointAgent, EndpointConstructor, EndpointId, Request as EndpointRequest},
+	article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest},
+	endpoint_agent::EndpointConstructors,
+	storages::get_service_storage,
+	youtube::endpoints::{fetch_videos, PlaylistEndpoint},
+};
 
 #[derive(Debug)]
 enum AuthState {
@@ -25,8 +28,8 @@ enum AuthState {
 	LoggedIn,
 }
 
-//TODO derive(Service)?
 //TODO type<A> ServiceArticles = HashMap<A::Id, Rc<RefCell<A>>>
+#[service("YouTube")]
 pub struct YouTubeAgent {
 	link: AgentLink<Self>,
 	endpoint_agent: Dispatcher<EndpointAgent>,
@@ -61,7 +64,7 @@ impl Agent for YouTubeAgent {
 	fn create(link: AgentLink<Self>) -> Self {
 		let mut endpoint_agent = EndpointAgent::dispatcher();
 		endpoint_agent.send(EndpointRequest::InitService(
-			"YouTube",
+			SERVICE_INFO.name,
 			EndpointConstructors {
 				endpoint_types: vec![
 					EndpointConstructor {
@@ -76,7 +79,7 @@ impl Agent for YouTubeAgent {
 			}));
 
 		let mut _actions_agent = ArticleActionsAgent::dispatcher();
-		_actions_agent.send(ArticleActionsRequest::Init("YouTube", ServiceActions {
+		_actions_agent.send(ArticleActionsRequest::Init(SERVICE_INFO.name, ServiceActions {
 			like: None,
 			repost: None,
 			fetch_data: None,
@@ -113,7 +116,7 @@ impl Agent for YouTubeAgent {
 								self.auth_state = AuthState::NotLoggedIn;
 								self.notification_agent.send(NotificationRequest::Notify(
 									Some("YouTubeLogin".to_owned()),
-									Notification::Login("YouTube".to_owned(), "/proxy/youtube/login".to_owned())
+									Notification::Login(SERVICE_INFO.name.to_owned(), "/proxy/youtube/login".to_owned())
 								));
 
 								Ok((Vec::new(), None))
@@ -157,7 +160,7 @@ impl Agent for YouTubeAgent {
 			}
 			Request::FetchArticles(refresh_time, id, url) =>
 				self.link.send_future(async move {
-					Msg::EndpointFetchResponse(refresh_time, id, fetch_videos(url, &get_service_storage("YouTube")).await)
+					Msg::EndpointFetchResponse(refresh_time, id, fetch_videos(url, &get_service_storage(SERVICE_INFO.name)).await)
 				}),
 			Request::Sidebar => {
 				self.sidebar_handler = Some(id);
@@ -186,7 +189,7 @@ impl YouTubeAgent {
 		html! {
 			<div class="box">
 				<div class="block">
-					{"YouTube"}
+					{SERVICE_INFO.name}
 				</div>
 				{ match self.auth_state {
 					AuthState::NotLoggedIn => html! {

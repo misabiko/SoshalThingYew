@@ -1,5 +1,5 @@
 [watch]
-watch = ["src", "Cargo.toml", "index.html"]
+watch = ["src", "soshalthing_macros", "Cargo.toml", "index.html"]
 
 [serve]
 no_autoreload = true

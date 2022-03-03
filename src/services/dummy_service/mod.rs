@@ -3,15 +3,18 @@ use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 use js_sys::Date;
 use yew_agent::{Agent, AgentLink, Context, Dispatcher, Dispatched, HandlerId};
+
 use crate::articles::{ArticleData, ArticleMedia};
 use crate::{Endpoint, EndpointId, EndpointRequest};
+use crate::services::{
+	service,
+	EndpointSerialized,
+	RefreshTime,
+	endpoint_agent::{EndpointAgent, EndpointConstructor, EndpointConstructors},
+	article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest},
+};
 
-use crate::services::endpoint_agent::{EndpointAgent, EndpointConstructor, EndpointConstructors};
-use crate::services::{EndpointSerialized, RefreshTime};
-use crate::services::article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest};
-
-static SERVICE_NAME: &'static str = "Dummy Service";
-
+#[service("Dummy")]
 pub struct DummyServiceAgent {
 	//link: AgentLink<Self>,
 	_endpoint_agent: Dispatcher<EndpointAgent>,
@@ -57,7 +60,7 @@ impl Agent for DummyServiceAgent {
 
 		let mut _endpoint_agent = EndpointAgent::dispatcher();
 		_endpoint_agent.send(EndpointRequest::InitService(
-			SERVICE_NAME,
+			SERVICE_INFO.name,
 			EndpointConstructors {
 				endpoint_types: vec![
 					EndpointConstructor {
@@ -74,7 +77,7 @@ impl Agent for DummyServiceAgent {
 		));
 
 		let mut actions_agent = ArticleActionsAgent::dispatcher();
-		actions_agent.send(ArticleActionsRequest::Init(SERVICE_NAME, ServiceActions {
+		actions_agent.send(ArticleActionsRequest::Init(SERVICE_INFO.name, ServiceActions {
 			like: Some(link.callback(|(id, article)| Msg::Like(id, article))),
 			repost: Some(link.callback(|(id, article)| Msg::Repost(id, article))),
 			fetch_data: None,
@@ -133,7 +136,7 @@ pub struct DummyArticleData {
 }
 
 impl ArticleData for DummyArticleData {
-	fn service(&self) -> &'static str { SERVICE_NAME }
+	fn service(&self) -> &'static str { SERVICE_INFO.name }
 
 	fn id(&self) -> String { self.id.to_string() }
 
@@ -232,7 +235,7 @@ impl Endpoint for DummyEndpoint {
 	}
 
 	fn eq_storage(&self, storage: &EndpointSerialized) -> bool {
-		storage.service == SERVICE_NAME &&
+		storage.service == SERVICE_INFO.name &&
 			storage.endpoint_type == 0
 	}
 }

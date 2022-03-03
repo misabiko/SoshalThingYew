@@ -26,8 +26,8 @@ use services::{
 	endpoint_agent::{EndpointId, EndpointAgent, Request as EndpointRequest, Response as EndpointResponse, TimelineCreationRequest},
 	pixiv::PixivAgent,
 	dummy_service::DummyServiceAgent,
-	twitter::{endpoints::*, TwitterAgent, Request as TwitterRequest, Response as TwitterResponse},
-	youtube::{YouTubeAgent, Request as YouTubeRequest, Response as YouTubeResponse},
+	twitter::{endpoints::*, TwitterAgent, Request as TwitterRequest, Response as TwitterResponse, SERVICE_INFO as TwitterServiceInfo},
+	youtube::{YouTubeAgent, Request as YouTubeRequest, Response as YouTubeResponse, SERVICE_INFO as YouTubeServiceInfo},
 };
 use sidebar::Sidebar;
 use timeline::{Props as TimelineProps, Timeline, TimelineId, Container};
@@ -325,13 +325,13 @@ impl Component for Model {
 			}
 			Msg::TwitterResponse(response) => {
 				match response {
-					TwitterResponse::Sidebar(html) => self.services_sidebar.insert("Twitter".to_owned(), html),
+					TwitterResponse::Sidebar(html) => self.services_sidebar.insert(TwitterServiceInfo.name.to_owned(), html),
 				};
 				true
 			}
 			Msg::YouTubeResponse(response) => {
 				match response {
-					YouTubeResponse::Sidebar(html) => self.services_sidebar.insert("YouTube".to_owned(), html),
+					YouTubeResponse::Sidebar(html) => self.services_sidebar.insert(YouTubeServiceInfo.name.to_owned(), html),
 				};
 				true
 			}

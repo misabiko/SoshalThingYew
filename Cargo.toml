@@ -6,7 +6,8 @@ edition = "2021"
 [workspace]
 members = [
     "utils",
-    "src-tauri"
+    "src-tauri",
+    "soshalthing_macros"
 ]
 
 [features]
@@ -40,6 +41,7 @@ getrandom = { version = "0.2.3", features = ["js"] }
 gloo-storage = "0.2.0"
 gloo-timers = "0.2.2"
 derivative = "2.2.0"
+soshalthing_macros = { path = "soshalthing_macros" }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.28"

@@ -7,6 +7,7 @@ use serde::Deserialize;
 use yew::prelude::*;
 use derivative::Derivative;
 
+use super::SERVICE_INFO;
 use crate::articles::{ArticleData, ArticleMedia, MediaType, MediaQueueInfo, ArticleRefType, ValidRatio};
 use crate::services::storages::ServiceStorage;
 
@@ -155,7 +156,7 @@ pub struct TweetArticleData {
 
 impl ArticleData for TweetArticleData {
 	fn service(&self) -> &'static str {
-		"Twitter"
+		SERVICE_INFO.name
 	}
 	fn id(&self) -> String {
 		self.id.to_string()

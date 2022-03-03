@@ -3,6 +3,8 @@ use std::cell::RefCell;
 use reqwest::header::HeaderMap;
 use serde::{Serialize, Deserialize};
 
+pub use soshalthing_macros::service;
+
 pub mod endpoint_agent;
 pub mod article_actions;
 
@@ -18,6 +20,10 @@ use crate::error::Error;
 use crate::articles::ArticleData;
 use crate::timeline::sort_methods::sort_by_id;
 use crate::timeline::filters::FilterCollection;
+
+pub struct ServiceInfo {
+	pub name: &'static str
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct RateLimit {

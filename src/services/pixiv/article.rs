@@ -3,6 +3,7 @@ use js_sys::Date;
 use serde::{Serialize, Deserialize};
 use derivative::Derivative;
 
+use super::SERVICE_INFO;
 use crate::articles::{ArticleData, ArticleMedia, MediaQueueInfo};
 
 #[derive(Clone, Derivative)]
@@ -28,7 +29,7 @@ pub struct PixivArticleData {
 
 impl ArticleData for PixivArticleData {
 	fn service(&self) -> &'static str {
-		"Pixiv"
+		SERVICE_INFO.name
 	}
 
 	fn id(&self) -> String {

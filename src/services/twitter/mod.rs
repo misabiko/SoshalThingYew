@@ -14,6 +14,7 @@ use crate::articles::{ArticleData, ArticleRefType};
 use crate::{base_url, SearchEndpoint};
 use crate::notifications::{Notification, NotificationAgent, Request as NotificationRequest};
 use crate::services::{
+	service,
 	RateLimit,
 	endpoint_agent::{EndpointAgent, Request as EndpointRequest, EndpointId, EndpointConstructor, EndpointConstructors, RefreshTime},
 	article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest},
@@ -61,6 +62,7 @@ enum AuthState {
 	LoggedIn(u64)
 }
 
+#[service("Twitter")]
 pub struct TwitterAgent {
 	link: AgentLink<Self>,
 	endpoint_agent: Dispatcher<EndpointAgent>,
@@ -98,7 +100,7 @@ impl Agent for TwitterAgent {
 	fn create(link: AgentLink<Self>) -> Self {
 		let mut endpoint_agent = EndpointAgent::dispatcher();
 		endpoint_agent.send(EndpointRequest::InitService(
-			"Twitter",
+			SERVICE_INFO.name,
 			 EndpointConstructors {
 				 //TODO Needs to sync other eq_storage when modifying this
 				endpoint_types: vec![
@@ -151,7 +153,7 @@ impl Agent for TwitterAgent {
 		));
 
 		let mut actions_agent = ArticleActionsAgent::dispatcher();
-		actions_agent.send(ArticleActionsRequest::Init("Twitter", ServiceActions {
+		actions_agent.send(ArticleActionsRequest::Init(SERVICE_INFO.name, ServiceActions {
 			like: Some(link.callback(|(id, article)| Msg::Like(id, article))),
 			repost: Some(link.callback(|(id, article)| Msg::Retweet(id, article))),
 			fetch_data: None,
@@ -188,7 +190,7 @@ impl Agent for TwitterAgent {
 								self.auth_state = AuthState::NotLoggedIn;
 								self.notification_agent.send(NotificationRequest::Notify(
 									Some("TwitterLogin".to_owned()),
-									Notification::Login("Twitter".to_owned(), "/proxy/twitter/login".to_owned())
+									Notification::Login(SERVICE_INFO.name.to_owned(), "/proxy/twitter/login".to_owned())
 								));
 
 								Ok((Vec::new(), None))
@@ -220,7 +222,7 @@ impl Agent for TwitterAgent {
 					let url = Url::parse(&format!("{}/proxy/twitter/{}/{}", base_url(), if borrow.liked() { "unlike" } else { "like" }, borrow.id())).unwrap();
 
 					self.link.send_future(async move {
-						Msg::FetchResponse(id, fetch_tweets(url, &get_service_storage("Twitter")).await)
+						Msg::FetchResponse(id, fetch_tweets(url, &get_service_storage(SERVICE_INFO.name)).await)
 					})
 				}
 			}
@@ -232,7 +234,7 @@ impl Agent for TwitterAgent {
 					let url = Url::parse(&format!("{}/proxy/twitter/{}/{}", base_url(), if borrow.reposted() { "unretweet" } else { "retweet" }, borrow.id())).unwrap();
 
 					self.link.send_future(async move {
-						Msg::FetchResponse(id, fetch_tweets(url, &get_service_storage("Twitter")).await)
+						Msg::FetchResponse(id, fetch_tweets(url, &get_service_storage(SERVICE_INFO.name)).await)
 					})
 				}
 			}
@@ -257,11 +259,11 @@ impl Agent for TwitterAgent {
 			},
 			Request::FetchTweets(refresh_time, id, url) =>
 				self.link.send_future(async move {
-					Msg::EndpointFetchResponse(refresh_time, id, fetch_tweets(url, &get_service_storage("Twitter")).await)
+					Msg::EndpointFetchResponse(refresh_time, id, fetch_tweets(url, &get_service_storage(SERVICE_INFO.name)).await)
 				}),
 			Request::FetchTweet(refresh_time, id, url) =>
 				self.link.send_future(async move {
-					Msg::EndpointFetchResponse(refresh_time, id, fetch_tweets(url, &get_service_storage("Twitter")).await)
+					Msg::EndpointFetchResponse(refresh_time, id, fetch_tweets(url, &get_service_storage(SERVICE_INFO.name)).await)
 				})
 		}
 	}
@@ -278,7 +280,7 @@ impl TwitterAgent {
 		html! {
 			<div class="box">
 				<div class="block">
-					{"Twitter"}
+					{SERVICE_INFO.name}
 				</div>
 				{ match self.auth_state {
 					AuthState::NotLoggedIn => html! {

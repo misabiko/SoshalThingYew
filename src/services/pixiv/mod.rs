@@ -10,11 +10,15 @@ use article::{PixivArticleData, PixivArticleCached};
 
 use crate::articles::ArticleData;
 use crate::error::RatelimitedResult;
-use crate::services::article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest};
-use crate::services::endpoint_agent::{EndpointAgent, Request as EndpointRequest, EndpointId, RefreshTime, EndpointConstructors, EndpointConstructor};
-use crate::services::pixiv::endpoints::{APIPayload, FollowAPIEndpoint, FollowAPIResponse, FullPostAPI};
-use crate::services::storages::{ServiceStorage, get_service_storage, cache_articles};
+use crate::services::{
+	service,
+	article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest},
+	endpoint_agent::{EndpointAgent, Request as EndpointRequest, EndpointId, RefreshTime, EndpointConstructors, EndpointConstructor},
+	pixiv::endpoints::{APIPayload, FollowAPIEndpoint, FollowAPIResponse, FullPostAPI},
+	storages::{ServiceStorage, get_service_storage, cache_articles},
+};
 
+#[service("Pixiv")]
 pub struct PixivAgent {
 	link: AgentLink<Self>,
 	endpoint_agent: Dispatcher<EndpointAgent>,
@@ -44,7 +48,7 @@ impl Agent for PixivAgent {
 	fn create(link: AgentLink<Self>) -> Self {
 		let mut endpoint_agent = EndpointAgent::dispatcher();
 		endpoint_agent.send(EndpointRequest::InitService(
-			"Pixiv",
+			SERVICE_INFO.name,
 			EndpointConstructors {
 				endpoint_types: vec![
 					EndpointConstructor {
@@ -60,7 +64,7 @@ impl Agent for PixivAgent {
 			}));
 
 		let mut actions_agent = ArticleActionsAgent::dispatcher();
-		actions_agent.send(ArticleActionsRequest::Init("Pixiv", ServiceActions {
+		actions_agent.send(ArticleActionsRequest::Init(SERVICE_INFO.name, ServiceActions {
 			like: None,
 			repost: None,
 			fetch_data: Some(link.callback(|(id, article)| Msg::FetchData(id, article))),
@@ -130,7 +134,7 @@ impl Agent for PixivAgent {
 
 				self.fetching_articles.insert(borrow.id().parse::<u32>().unwrap());
 				self.link.send_future(async move {
-					Msg::FetchResponse(fetch_post(&path, &get_service_storage("Pixiv")).await.map(|(article, _)| (vec![article], None)))
+					Msg::FetchResponse(fetch_post(&path, &get_service_storage(SERVICE_INFO.name)).await.map(|(article, _)| (vec![article], None)))
 				});
 			}
 		}
@@ -161,7 +165,7 @@ impl Agent for PixivAgent {
 			Request::RefreshEndpoint(endpoint_id, refresh_time) => self.endpoint_agent.send(EndpointRequest::RefreshEndpoint(endpoint_id, refresh_time)),
 			Request::FetchPosts(refresh_time, endpoint_id, path) =>
 				self.link.send_future(async move {
-					Msg::EndpointFetchResponse(refresh_time, endpoint_id, fetch_posts(&path, &get_service_storage("Pixiv")).await)
+					Msg::EndpointFetchResponse(refresh_time, endpoint_id, fetch_posts(&path, &get_service_storage(SERVICE_INFO.name)).await)
 				})
 		};
 	}
@@ -184,7 +188,7 @@ impl PixivAgent {
 
 					self.fetching_articles.insert(id);
 					self.link.send_future(async move {
-						Msg::FetchResponse(fetch_post(&path, &get_service_storage("Pixiv")).await.map(|(article, _)| (vec![article], None)))
+						Msg::FetchResponse(fetch_post(&path, &get_service_storage(SERVICE_INFO.name)).await.map(|(article, _)| (vec![article], None)))
 					});
 				}
 			}
@@ -196,7 +200,7 @@ impl PixivAgent {
 	fn cache_articles(&self) {
 		log::debug!("Caching Pixiv articles...");
 
-		cache_articles("Pixiv", self.articles.iter()
+		cache_articles(SERVICE_INFO.name, self.articles.iter()
 			.map(|(id, a)| (id.to_string(), serde_json::to_value(PixivArticleCached::from(&a.borrow())).unwrap()))
 			.collect());
 	}
@@ -216,13 +220,13 @@ async fn fetch_posts(url: &str, storage: &ServiceStorage) -> RatelimitedResult<V
 	let parsed: APIPayload<FollowAPIResponse> = serde_json::from_value(response.clone())?;
 	if parsed.error {
 		Err(parsed.message.into())
-	}else {
+	} else {
 		Ok((parsed.body.thumbnails.illust
-			.iter().zip(response["body"]["thumbnails"]["illust"].as_array().unwrap())
-			.map(|(a, raw_json)| PixivArticleData::from((raw_json.clone(), a, storage)))
-			.map(|p| Rc::new(RefCell::new(p)))
-			.collect(),
-		None))
+				.iter().zip(response["body"]["thumbnails"]["illust"].as_array().unwrap())
+				.map(|(a, raw_json)| PixivArticleData::from((raw_json.clone(), a, storage)))
+				.map(|p| Rc::new(RefCell::new(p)))
+				.collect(),
+			None))
 	}
 }
 

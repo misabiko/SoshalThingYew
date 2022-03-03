@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use reqwest::Url;
 use yew_agent::{Dispatched, Dispatcher};
 
-use super::{TwitterAgent, Request as TwitterRequest};
+use super::{TwitterAgent, Request as TwitterRequest, SERVICE_INFO};
 use crate::articles::{ArticleData};
 use crate::base_url;
 use crate::services::{Endpoint, EndpointSerialized, RateLimit};
@@ -84,7 +84,7 @@ impl Endpoint for UserTimelineEndpoint {
 	}
 
 	fn eq_storage(&self, storage: &EndpointSerialized) -> bool {
-		storage.service == "Twitter" &&
+		storage.service == SERVICE_INFO.name &&
 		storage.endpoint_type == 1 &&
 		storage.params["username"]
 			.as_str()
@@ -158,7 +158,7 @@ impl Endpoint for HomeTimelineEndpoint {
 	}
 
 	fn eq_storage(&self, storage: &EndpointSerialized) -> bool {
-		storage.service == "Twitter" &&
+		storage.service == SERVICE_INFO.name &&
 		storage.endpoint_type == 0
 	}
 }
@@ -240,7 +240,7 @@ impl Endpoint for ListEndpoint {
 	}
 
 	fn eq_storage(&self, storage: &EndpointSerialized) -> bool {
-		storage.service == "Twitter" &&
+		storage.service == SERVICE_INFO.name &&
 		storage.endpoint_type == 2 &&
 		storage.params["username"]
 			.as_str()
@@ -327,7 +327,7 @@ impl Endpoint for LikesEndpoint {
 	}
 
 	fn eq_storage(&self, storage: &EndpointSerialized) -> bool {
-		storage.service == "Twitter" &&
+		storage.service == SERVICE_INFO.name &&
 			storage.endpoint_type == 3 &&
 			storage.params["username"]
 				.as_str()
@@ -397,7 +397,7 @@ impl Endpoint for SingleTweetEndpoint {
 	}
 
 	fn eq_storage(&self, storage: &EndpointSerialized) -> bool {
-		storage.service == "Twitter" &&
+		storage.service == SERVICE_INFO.name &&
 		storage.endpoint_type == 4 &&
 		storage.params["id"]
 			.as_u64()
@@ -478,7 +478,7 @@ impl Endpoint for SearchEndpoint {
 	}
 
 	fn eq_storage(&self, storage: &EndpointSerialized) -> bool {
-		storage.service == "Twitter" &&
+		storage.service == SERVICE_INFO.name &&
 			storage.endpoint_type == 4 &&
 			storage.params["query"]
 				.as_str()

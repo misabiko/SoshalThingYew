@@ -6,7 +6,7 @@ use gloo_timers::callback::Timeout;
 use serde::{Serialize, Deserialize};
 use wasm_bindgen::JsValue;
 
-use super::{PixivAgent, Request};
+use super::{PixivAgent, Request, SERVICE_INFO};
 use super::article::{PixivArticleData, PixivArticleCached};
 use crate::articles::{ArticleData, ArticleMedia, MediaQueueInfo, MediaType, ValidRatio};
 use crate::services::{Endpoint, EndpointSerialized};
@@ -305,7 +305,7 @@ impl Endpoint for FollowPageEndpoint {
 			Ok(Some(posts)) => {
 				let children = posts.children();
 				log::debug!("Found {} posts.", children.length());
-				let storage = get_service_storage("Pixiv");
+				let storage = get_service_storage(SERVICE_INFO.name);
 				for i in 0..children.length() {
 					if let Some(article) = children.get_with_index(i).and_then(|a| parse_article(a, &storage)) {
 						articles.push(article);
@@ -320,7 +320,7 @@ impl Endpoint for FollowPageEndpoint {
 	}
 
 	fn eq_storage(&self, storage: &EndpointSerialized) -> bool {
-		storage.service == "Pixiv" &&
+		storage.service == SERVICE_INFO.name &&
 			storage.endpoint_type == 0
 	}
 }
@@ -384,7 +384,7 @@ impl Endpoint for FollowAPIEndpoint {
 	}
 
 	fn eq_storage(&self, storage: &EndpointSerialized) -> bool {
-		storage.service == "Pixiv" &&
+		storage.service == SERVICE_INFO.name &&
 			storage.endpoint_type == 1
 	}
 }

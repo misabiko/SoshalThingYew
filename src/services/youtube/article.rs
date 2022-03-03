@@ -6,6 +6,7 @@ use serde::Deserialize;
 use derivative::Derivative;
 use serde_json::Value;
 
+use super::SERVICE_INFO;
 use crate::articles::{ArticleData, ArticleMedia, MediaQueueInfo, MediaType, ValidRatio};
 use crate::services::storages::ServiceStorage;
 
@@ -32,7 +33,7 @@ pub struct YouTubeArticleData {
 }
 
 impl ArticleData for YouTubeArticleData {
-	fn service(&self) -> &'static str { "YouTube" }
+	fn service(&self) -> &'static str { SERVICE_INFO.name }
 
 	fn id(&self) -> String { self.id.clone() }
 

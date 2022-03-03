@@ -3,7 +3,7 @@ use std::rc::{Rc, Weak};
 use reqwest::{StatusCode, Url};
 use yew_agent::{Dispatcher, Dispatched};
 
-use super::{YouTubeAgent, Request};
+use super::{YouTubeAgent, Request, SERVICE_INFO};
 use crate::{base_url, Endpoint, EndpointId};
 use crate::articles::ArticleData;
 use crate::error::{Result, Error};
@@ -87,7 +87,7 @@ impl Endpoint for PlaylistEndpoint {
 	}
 
 	fn eq_storage(&self, storage: &EndpointSerialized) -> bool {
-		storage.service == "YouTube" &&
+		storage.service == SERVICE_INFO.name &&
 			storage.endpoint_type == 0
 	}
 }
