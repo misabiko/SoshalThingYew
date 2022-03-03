@@ -2,7 +2,6 @@ use std::rc::Weak;
 use std::cell::RefCell;
 use reqwest::header::HeaderMap;
 use serde::{Serialize, Deserialize};
-use std::collections::HashSet;
 
 pub mod endpoint_agent;
 pub mod article_actions;
@@ -18,7 +17,7 @@ pub use endpoint_agent::{EndpointId, EndpointAgent, RefreshTime};
 use crate::error::Error;
 use crate::articles::ArticleData;
 use crate::timeline::sort_methods::sort_by_id;
-use crate::timeline::filters::FilterInstance;
+use crate::timeline::filters::FilterCollection;
 
 #[derive(Clone, Copy, Debug)]
 pub struct RateLimit {
@@ -76,7 +75,7 @@ pub struct EndpointSerialized {
 	pub endpoint_type: usize,
 	pub params: serde_json::Value,
 	#[serde(default)]
-	pub filters: HashSet<FilterInstance>,
+	pub filters: FilterCollection,
 	#[serde(default)]
 	pub auto_refresh: bool,
 	#[serde(default)]

@@ -3,6 +3,7 @@ use std::cell::{Ref, RefCell};
 use serde::{Serialize, Deserialize};
 use yew::prelude::*;
 use std::collections::HashSet;
+use std::ops::{Deref, DerefMut};
 
 use crate::articles::{ArticleData, ArticleMedia, ArticleRefType, MediaType};
 use crate::components::{Dropdown, DropdownLabel};
@@ -33,8 +34,8 @@ impl Filter {
 				Filter::Liked => "Not Liked",
 				Filter::Reposted => "Not Reposted",
 				Filter::PlainTweet => "Not Plain Tweet",
-				Filter::Repost => "Not Repost",
-				Filter::Quote => "No Quote",
+				Filter::Repost { .. } => "Not Repost",
+				Filter::Quote { .. } => "No Quote",
 			}
 		}else {
 			match self {
@@ -45,8 +46,8 @@ impl Filter {
 				Filter::Liked => "Liked",
 				Filter::Reposted => "Reposted",
 				Filter::PlainTweet => "Plain Tweet",
-				Filter::Repost => "Repost",
-				Filter::Quote => "Has Quote",
+				Filter::Repost { .. } => "Repost",
+				Filter::Quote { .. } => "Has Quote",
 			}
 		}
 	}
@@ -141,7 +142,6 @@ impl Filter {
 	}
 }
 
-//TODO Add Eq where it makes sense
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct FilterInstance {
 	pub filter: Filter,
@@ -179,13 +179,100 @@ pub const DEFAULT_FILTERS: [FilterInstance; 2] = [
 	FilterInstance::new(Filter::NotHidden),
 ];
 
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FilterCollection(HashSet<FilterInstance>);
+
+pub enum FilterMsg {
+	ToggleFilterEnabled(FilterInstance),
+	ToggleFilterInverted(FilterInstance),
+	AddFilter((Filter, bool)),
+	RemoveFilter(FilterInstance),
+}
+
+impl<const N: usize> From<[FilterInstance; N]> for FilterCollection {
+	fn from(instances: [FilterInstance; N]) -> Self {
+		Self(instances.into())
+	}
+}
+
+impl Default for FilterCollection {
+	fn default() -> Self {
+		DEFAULT_FILTERS.into()
+	}
+}
+
+impl Deref for FilterCollection {
+	type Target = HashSet<FilterInstance>;
+
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
+
+impl DerefMut for FilterCollection {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.0
+	}
+}
+
+impl IntoIterator for FilterCollection {
+	type Item = FilterInstance;
+	type IntoIter = std::collections::hash_set::IntoIter<Self::Item>;
+
+	fn into_iter(self) -> Self::IntoIter {
+		self.0.into_iter()
+	}
+}
+
+//Not sure if I'm supposed to redirect into_iter() to iter()...
+impl<'a> IntoIterator for &'a FilterCollection {
+	type Item = &'a FilterInstance;
+	type IntoIter = std::collections::hash_set::Iter<'a, FilterInstance>;
+
+	fn into_iter(self) -> Self::IntoIter {
+		self.0.iter()
+	}
+}
+
+impl FilterCollection {
+	pub fn new() -> Self {
+		Self(HashSet::new())
+	}
+
+	pub fn update(&mut self, msg: FilterMsg) -> bool {
+		match msg {
+			FilterMsg::ToggleFilterEnabled(filter_instance) => {
+				self.remove(&filter_instance);
+				self.insert(FilterInstance {
+					enabled: !filter_instance.enabled,
+					..filter_instance
+				});
+				true
+			}
+			FilterMsg::ToggleFilterInverted(filter_instance) => {
+				self.remove(&filter_instance);
+				self.insert(FilterInstance {
+					inverted: !filter_instance.inverted,
+					..filter_instance
+				});
+				true
+			}
+			FilterMsg::AddFilter((filter, inverted)) => {
+				self.insert(FilterInstance {filter, inverted, enabled: true});
+				true
+			}
+			FilterMsg::RemoveFilter(filter_instance) => {
+				self.remove(&filter_instance);
+				true
+			}
+		}
+	}
+}
+
 #[derive(Properties, PartialEq)]
 pub struct FilterOptionsProps {
-	pub filters: HashSet<FilterInstance>,
-	pub toggle_enabled_callback: Callback<FilterInstance>,
-	pub toggle_inverted_callback: Callback<FilterInstance>,
-	pub remove_callback: Callback<FilterInstance>,
-	pub add_callback: Callback<(Filter, bool)>,
+	pub filters: FilterCollection,
+	pub callback: Callback<FilterMsg>,
 }
 
 #[function_component(FiltersOptions)]
@@ -193,9 +280,9 @@ pub fn filters_options(props: &FilterOptionsProps) -> Html {
 	html! {
 		<>
 			{ for props.filters.iter().map(|filter_instance| {
-				let toggle_enabled_callback = props.toggle_enabled_callback.clone();
-				let toggle_inverted_callback = props.toggle_inverted_callback.clone();
-				let remove_callback = props.remove_callback.clone();
+				let toggle_enabled_callback = props.callback.clone();
+				let toggle_inverted_callback = props.callback.clone();
+				let remove_callback = props.callback.clone();
 
 				let (enabled_class, enabled_label) = match filter_instance.enabled {
 					true => (Some("is-success"), "Enabled"),
@@ -214,13 +301,13 @@ pub fn filters_options(props: &FilterOptionsProps) -> Html {
 						</div>
 						<div class="field-body">
 							<div class="control">
-								<button class={classes!("button", enabled_class)} onclick={Callback::from(move |_| toggle_enabled_callback.emit(filter_instance))}>{enabled_label}</button>
+								<button class={classes!("button", enabled_class)} onclick={Callback::from(move |_| toggle_enabled_callback.emit(FilterMsg::ToggleFilterEnabled(filter_instance)))}>{enabled_label}</button>
 							</div>
 							<div class="control">
-								<button class={classes!("button", inverted_class)} onclick={Callback::from(move |_| toggle_inverted_callback.emit(filter_instance))}>{inverted_label}</button>
+								<button class={classes!("button", inverted_class)} onclick={Callback::from(move |_| toggle_inverted_callback.emit(FilterMsg::ToggleFilterInverted(filter_instance)))}>{inverted_label}</button>
 							</div>
 							<div class="control">
-								<button class="button" onclick={Callback::from(move |_| remove_callback.emit(filter_instance))}>{"Remove"}</button>
+								<button class="button" onclick={Callback::from(move |_| remove_callback.emit(FilterMsg::RemoveFilter(filter_instance)))}>{"Remove"}</button>
 							</div>
 						</div>
 					</div>
@@ -229,9 +316,9 @@ pub fn filters_options(props: &FilterOptionsProps) -> Html {
 			// TODO has-addons
 			<Dropdown current_label={DropdownLabel::Text("New Filter".to_owned())}>
 				{ for Filter::iter().map(|filter| {
-					let add_callback = props.add_callback.clone();
+					let callback = props.callback.clone();
 					html! {
-						<a class="dropdown-item" onclick={Callback::from(move |_| add_callback.emit((*filter, false)))}>
+						<a class="dropdown-item" onclick={Callback::from(move |_| callback.emit(FilterMsg::AddFilter((*filter, false))))}>
 							{ filter.name(false) }
 						</a>
 					}
@@ -239,9 +326,9 @@ pub fn filters_options(props: &FilterOptionsProps) -> Html {
 			</Dropdown>
 			<Dropdown current_label={DropdownLabel::Text("New Inverted Filter".to_owned())}>
 				{ for Filter::iter().map(|filter| {
-					let add_callback = props.add_callback.clone();
+					let callback = props.callback.clone();
 					html! {
-						<a class="dropdown-item" onclick={Callback::from(move |_| add_callback.emit((*filter, true)))}>
+						<a class="dropdown-item" onclick={Callback::from(move |_| callback.emit(FilterMsg::AddFilter((*filter, true))))}>
 							{ filter.name(true) }
 						</a>
 					}

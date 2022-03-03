@@ -2,14 +2,13 @@ use gloo_storage::errors::StorageError;
 use yew_agent::{Agent, AgentLink, HandlerId, Context as AgentContext, Dispatcher, Dispatched};
 use gloo_storage::Storage;
 use serde::{Serialize, Deserialize};
-use std::collections::HashSet;
 
 use super::{TimelineId, Props as TimelineProps, Container};
 use crate::services::EndpointSerialized;
 use crate::services::endpoint_agent::{Request as EndpointRequest, EndpointAgent};
 use crate::{TimelineEndpointWrapper, TimelinePropsClosure, TimelinePropsEndpointsClosure};
 use crate::log_warn;
-use crate::timeline::filters::FilterInstance;
+use crate::timeline::filters::FilterCollection;
 use crate::timeline::sort_methods::SortMethod;
 
 pub struct TimelineAgent {
@@ -57,7 +56,7 @@ pub struct SoshalTimelineStorage {
 	#[serde(default = "default_1")]
 	width: u8,
 	#[serde(default)]
-	filters: Option<HashSet<FilterInstance>>,
+	filters: Option<FilterCollection>,
 	#[serde(default = "default_sort_method")]
 	sort_method: Option<(SortMethod, bool)>,
 	#[serde(default)]

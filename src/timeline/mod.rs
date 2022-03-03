@@ -1,6 +1,5 @@
 use std::rc::{Rc, Weak};
 use std::cell::RefCell;
-use std::collections::HashSet;
 use yew::prelude::*;
 use yew_agent::{Bridge, Bridged, Dispatched, Dispatcher};
 use wasm_bindgen::JsCast;
@@ -15,7 +14,7 @@ mod containers;
 
 pub use containers::Container;
 use containers::{view_container, Props as ContainerProps};
-use filters::{Filter, FilterInstance, FiltersOptions};
+use filters::{FilterCollection, FilterMsg, FiltersOptions};
 use sort_methods::SortMethod;
 use agent::{TimelineAgent, Request as TimelineAgentRequest};
 use crate::articles::{ArticleView, ArticleData, ArticleRefType};
@@ -25,7 +24,6 @@ use crate::choose_endpoints::ChooseEndpoints;
 use crate::components::{Dropdown, DropdownLabel, FA, IconSize};
 use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest, Response as ArticleActionsResponse};
 use crate::services::storages::{hide_article, mark_article_as_read};
-use crate::timeline::filters::DEFAULT_FILTERS;
 use crate::TimelineEndpointWrapper;
 
 pub type TimelineId = i8;
@@ -58,7 +56,7 @@ pub struct Timeline {
 	animated_as_gifs: bool,
 	hide_text: bool,
 	endpoint_agent: Dispatcher<EndpointAgent>,
-	filters: HashSet<FilterInstance>,
+	filters: FilterCollection,
 	sort_method: (Option<SortMethod>, bool),
 	_container: Container,
 	_column_count: u8,
@@ -94,10 +92,7 @@ pub enum Msg {
 	Shuffle,
 	SetChooseEndpointModal(bool),
 	Autoscroll,
-	ToggleFilterEnabled(FilterInstance),
-	ToggleFilterInverted(FilterInstance),
-	AddFilter((Filter, bool)),
-	RemoveFilter(FilterInstance),
+	FilterMsg(FilterMsg),
 	SetSortMethod(Option<&'static SortMethod>),
 	ToggleSortReversed,
 	SortOnce(&'static SortMethod),
@@ -136,7 +131,7 @@ pub struct Props {
 	#[prop_or_default]
 	pub articles: Vec<Weak<RefCell<dyn ArticleData>>>,
 	#[prop_or_default]
-	pub filters: Option<HashSet<FilterInstance>>,
+	pub filters: Option<FilterCollection>,
 	#[prop_or_default]
 	pub sort_method: Option<(SortMethod, bool)>,
 	#[prop_or_default]
@@ -186,7 +181,7 @@ impl Component for Timeline {
 			animated_as_gifs: ctx.props().animated_as_gifs,
 			hide_text: ctx.props().hide_text,
 			endpoint_agent,
-			filters: ctx.props().filters.as_ref().map(|f| f.clone()).unwrap_or_else(|| DEFAULT_FILTERS.into()),
+			filters: ctx.props().filters.as_ref().map(|f| f.clone()).unwrap_or_else(|| FilterCollection::default()),
 			sort_method: match ctx.props().sort_method {
 				Some((method, reversed)) => (Some(method), reversed),
 				None => (None, true)
@@ -367,31 +362,7 @@ impl Component for Timeline {
 
 				false
 			}
-			Msg::ToggleFilterEnabled(filter_instance) => {
-				self.filters.remove(&filter_instance);
-				self.filters.insert(FilterInstance {
-					enabled: !filter_instance.enabled,
-					..filter_instance
-				});
-				true
-			}
-			Msg::ToggleFilterInverted(filter_instance) => {
-				self.filters.remove(&filter_instance);
-				self.filters.insert(FilterInstance {
-					inverted: !filter_instance.inverted,
-					..filter_instance
-				});
-				true
-			}
-			//TODO Move filter stuff to separate file?
-			Msg::AddFilter((filter, inverted)) => {
-				self.filters.insert(FilterInstance {filter, inverted, enabled: true});
-				true
-			}
-			Msg::RemoveFilter(filter_instance) => {
-				self.filters.remove(&filter_instance);
-				true
-			}
+			Msg::FilterMsg(msg) => self.filters.update(msg),
 			Msg::SetSortMethod(new_method) => {
 				self.sort_method.0 = new_method.map(|method| *method);
 				true
@@ -805,10 +776,7 @@ impl Timeline {
 			<div class="box">
 				<FiltersOptions
 					filters={self.filters.clone()}
-					toggle_enabled_callback={ctx.link().callback(Msg::ToggleFilterEnabled)}
-					toggle_inverted_callback={ctx.link().callback(Msg::ToggleFilterInverted)}
-					remove_callback={ctx.link().callback(Msg::RemoveFilter)}
-					add_callback={ctx.link().callback(Msg::AddFilter)}
+					callback={ctx.link().callback(Msg::FilterMsg)}
 				/>
 			</div>
 		}

@@ -1,7 +1,7 @@
 use yew::prelude::*;
 use yew_agent::{Bridge, Bridged};
 use std::rc::Weak;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::cell::RefCell;
 use serde_json::json;
 use wasm_bindgen::JsCast;
@@ -11,7 +11,7 @@ use serde_json::Value;
 use crate::services::endpoint_agent::{Request as EndpointRequest, EndpointAgent, EndpointId, RefreshTime, EndpointConstructors, Response as EndpointResponse, EndpointView, TimelineEndpointWrapper};
 use crate::components::{Dropdown, DropdownLabel};
 use crate::timeline::{
-	filters::{Filter, FilterInstance, FiltersOptions},
+	filters::{FiltersOptions, FilterCollection, FilterMsg},
 	agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse},
 };
 
@@ -20,7 +20,7 @@ struct EndpointForm {
 	service: &'static str,
 	endpoint_type: usize,
 	params: Value,
-	filters: HashSet<FilterInstance>,
+	filters: FilterCollection,
 }
 
 pub struct ChooseEndpoints {
@@ -43,17 +43,11 @@ pub enum Msg {
 	SetFormType(usize),
 	SetFormParamValue((&'static str, Value), String),
 	CreateEndpoint(bool),
-	AddTimelineEndpoint(RefreshTime, EndpointId, HashSet<FilterInstance>),
-	AddTimelineEndpointBoth(EndpointId, HashSet<FilterInstance>),
+	AddTimelineEndpoint(RefreshTime, EndpointId, FilterCollection),
+	AddTimelineEndpointBoth(EndpointId, FilterCollection),
 	RemoveTimelineEndpoint(RefreshTime, EndpointId),
-	ToggleFormFilterEnabled(FilterInstance),
-	ToggleFormFilterInverted(FilterInstance),
-	RemoveFormFilter(FilterInstance),
-	AddFormFilter(Filter, bool),
-	ToggleExistingFilterEnabled(usize, FilterInstance),
-	ToggleExistingFilterInverted(usize, FilterInstance),
-	RemoveExistingFilter(usize, FilterInstance),
-	AddExistingFilter(usize, Filter, bool),
+	FormFilterMsg(FilterMsg),
+	ExistingFilterMsg(usize, FilterMsg),
 }
 
 #[derive(Properties, Clone)]
@@ -126,7 +120,7 @@ impl Component for ChooseEndpoints {
 								"include_retweets": true,
 								"include_replies": true,
 							}),
-							filters: HashSet::new(),
+							filters: FilterCollection::new(),
 						});
 						true
 					}else { false }
@@ -148,7 +142,7 @@ impl Component for ChooseEndpoints {
 					service: "Twitter",
 					endpoint_type: 0,
 					params: self.services["Twitter"].endpoint_types[0].default_params(),
-					filters: HashSet::new(),
+					filters: FilterCollection::new(),
 				});
 				true
 			}
@@ -273,74 +267,8 @@ impl Component for ChooseEndpoints {
 				}
 				true
 			}
-			Msg::ToggleFormFilterEnabled(filter_instance) => {
-				let filters = &mut self.endpoint_form.as_mut().unwrap().filters;
-				filters.remove(&filter_instance);
-				filters.insert(FilterInstance {
-					enabled: !filter_instance.enabled,
-					..filter_instance
-				});
-				true
-			}
-			Msg::ToggleFormFilterInverted(filter_instance) => {
-				let filters = &mut self.endpoint_form.as_mut().unwrap().filters;
-				filters.remove(&filter_instance);
-				filters.insert(FilterInstance {
-				   inverted: !filter_instance.inverted,
-					..filter_instance
-				});
-				true
-			}
-			Msg::RemoveFormFilter(filter_instance) => {
-				self.endpoint_form.as_mut().unwrap().filters.remove(&filter_instance);
-				true
-			}
-			Msg::AddFormFilter(filter, inverted) => {
-				self.endpoint_form.as_mut().unwrap().filters.insert(FilterInstance {
-					filter,
-					inverted,
-					enabled: true
-				});
-				true
-			}
-			Msg::ToggleExistingFilterEnabled(endpoint_index, filter_instance) => {
-				let timeline_endpoints = ctx.props().timeline_endpoints.upgrade().unwrap();
-				let mut borrow = timeline_endpoints.borrow_mut();
-				let filters = &mut borrow[endpoint_index].filters;
-				filters.remove(&filter_instance);
-				filters.insert(FilterInstance {
-					enabled: !filter_instance.enabled,
-					..filter_instance
-				});
-				true
-			}
-			Msg::ToggleExistingFilterInverted(endpoint_index, filter_instance) => {
-				let timeline_endpoints = ctx.props().timeline_endpoints.upgrade().unwrap();
-				let mut borrow = timeline_endpoints.borrow_mut();
-				let filters = &mut borrow[endpoint_index].filters;
-				filters.remove(&filter_instance);
-				filters.insert(FilterInstance {
-					inverted: !filter_instance.inverted,
-					..filter_instance
-				});
-				true
-			}
-			Msg::RemoveExistingFilter(endpoint_index, filter_instance) => {
-				let timeline_endpoints = ctx.props().timeline_endpoints.upgrade().unwrap();
-				let mut borrow = timeline_endpoints.borrow_mut();
-				borrow[endpoint_index].filters.remove(&filter_instance);
-				true
-			}
-			Msg::AddExistingFilter(endpoint_index, filter, inverted) => {
-				let timeline_endpoints = ctx.props().timeline_endpoints.upgrade().unwrap();
-				let mut borrow = timeline_endpoints.borrow_mut();
-				borrow[endpoint_index].filters.insert(FilterInstance {
-					filter,
-					inverted,
-					enabled: true
-				});
-				true
-			}
+			Msg::FormFilterMsg(msg) => self.endpoint_form.as_mut().unwrap().filters.update(msg),
+			Msg::ExistingFilterMsg(endpoint_index, msg) => ctx.props().timeline_endpoints.upgrade().unwrap().borrow_mut()[endpoint_index].filters.update(msg),
 		}
 	}
 
@@ -371,7 +299,7 @@ impl ChooseEndpoints {
 						let id_c = id.clone();
 						let refresh_time_c = refresh_time.clone();
 						html! {
-							<a class="dropdown-item" onclick={ctx.link().callback(move |_| Msg::AddTimelineEndpoint(refresh_time_c.clone(), id_c.clone(), HashSet::new()))}>
+							<a class="dropdown-item" onclick={ctx.link().callback(move |_| Msg::AddTimelineEndpoint(refresh_time_c.clone(), id_c.clone(), FilterCollection::new()))}>
 								{ view.name.clone() }
 							</a>
 					}}) }
@@ -529,10 +457,7 @@ impl ChooseEndpoints {
 		html! {
 			<FiltersOptions
 				filters={ctx.props().timeline_endpoints.upgrade().unwrap().borrow()[endpoint_index].filters.clone()}
-				toggle_enabled_callback={ctx.link().callback(move |filter_instance| Msg::ToggleExistingFilterEnabled(endpoint_index, filter_instance))}
-				toggle_inverted_callback={ctx.link().callback(move |filter_instance| Msg::ToggleExistingFilterInverted(endpoint_index, filter_instance))}
-				remove_callback={ctx.link().callback(move |filter_instance| Msg::RemoveExistingFilter(endpoint_index, filter_instance))}
-				add_callback={ctx.link().callback(move |(filter, inverted)| Msg::AddExistingFilter(endpoint_index, filter, inverted))}
+				callback={ctx.link().callback(move |msg| Msg::ExistingFilterMsg(endpoint_index, msg))}
 			/>
 		}
 	}
@@ -541,10 +466,7 @@ impl ChooseEndpoints {
 		html! {
 			<FiltersOptions
 				filters={self.endpoint_form.as_ref().unwrap().filters.clone()}
-				toggle_enabled_callback={ctx.link().callback(Msg::ToggleFormFilterEnabled)}
-				toggle_inverted_callback={ctx.link().callback(Msg::ToggleFormFilterInverted)}
-				remove_callback={ctx.link().callback(Msg::RemoveFormFilter)}
-				add_callback={ctx.link().callback(|(filter, inverted)| Msg::AddFormFilter(filter, inverted))}
+				callback={ctx.link().callback(Msg::FormFilterMsg)}
 			/>
 		}
 	}
