@@ -62,12 +62,11 @@ enum AuthState {
 	LoggedIn(u64)
 }
 
-#[service("Twitter")]
+#[service("Twitter", TweetArticleData, u64)]
 pub struct TwitterAgent {
 	link: AgentLink<Self>,
 	endpoint_agent: Dispatcher<EndpointAgent>,
 	actions_agent: Dispatcher<ArticleActionsAgent>,
-	articles: HashMap<u64, Rc<RefCell<TweetArticleData>>>,
 	auth_state: AuthState,
 	sidebar_handler: Option<HandlerId>,
 	notification_agent: Dispatcher<NotificationAgent>,

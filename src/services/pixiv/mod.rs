@@ -18,12 +18,11 @@ use crate::services::{
 	storages::{ServiceStorage, get_service_storage, cache_articles},
 };
 
-#[service("Pixiv")]
+#[service("Pixiv", PixivArticleData, u32)]
 pub struct PixivAgent {
 	link: AgentLink<Self>,
 	endpoint_agent: Dispatcher<EndpointAgent>,
 	actions_agent: Dispatcher<ArticleActionsAgent>,
-	articles: HashMap<u32, Rc<RefCell<PixivArticleData>>>,
 	fetching_articles: HashSet<u32>,
 }
 

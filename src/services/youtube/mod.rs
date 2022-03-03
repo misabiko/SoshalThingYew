@@ -29,12 +29,11 @@ enum AuthState {
 }
 
 //TODO type<A> ServiceArticles = HashMap<A::Id, Rc<RefCell<A>>>
-#[service("YouTube")]
+#[service("YouTube", YouTubeArticleData, String)]
 pub struct YouTubeAgent {
 	link: AgentLink<Self>,
 	endpoint_agent: Dispatcher<EndpointAgent>,
 	_actions_agent: Dispatcher<ArticleActionsAgent>,
-	articles: HashMap<String, Rc<RefCell<YouTubeArticleData>>>,
 	auth_state: AuthState,
 	sidebar_handler: Option<HandlerId>,
 	notification_agent: Dispatcher<NotificationAgent>,

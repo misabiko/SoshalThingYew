@@ -14,12 +14,11 @@ use crate::services::{
 	article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest},
 };
 
-#[service("Dummy")]
+#[service("Dummy", DummyArticleData, u32)]
 pub struct DummyServiceAgent {
 	//link: AgentLink<Self>,
 	_endpoint_agent: Dispatcher<EndpointAgent>,
 	actions_agent: Dispatcher<ArticleActionsAgent>,
-	articles: HashMap<u32, Rc<RefCell<DummyArticleData>>>,
 }
 
 pub enum Msg {
