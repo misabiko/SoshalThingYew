@@ -61,7 +61,7 @@ pub fn service(args: TokenStream, input: TokenStream) -> TokenStream {
 	if let syn::Fields::Named(ref mut fields) = item_struct.fields {
 		fields.named.push(
 			syn::Field::parse_named
-				.parse2(quote! { articles: std::collections::HashMap<#article_id_type, Rc<RefCell<#article_type>>> })
+				.parse2(quote! { articles: std::collections::HashMap<#article_id_type, ArticleRc<#article_type>> })
 				.unwrap()
 		);
 	}

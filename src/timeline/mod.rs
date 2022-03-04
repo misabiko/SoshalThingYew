@@ -17,7 +17,7 @@ use containers::{view_container, Props as ContainerProps};
 use filters::{FilterCollection, FilterMsg, FiltersOptions};
 use sort_methods::SortMethod;
 use agent::{TimelineAgent, Request as TimelineAgentRequest};
-use crate::articles::{ArticleView, ArticleData, ArticleRefType};
+use crate::articles::{ArticleView, ArticleRefType, ArticleWeak, ArticleBox};
 use crate::services::endpoint_agent::{EndpointAgent, Request as EndpointRequest};
 use crate::modals::ModalCard;
 use crate::choose_endpoints::ChooseEndpoints;
@@ -46,11 +46,11 @@ struct Autoscroll {
 	anim: Option<AutoscrollAnim>,
 }
 
-pub type ArticleTuple = (Weak<RefCell<dyn ArticleData>>, Box<dyn ArticleData>, ArticleRefType<Box<dyn ArticleData>>);
+pub type ArticleTuple = (ArticleWeak, ArticleBox, ArticleRefType<ArticleBox>);
 
 pub struct Timeline {
 	endpoints: Rc<RefCell<Vec<TimelineEndpointWrapper>>>,
-	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
+	articles: Vec<ArticleWeak>,
 	options_shown: bool,
 	compact: bool,
 	animated_as_gifs: bool,
@@ -77,9 +77,9 @@ pub enum Msg {
 	Refresh,
 	LoadBottom,
 	LoadTop,
-	Refreshed(Vec<Weak<RefCell<dyn ArticleData>>>),
+	Refreshed(Vec<ArticleWeak>),
 	RefreshFail,
-	NewArticles(Vec<Weak<RefCell<dyn ArticleData>>>),
+	NewArticles(Vec<ArticleWeak>),
 	ClearArticles,
 	ToggleOptions,
 	ToggleCompact,
@@ -129,7 +129,7 @@ pub struct Props {
 	#[prop_or_default]
 	pub children: Children,
 	#[prop_or_default]
-	pub articles: Vec<Weak<RefCell<dyn ArticleData>>>,
+	pub articles: Vec<ArticleWeak>,
 	#[prop_or_default]
 	pub filters: Option<FilterCollection>,
 	#[prop_or_default]
@@ -832,7 +832,7 @@ impl Timeline {
 		}
 	}
 
-	fn sectioned_articles(&self) -> Vec<Weak<RefCell<dyn ArticleData>>> {
+	fn sectioned_articles(&self) -> Vec<ArticleWeak> {
 		let mut articles = self.articles.clone();
 		for instance in &self.filters {
 			if instance.enabled {

@@ -1,10 +1,9 @@
 use yew::prelude::*;
 use std::rc::{Rc, Weak};
-use std::cell::RefCell;
 use serde::{Serialize, Deserialize};
 
 use crate::error::Result;
-use crate::articles::{ArticleData, ArticleComponent, ArticleView, ArticleRefType};
+use crate::articles::{ArticleComponent, ArticleView, ArticleRefType, ArticleBox, ArticleRc};
 use crate::timeline::ArticleTuple;
 
 /*Make containers dynamic?
@@ -139,11 +138,11 @@ pub fn row_container(props: &Props) -> Html {
 	}
 }
 
-type StrongArticleTuple = (Rc<RefCell<dyn ArticleData>>, Box<dyn ArticleData>, ArticleRefType<Box<dyn ArticleData>>);
+type StrongArticleTuple = (ArticleRc, ArticleBox, ArticleRefType<ArticleBox>);
 type RatioedArticle<'a> = (&'a StrongArticleTuple, f32);
 type Column<'a> = (u8, Vec<RatioedArticle<'a>>);
 
-fn relative_height(article: &Box<dyn ArticleData>) -> f32 {
+fn relative_height(article: &ArticleBox) -> f32 {
 	(1.0 as f32) + article
 		.media().iter()
 		.map(|m| m.ratio.get())

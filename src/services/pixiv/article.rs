@@ -4,7 +4,7 @@ use serde::{Serialize, Deserialize};
 use derivative::Derivative;
 
 use super::SERVICE_INFO;
-use crate::articles::{ArticleData, ArticleMedia, MediaQueueInfo};
+use crate::articles::{ArticleBox, ArticleData, ArticleMedia, MediaQueueInfo};
 
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
@@ -28,6 +28,8 @@ pub struct PixivArticleData {
 }
 
 impl ArticleData for PixivArticleData {
+	//type Id = u32;
+
 	fn service(&self) -> &'static str {
 		SERVICE_INFO.name
 	}
@@ -109,7 +111,7 @@ impl ArticleData for PixivArticleData {
 		self.bookmarked
 	}
 
-	fn clone_data(&self) -> Box<dyn ArticleData> {
+	fn clone_data(&self) -> ArticleBox {
 		Box::new(self.clone())
 	}
 

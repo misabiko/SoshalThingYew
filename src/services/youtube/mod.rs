@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 use reqwest::Url;
@@ -9,7 +8,7 @@ mod article;
 mod endpoints;
 
 use article::YouTubeArticleData;
-use crate::articles::ArticleData;
+use crate::articles::ArticleRc;
 use crate::error::{Result, Error};
 use crate::notifications::{Notification, NotificationAgent, Request as NotificationRequest};
 use crate::services::{
@@ -40,12 +39,12 @@ pub struct YouTubeAgent {
 }
 
 pub enum Msg {
-	EndpointFetchResponse(RefreshTime, EndpointId, Result<Vec<Rc<RefCell<YouTubeArticleData>>>>),
+	EndpointFetchResponse(RefreshTime, EndpointId, Result<Vec<ArticleRc<YouTubeArticleData>>>),
 }
 
 pub enum Request {
 	Auth(bool),
-	AddArticles(RefreshTime, EndpointId, Vec<Rc<RefCell<YouTubeArticleData>>>),
+	AddArticles(RefreshTime, EndpointId, Vec<ArticleRc<YouTubeArticleData>>),
 	FetchArticles(RefreshTime, EndpointId, Url),
 	Sidebar,
 }
@@ -104,7 +103,7 @@ impl Agent for YouTubeAgent {
 						for article in articles {
 							let article = self.insert_or_update(article);
 
-							updated_articles.push(article as Rc<RefCell<dyn ArticleData>>);
+							updated_articles.push(article as ArticleRc);
 						}
 
 						Ok((updated_articles, None))
@@ -147,7 +146,7 @@ impl Agent for YouTubeAgent {
 				for article in articles.into_iter() {
 					let article = self.insert_or_update(article);
 
-					updated_articles.push(article as Rc<RefCell<dyn ArticleData>>);
+					updated_articles.push(article as ArticleRc);
 				}
 				self.endpoint_agent.send(EndpointRequest::AddArticles(
 					refresh_time,
@@ -176,8 +175,7 @@ impl Agent for YouTubeAgent {
 }
 
 impl YouTubeAgent {
-	//TODO pub type ArticleRc<A = dyn ArticleData> = Rc<RefCell<A>>
-	fn insert_or_update(&mut self, article: Rc<RefCell<YouTubeArticleData>>) -> Rc<RefCell<YouTubeArticleData>> {
+	fn insert_or_update(&mut self, article: ArticleRc<YouTubeArticleData>) -> ArticleRc<YouTubeArticleData> {
 		let borrow = article.borrow();
 		self.articles.entry(borrow.id.clone())
 			.and_modify(|a| a.borrow_mut().update(&borrow))

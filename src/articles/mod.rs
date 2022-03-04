@@ -1,4 +1,4 @@
-use std::rc::Weak;
+use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 use std::fmt::{Debug, Display, Formatter};
 use std::num::{NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8};
@@ -16,15 +16,53 @@ pub use component::ArticleComponent;
 pub use crate::articles::social::SocialArticle;
 pub use crate::articles::gallery::GalleryArticle;
 
+pub trait ArticleData : Debug {
+	//TODO type Id;
+
+	fn service(&self) -> &'static str;
+	fn id(&self) -> String;
+	fn sortable_id(&self) -> u64;
+	fn index(&self) -> u64 { self.sortable_id() }	//TODO Use per-service sort methods
+	fn creation_time(&self) -> Date;
+	fn text(&self) -> String;
+	fn author_name(&self) -> String;
+	fn author_username(&self) -> String { self.author_name() }
+	fn author_avatar_url(&self) -> String;
+	fn author_url(&self) -> String;
+	fn like_count(&self) -> u32 { 0 }
+	fn repost_count(&self) -> u32 { 0 }
+	fn liked(&self) -> bool { false }
+	fn reposted(&self) -> bool { false }
+	fn media(&self) -> Vec<ArticleMedia>;
+	fn json(&self) -> serde_json::Value { serde_json::Value::Null }
+	fn referenced_article(&self) -> ArticleRefType { ArticleRefType::NoRef }
+	fn url(&self) -> String;
+	fn marked_as_read(&self) -> bool;
+	fn set_marked_as_read(&mut self, value: bool);
+	fn hidden(&self) -> bool;
+	fn set_hidden(&mut self, value: bool);
+	fn is_fully_fetched(&self) -> &bool { &true }
+	fn clone_data(&self) -> ArticleBox;
+	fn media_loaded(&mut self, index: usize);
+	fn view_text(&self) -> Html {
+		html! { { self.text() } }
+	}
+}
+
+//type ArticlePtr<Pointer> = Pointer<RefCell<dyn ArticleData>>;
+pub type ArticleRc<A = dyn ArticleData> = Rc<RefCell<A>>;
+pub type ArticleWeak<A = dyn ArticleData> = Weak<RefCell<A>>;
+pub type ArticleBox<A = dyn ArticleData> = Box<A>;
+
 #[derive(Clone, Debug, PartialEq)]
-pub enum ArticleRefType<Pointer = Weak<RefCell<dyn ArticleData>>> {
+pub enum ArticleRefType<Pointer = ArticleWeak> {
 	NoRef,
 	Repost(Pointer),
 	Quote(Pointer),
 	QuoteRepost(Pointer, Pointer),
 }
 
-impl ArticleRefType<Box<dyn ArticleData>> {
+impl ArticleRefType<ArticleBox> {
 	pub fn clone_data(&self) -> Self {
 		match self {
 			ArticleRefType::NoRef => ArticleRefType::NoRef,
@@ -99,37 +137,6 @@ pub enum MediaQueueInfo {
 	}
 }
 
-pub trait ArticleData : Debug {
-	fn service(&self) -> &'static str;
-	fn id(&self) -> String;
-	fn sortable_id(&self) -> u64;
-	fn index(&self) -> u64 { self.sortable_id() }	//TODO Use per-service sort methods
-	fn creation_time(&self) -> Date;
-	fn text(&self) -> String;
-	fn author_name(&self) -> String;
-	fn author_username(&self) -> String { self.author_name() }
-	fn author_avatar_url(&self) -> String;
-	fn author_url(&self) -> String;
-	fn like_count(&self) -> u32 { 0 }
-	fn repost_count(&self) -> u32 { 0 }
-	fn liked(&self) -> bool { false }
-	fn reposted(&self) -> bool { false }
-	fn media(&self) -> Vec<ArticleMedia>;
-	fn json(&self) -> serde_json::Value { serde_json::Value::Null }
-	fn referenced_article(&self) -> ArticleRefType { ArticleRefType::NoRef }
-	fn url(&self) -> String;
-	fn marked_as_read(&self) -> bool;
-	fn set_marked_as_read(&mut self, value: bool);
-	fn hidden(&self) -> bool;
-	fn set_hidden(&mut self, value: bool);
-	fn is_fully_fetched(&self) -> &bool { &true }
-	fn clone_data(&self) -> Box<dyn ArticleData>;
-	fn media_loaded(&mut self, index: usize);
-	fn view_text(&self) -> Html {
-		html! { { self.text() } }
-	}
-}
-
 impl PartialEq<dyn ArticleData> for dyn ArticleData {
 	fn eq(&self, other: &dyn ArticleData) -> bool {
 		self.id() == other.id() &&
@@ -165,7 +172,7 @@ impl ArticleView {
 	}
 }
 
-pub fn actual_article(article: &Weak<RefCell<dyn ArticleData>>) -> Weak<RefCell<dyn ArticleData>> {
+pub fn actual_article(article: &ArticleWeak) -> ArticleWeak {
 	if let Some(strong) = article.upgrade() {
 		let borrow = strong.borrow();
 

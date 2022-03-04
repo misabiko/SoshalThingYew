@@ -8,7 +8,7 @@ use yew::prelude::*;
 use derivative::Derivative;
 
 use super::SERVICE_INFO;
-use crate::articles::{ArticleData, ArticleMedia, MediaType, MediaQueueInfo, ArticleRefType, ValidRatio};
+use crate::articles::{ArticleData, ArticleMedia, MediaType, MediaQueueInfo, ArticleRefType, ValidRatio, ArticleWeak, ArticleRc, ArticleBox};
 use crate::services::storages::ServiceStorage;
 
 #[derive(Deserialize)]
@@ -131,7 +131,7 @@ pub struct TwitterUser {
 	pub avatar_url: String,
 }
 
-pub type StrongArticleRefType = ArticleRefType<Rc<RefCell<TweetArticleData>>>;
+pub type StrongArticleRefType = ArticleRefType<ArticleRc<TweetArticleData>>;
 
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
@@ -155,6 +155,8 @@ pub struct TweetArticleData {
 }
 
 impl ArticleData for TweetArticleData {
+	//type Id = u64;
+
 	fn service(&self) -> &'static str {
 		SERVICE_INFO.name
 	}
@@ -201,11 +203,11 @@ impl ArticleData for TweetArticleData {
 	fn referenced_article(&self) -> ArticleRefType {
 		match &self.referenced_article {
 			ArticleRefType::NoRef => ArticleRefType::NoRef,
-			ArticleRefType::Repost(a) => ArticleRefType::Repost(a.clone() as Weak<RefCell<dyn ArticleData>>),
-			ArticleRefType::Quote(a) => ArticleRefType::Quote(a.clone() as Weak<RefCell<dyn ArticleData>>),
+			ArticleRefType::Repost(a) => ArticleRefType::Repost(a.clone() as ArticleWeak),
+			ArticleRefType::Quote(a) => ArticleRefType::Quote(a.clone() as ArticleWeak),
 			ArticleRefType::QuoteRepost(a, q) => ArticleRefType::QuoteRepost(
-				a.clone() as Weak<RefCell<dyn ArticleData>>,
-				q.clone() as Weak<RefCell<dyn ArticleData>>,
+				a.clone() as ArticleWeak,
+				q.clone() as ArticleWeak,
 			),
 		}
 	}
@@ -224,7 +226,7 @@ impl ArticleData for TweetArticleData {
 	fn set_hidden(&mut self, value: bool) {
 		self.hidden = value;
 	}
-	fn clone_data(&self) -> Box<dyn ArticleData> {
+	fn clone_data(&self) -> ArticleBox {
 		Box::new(self.clone())
 	}
 	fn media_loaded(&mut self, _index: usize) {
@@ -236,7 +238,7 @@ impl ArticleData for TweetArticleData {
 }
 
 impl TweetArticleData {
-	pub fn from(json: &serde_json::Value, storage: &ServiceStorage) -> (Rc<RefCell<Self>>, StrongArticleRefType) {
+	pub fn from(json: &serde_json::Value, storage: &ServiceStorage) -> (ArticleRc<Self>, StrongArticleRefType) {
 		let id = json["id"].as_u64().unwrap();
 
 		let referenced_article: StrongArticleRefType = {

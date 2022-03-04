@@ -1,6 +1,5 @@
 use yew::prelude::*;
-use std::rc::{Rc, Weak};
-use std::cell::RefCell;
+use std::rc::Rc;
 use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher};
 use std::collections::HashMap;
 use reqwest::{StatusCode, Url};
@@ -10,7 +9,7 @@ pub mod article;
 
 pub use article::TweetArticleData;
 use article::StrongArticleRefType;
-use crate::articles::{ArticleData, ArticleRefType};
+use crate::articles::{ArticleRc, ArticleRefType, ArticleWeak};
 use crate::{base_url, SearchEndpoint};
 use crate::notifications::{Notification, NotificationAgent, Request as NotificationRequest};
 use crate::services::{
@@ -23,7 +22,7 @@ use crate::services::{
 use crate::error::{Error, RatelimitedResult};
 use crate::services::storages::{get_service_storage, ServiceStorage};
 
-pub async fn fetch_tweets(url: Url, storage: &ServiceStorage) -> RatelimitedResult<Vec<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)>> {
+pub async fn fetch_tweets(url: Url, storage: &ServiceStorage) -> RatelimitedResult<Vec<(ArticleRc<TweetArticleData>, StrongArticleRefType)>> {
 	let response = reqwest::Client::builder()
 		//.timeout(Duration::from_secs(10))
 		.build()?
@@ -73,10 +72,10 @@ pub struct TwitterAgent {
 }
 
 pub enum Msg {
-	FetchResponse(HandlerId, RatelimitedResult<Vec<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)>>),
-	EndpointFetchResponse(RefreshTime, EndpointId, RatelimitedResult<Vec<(Rc<RefCell<TweetArticleData>>, StrongArticleRefType)>>),
-	Like(HandlerId, Weak<RefCell<dyn ArticleData>>),
-	Retweet(HandlerId, Weak<RefCell<dyn ArticleData>>),
+	FetchResponse(HandlerId, RatelimitedResult<Vec<(ArticleRc<TweetArticleData>, StrongArticleRefType)>>),
+	EndpointFetchResponse(RefreshTime, EndpointId, RatelimitedResult<Vec<(ArticleRc<TweetArticleData>, StrongArticleRefType)>>),
+	Like(HandlerId, ArticleWeak),
+	Retweet(HandlerId, ArticleWeak),
 }
 
 pub enum Request {
@@ -178,7 +177,7 @@ impl Agent for TwitterAgent {
 						let mut updated_articles = Vec::new();
 						for (article, ref_article) in articles {
 							let article = self.insert_or_update(article, Some(ref_article));
-							updated_articles.push(article as Rc<RefCell<dyn ArticleData>>);
+							updated_articles.push(article as ArticleRc);
 						}
 
 						Ok((updated_articles, ratelimit))
@@ -206,7 +205,7 @@ impl Agent for TwitterAgent {
 					let articles = articles.into_iter()
 						.map(|(article, ref_article)| {
 							let article = self.insert_or_update(article, Some(ref_article));
-							Rc::downgrade(&article) as Weak<RefCell<dyn ArticleData>>
+							Rc::downgrade(&article) as ArticleWeak
 						})
 						.collect();
 
@@ -295,7 +294,7 @@ impl TwitterAgent {
 		}
 	}
 
-	fn insert_or_update(&mut self, article: Rc<RefCell<TweetArticleData>>, ref_article: Option<StrongArticleRefType>) -> Rc<RefCell<TweetArticleData>> {
+	fn insert_or_update(&mut self, article: ArticleRc<TweetArticleData>, ref_article: Option<StrongArticleRefType>) -> ArticleRc<TweetArticleData> {
 		let borrow = article.borrow();
 		let article = self.articles.entry(borrow.id)
 			.and_modify(|a| a.borrow_mut().update(&borrow))

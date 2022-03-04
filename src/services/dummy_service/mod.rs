@@ -1,10 +1,10 @@
 use std::collections::HashMap;
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 use std::cell::RefCell;
 use js_sys::Date;
 use yew_agent::{Agent, AgentLink, Context, Dispatcher, Dispatched, HandlerId};
 
-use crate::articles::{ArticleData, ArticleMedia};
+use crate::articles::{ArticleBox, ArticleData, ArticleMedia, ArticleRc, ArticleWeak};
 use crate::{Endpoint, EndpointId, EndpointRequest};
 use crate::services::{
 	service,
@@ -22,8 +22,8 @@ pub struct DummyServiceAgent {
 }
 
 pub enum Msg {
-	Like(HandlerId, Weak<RefCell<dyn ArticleData>>),
-	Repost(HandlerId, Weak<RefCell<dyn ArticleData>>),
+	Like(HandlerId, ArticleWeak),
+	Repost(HandlerId, ArticleWeak),
 }
 
 pub enum Request {}
@@ -53,8 +53,8 @@ impl Agent for DummyServiceAgent {
 			})))
 		]);
 
-		let weak_articles: Vec<Weak<RefCell<dyn ArticleData>>> = articles.values()
-			.map(|a| Rc::downgrade(a) as Weak<RefCell<dyn ArticleData>>)
+		let weak_articles: Vec<ArticleWeak> = articles.values()
+			.map(|a| Rc::downgrade(a) as ArticleWeak)
 			.collect();
 
 		let mut _endpoint_agent = EndpointAgent::dispatcher();
@@ -99,7 +99,7 @@ impl Agent for DummyServiceAgent {
 				let old_liked = strong.borrow().liked();
 				article.borrow_mut().liked = !old_liked;
 
-				self.actions_agent.send(ArticleActionsRequest::RedrawTimelines(vec![Rc::downgrade(article) as Weak<RefCell<dyn ArticleData>>]));
+				self.actions_agent.send(ArticleActionsRequest::RedrawTimelines(vec![Rc::downgrade(article) as ArticleWeak]));
 			}
 			Msg::Repost(_id, article) => {
 				let strong = article.upgrade().unwrap();
@@ -108,7 +108,7 @@ impl Agent for DummyServiceAgent {
 				let old_reposted = strong.borrow().reposted();
 				article.borrow_mut().reposted = !old_reposted;
 
-				self.actions_agent.send(ArticleActionsRequest::RedrawTimelines(vec![Rc::downgrade(article) as Weak<RefCell<dyn ArticleData>>]));
+				self.actions_agent.send(ArticleActionsRequest::RedrawTimelines(vec![Rc::downgrade(article) as ArticleWeak]));
 			}
 		}
 	}
@@ -135,6 +135,8 @@ pub struct DummyArticleData {
 }
 
 impl ArticleData for DummyArticleData {
+	//type Id = u32;
+
 	fn service(&self) -> &'static str { SERVICE_INFO.name }
 
 	fn id(&self) -> String { self.id.to_string() }
@@ -183,7 +185,7 @@ impl ArticleData for DummyArticleData {
 		if self.reposted { 1 } else { 0 }
 	}
 
-	fn clone_data(&self) -> Box<dyn ArticleData> {
+	fn clone_data(&self) -> ArticleBox {
 		Box::new(self.clone())
 	}
 
@@ -194,13 +196,13 @@ impl ArticleData for DummyArticleData {
 
 pub struct DummyEndpoint {
 	id: EndpointId,
-	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
+	articles: Vec<ArticleWeak>,
 	//agent: Dispatcher<DummyServiceAgent>,
 	endpoint_agent: Dispatcher<EndpointAgent>,
 }
 
 impl DummyEndpoint {
-	pub fn new(id: EndpointId, articles: Vec<Weak<RefCell<dyn ArticleData>>>) -> Self {
+	pub fn new(id: EndpointId, articles: Vec<ArticleWeak>) -> Self {
 		Self {
 			id,
 			articles,
@@ -219,7 +221,7 @@ impl Endpoint for DummyEndpoint {
 		&self.id
 	}
 
-	fn articles(&mut self) -> &mut Vec<Weak<RefCell<dyn ArticleData>>> {
+	fn articles(&mut self) -> &mut Vec<ArticleWeak> {
 		&mut self.articles
 	}
 

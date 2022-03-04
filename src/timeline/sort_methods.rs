@@ -1,9 +1,7 @@
-use std::rc::Weak;
-use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
 use serde::{Serialize, Deserialize};
 
-use crate::articles::{actual_article, ArticleData};
+use crate::articles::{actual_article, ArticleWeak};
 
 //TODO Check for cases where Copy is derivable
 #[derive(Clone, Copy, Serialize, Deserialize, Debug)]
@@ -35,7 +33,7 @@ impl SortMethod {
 	}
 
 	//TODO Unit test sort methods
-	pub fn compare(&self, a: &Weak<RefCell<dyn ArticleData>>, b: &Weak<RefCell<dyn ArticleData>>) -> std::cmp::Ordering {
+	pub fn compare(&self, a: &ArticleWeak, b: &ArticleWeak) -> std::cmp::Ordering {
 		match self {
 			SortMethod::Id => {
 				let a = a.upgrade().map(|s| s.borrow().sortable_id()).unwrap_or_default();
@@ -87,7 +85,7 @@ impl Default for SortMethod {
 }
 
 //TODO use sort method
-pub fn sort_by_id(a: &Weak<RefCell<dyn ArticleData>>, b: &Weak<RefCell<dyn ArticleData>>) -> std::cmp::Ordering {
+pub fn sort_by_id(a: &ArticleWeak, b: &ArticleWeak) -> std::cmp::Ordering {
 	let a_id = a.upgrade().map(|s| s.borrow().id()).unwrap_or("0".to_owned());
 	let b_id = b.upgrade().map(|s| s.borrow().id()).unwrap_or("0".to_owned());
 	b_id.partial_cmp(&a_id).unwrap()

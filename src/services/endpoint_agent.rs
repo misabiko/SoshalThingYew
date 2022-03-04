@@ -8,7 +8,7 @@ use gloo_timers::callback::Interval;
 
 use super::{Endpoint, EndpointSerialized, RateLimit};
 use crate::error::{Result, Error, RatelimitedResult};
-use crate::articles::ArticleData;
+use crate::articles::{ArticleRc, ArticleWeak};
 use crate::timeline::filters::FilterCollection;
 use crate::{TimelineCreationMode, TimelineId, TimelinePropsEndpointsClosure};
 use crate::notifications::{NotificationAgent, Request as NotificationRequest, Notification};
@@ -101,7 +101,7 @@ pub struct EndpointAgent {
 	link: AgentLink<Self>,
 	endpoint_counter: EndpointId,
 	pub endpoints: HashMap<EndpointId, EndpointInfo>,
-	pub timelines: HashMap<TimelineId, (Weak<RefCell<Vec<TimelineEndpointWrapper>>>, Callback<Vec<Weak<RefCell<dyn ArticleData>>>>)>,
+	pub timelines: HashMap<TimelineId, (Weak<RefCell<Vec<TimelineEndpointWrapper>>>, Callback<Vec<ArticleWeak>>)>,
 	pub services: HashMap<&'static str, EndpointConstructors>,
 	subscribers: HashSet<HandlerId>,
 	timeline_container: Option<HandlerId>,
@@ -109,7 +109,7 @@ pub struct EndpointAgent {
 }
 
 pub enum Msg {
-	Refreshed(RefreshTime, EndpointId, (Vec<Rc<RefCell<dyn ArticleData>>>, Option<RateLimit>)),
+	Refreshed(RefreshTime, EndpointId, (Vec<ArticleRc>, Option<RateLimit>)),
 	RefreshFail(EndpointId, Error),
 	UpdatedState,
 	AutoRefreshEndpoint(EndpointId),
@@ -117,14 +117,14 @@ pub enum Msg {
 }
 
 pub enum Request {
-	InitTimeline(TimelineId, Rc<RefCell<Vec<TimelineEndpointWrapper>>>, Callback<Vec<Weak<RefCell<dyn ArticleData>>>>),
+	InitTimeline(TimelineId, Rc<RefCell<Vec<TimelineEndpointWrapper>>>, Callback<Vec<ArticleWeak>>),
 	RemoveTimeline(TimelineId),
 	Refresh(Weak<RefCell<Vec<TimelineEndpointWrapper>>>),
 	LoadBottom(Weak<RefCell<Vec<TimelineEndpointWrapper>>>),
 	LoadTop(Weak<RefCell<Vec<TimelineEndpointWrapper>>>),
 	RefreshEndpoint(EndpointId, RefreshTime),
-	EndpointFetchResponse(RefreshTime, EndpointId, RatelimitedResult<Vec<Rc<RefCell<dyn ArticleData>>>>),
-	AddArticles(RefreshTime, EndpointId, Vec<Rc<RefCell<dyn ArticleData>>>),
+	EndpointFetchResponse(RefreshTime, EndpointId, RatelimitedResult<Vec<ArticleRc>>),
+	AddArticles(RefreshTime, EndpointId, Vec<ArticleRc>),
 	AddEndpoint(Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>),
 	BatchAddEndpoints(Vec<(Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>, bool, bool)>, TimelineCreationRequest),
 	InitService(&'static str, EndpointConstructors),

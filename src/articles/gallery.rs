@@ -2,7 +2,7 @@ use yew::prelude::*;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsValue;
 
-use crate::articles::{ArticleRefType, MediaType, MediaQueueInfo, ArticleData, media_load_queue::MediaLoadState};
+use crate::articles::{ArticleRefType, MediaType, MediaQueueInfo, media_load_queue::MediaLoadState, ArticleBox};
 use crate::articles::component::{ViewProps, Msg as ParentMsg};
 use crate::components::{Dropdown, DropdownLabel};
 use crate::components::{FA, font_awesome::Props as FAProps};
@@ -84,7 +84,7 @@ impl Component for GalleryArticle {
 }
 
 impl GalleryArticle {
-	fn view_media(&self, ctx: &Context<Self>, actual_article: &Box<dyn ArticleData>) -> Html {
+	fn view_media(&self, ctx: &Context<Self>, actual_article: &ArticleBox) -> Html {
 		html! {
 			<>
 				{ for actual_article.media().iter().enumerate().zip(ctx.props().media_load_states.iter()).map(|((i, m), load_state)| {
@@ -158,7 +158,7 @@ impl GalleryArticle {
 		}
 	}
 
-	fn view_nav(&self, ctx: &Context<Self>, actual_article: &Box<dyn ArticleData>) -> Html {
+	fn view_nav(&self, ctx: &Context<Self>, actual_article: &ArticleBox) -> Html {
 		html! {
 			<>
 				<div class="holderBox holderBoxTop">

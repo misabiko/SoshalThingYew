@@ -7,7 +7,7 @@ use derivative::Derivative;
 use serde_json::Value;
 
 use super::SERVICE_INFO;
-use crate::articles::{ArticleData, ArticleMedia, MediaQueueInfo, MediaType, ValidRatio};
+use crate::articles::{ArticleBox, ArticleData, ArticleMedia, MediaQueueInfo, MediaType, ValidRatio};
 use crate::services::storages::ServiceStorage;
 
 #[derive(Clone, Debug)]
@@ -33,6 +33,8 @@ pub struct YouTubeArticleData {
 }
 
 impl ArticleData for YouTubeArticleData {
+	//type Id = String;
+
 	fn service(&self) -> &'static str { SERVICE_INFO.name }
 
 	fn id(&self) -> String { self.id.clone() }
@@ -84,7 +86,7 @@ impl ArticleData for YouTubeArticleData {
 		self.hidden = value;
 	}
 
-	fn clone_data(&self) -> Box<dyn ArticleData> {
+	fn clone_data(&self) -> ArticleBox {
 		Box::new(self.clone())
 	}
 

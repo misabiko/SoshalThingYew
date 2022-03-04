@@ -1,10 +1,8 @@
-use std::rc::Weak;
-use std::cell::RefCell;
 use reqwest::Url;
 use yew_agent::{Dispatched, Dispatcher};
 
 use super::{TwitterAgent, Request as TwitterRequest, SERVICE_INFO};
-use crate::articles::{ArticleData};
+use crate::articles::ArticleWeak;
 use crate::base_url;
 use crate::services::{Endpoint, EndpointSerialized, RateLimit};
 use crate::services::endpoint_agent::{EndpointId, RefreshTime};
@@ -14,7 +12,7 @@ pub struct UserTimelineEndpoint {
 	username: String,
 	include_retweets: bool,
 	include_replies: bool,
-	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
+	articles: Vec<ArticleWeak>,
 	agent: Dispatcher<TwitterAgent>,
 	ratelimit: RateLimit,
 }
@@ -46,7 +44,7 @@ impl Endpoint for UserTimelineEndpoint {
 		&self.id
 	}
 
-	fn articles(&mut self) -> &mut Vec<Weak<RefCell<dyn ArticleData>>> {
+	fn articles(&mut self) -> &mut Vec<ArticleWeak> {
 		&mut self.articles
 	}
 
@@ -95,7 +93,7 @@ impl Endpoint for UserTimelineEndpoint {
 
 pub struct HomeTimelineEndpoint {
 	id: EndpointId,
-	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
+	articles: Vec<ArticleWeak>,
 	agent: Dispatcher<TwitterAgent>,
 	ratelimit: RateLimit,
 }
@@ -120,7 +118,7 @@ impl Endpoint for HomeTimelineEndpoint {
 		&self.id
 	}
 
-	fn articles(&mut self) -> &mut Vec<Weak<RefCell<dyn ArticleData>>> {
+	fn articles(&mut self) -> &mut Vec<ArticleWeak> {
 		&mut self.articles
 	}
 
@@ -167,7 +165,7 @@ pub struct ListEndpoint {
 	id: EndpointId,
 	username: String,
 	slug: String,
-	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
+	articles: Vec<ArticleWeak>,
 	agent: Dispatcher<TwitterAgent>,
 	ratelimit: RateLimit,
 }
@@ -202,7 +200,7 @@ impl Endpoint for ListEndpoint {
 		&self.id
 	}
 
-	fn articles(&mut self) -> &mut Vec<Weak<RefCell<dyn ArticleData>>> {
+	fn articles(&mut self) -> &mut Vec<ArticleWeak> {
 		&mut self.articles
 	}
 
@@ -256,7 +254,7 @@ impl Endpoint for ListEndpoint {
 pub struct LikesEndpoint {
 	id: EndpointId,
 	username: String,
-	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
+	articles: Vec<ArticleWeak>,
 	agent: Dispatcher<TwitterAgent>,
 	ratelimit: RateLimit,
 }
@@ -289,7 +287,7 @@ impl Endpoint for LikesEndpoint {
 		&self.id
 	}
 
-	fn articles(&mut self) -> &mut Vec<Weak<RefCell<dyn ArticleData>>> {
+	fn articles(&mut self) -> &mut Vec<ArticleWeak> {
 		&mut self.articles
 	}
 
@@ -339,7 +337,7 @@ impl Endpoint for LikesEndpoint {
 pub struct SingleTweetEndpoint {
 	id: EndpointId,
 	tweet_id: u64,
-	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
+	articles: Vec<ArticleWeak>,
 	agent: Dispatcher<TwitterAgent>,
 	ratelimit: RateLimit,
 }
@@ -372,7 +370,7 @@ impl Endpoint for SingleTweetEndpoint {
 		&self.id
 	}
 
-	fn articles(&mut self) -> &mut Vec<Weak<RefCell<dyn ArticleData>>> {
+	fn articles(&mut self) -> &mut Vec<ArticleWeak> {
 		&mut self.articles
 	}
 
@@ -409,7 +407,7 @@ impl Endpoint for SingleTweetEndpoint {
 pub struct SearchEndpoint {
 	id: EndpointId,
 	query: String,
-	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
+	articles: Vec<ArticleWeak>,
 	agent: Dispatcher<TwitterAgent>,
 	ratelimit: RateLimit,
 }
@@ -442,7 +440,7 @@ impl Endpoint for SearchEndpoint {
 		&self.id
 	}
 
-	fn articles(&mut self) -> &mut Vec<Weak<RefCell<dyn ArticleData>>> {
+	fn articles(&mut self) -> &mut Vec<ArticleWeak> {
 		&mut self.articles
 	}
 

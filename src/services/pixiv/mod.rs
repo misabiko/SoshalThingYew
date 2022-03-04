@@ -1,5 +1,5 @@
-use std::rc::{Rc, Weak};
 use std::cell::RefCell;
+use std::rc::Rc;
 use yew_agent::{Agent, AgentLink, Context, HandlerId, Dispatched, Dispatcher};
 use std::collections::{HashMap, HashSet};
 
@@ -8,7 +8,7 @@ pub mod article;
 
 use article::{PixivArticleData, PixivArticleCached};
 
-use crate::articles::ArticleData;
+use crate::articles::{ArticleRc, ArticleWeak};
 use crate::error::RatelimitedResult;
 use crate::services::{
 	service,
@@ -27,13 +27,13 @@ pub struct PixivAgent {
 }
 
 pub enum Msg {
-	FetchResponse(RatelimitedResult<Vec<Rc<RefCell<PixivArticleData>>>>),
-	EndpointFetchResponse(RefreshTime, EndpointId, RatelimitedResult<Vec<Rc<RefCell<PixivArticleData>>>>),
-	FetchData(HandlerId, Weak<RefCell<dyn ArticleData>>),
+	FetchResponse(RatelimitedResult<Vec<ArticleRc<PixivArticleData>>>),
+	EndpointFetchResponse(RefreshTime, EndpointId, RatelimitedResult<Vec<ArticleRc<PixivArticleData>>>),
+	FetchData(HandlerId, ArticleWeak),
 }
 
 pub enum Request {
-	AddArticles(RefreshTime, EndpointId, Vec<Rc<RefCell<PixivArticleData>>>),
+	AddArticles(RefreshTime, EndpointId, Vec<ArticleRc<PixivArticleData>>),
 	RefreshEndpoint(EndpointId, RefreshTime),
 	FetchPosts(RefreshTime, EndpointId, String),
 }
@@ -98,7 +98,7 @@ impl Agent for PixivAgent {
 					r.map(move |(_, ratelimit)|
 						(
 							valid_rc.into_iter()
-								.map(|article| article as Rc<RefCell<dyn ArticleData>>)
+								.map(|article| article as ArticleRc)
 								.collect(),
 							ratelimit
 						)),
@@ -116,7 +116,7 @@ impl Agent for PixivAgent {
 							.and_modify(|a| a.borrow_mut().update(&borrow))
 							.or_insert_with(|| article.clone());
 
-						valid_rc.push(Rc::downgrade(updated) as Weak<RefCell<dyn ArticleData>>);
+						valid_rc.push(Rc::downgrade(updated) as ArticleWeak);
 
 						self.fetching_articles.remove(&id);
 					}
@@ -155,7 +155,7 @@ impl Agent for PixivAgent {
 					refresh_time,
 					endpoint_id,
 					valid_rc.into_iter()
-						.map(|article| article as Rc<RefCell<dyn ArticleData>>)
+						.map(|article| article as ArticleRc)
 						.collect(),
 				));
 
@@ -206,7 +206,7 @@ impl PixivAgent {
 }
 
 //TODO Stop using RatelimitedResult
-async fn fetch_posts(url: &str, storage: &ServiceStorage) -> RatelimitedResult<Vec<Rc<RefCell<PixivArticleData>>>> {
+async fn fetch_posts(url: &str, storage: &ServiceStorage) -> RatelimitedResult<Vec<ArticleRc<PixivArticleData>>> {
 	let response = reqwest::Client::builder()
 		//.timeout(Duration::from_secs(10))
 		.build()?
@@ -229,7 +229,7 @@ async fn fetch_posts(url: &str, storage: &ServiceStorage) -> RatelimitedResult<V
 	}
 }
 
-async fn fetch_post(url: &str, storage: &ServiceStorage) -> RatelimitedResult<Rc<RefCell<PixivArticleData>>> {
+async fn fetch_post(url: &str, storage: &ServiceStorage) -> RatelimitedResult<ArticleRc<PixivArticleData>> {
 	let response = reqwest::Client::builder()
 		//.timeout(Duration::from_secs(10))
 		.build()?

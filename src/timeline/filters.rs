@@ -1,15 +1,14 @@
-use std::rc::Weak;
-use std::cell::{Ref, RefCell};
+use std::cell::Ref;
 use serde::{Serialize, Deserialize};
 use yew::prelude::*;
 use std::ops::{Deref, DerefMut};
 use web_sys::HtmlInputElement;
 use wasm_bindgen::JsCast;
 
-use crate::articles::{ArticleData, ArticleMedia, ArticleRefType, MediaType};
+use crate::articles::{ArticleData, ArticleMedia, ArticleRefType, ArticleWeak, MediaType};
 use crate::components::{Dropdown, DropdownLabel};
 
-pub type FilterPredicate = fn(&Weak<RefCell<dyn ArticleData>>, inverted: &bool) -> bool;
+pub type FilterPredicate = fn(&ArticleWeak, inverted: &bool) -> bool;
 const ALL_FILTERS: [Filter; 9] = [
 	Filter::Media,
 	Filter::Animated,

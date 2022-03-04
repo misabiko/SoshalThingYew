@@ -1,17 +1,17 @@
 use std::cell::RefCell;
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 use reqwest::{StatusCode, Url};
 use yew_agent::{Dispatcher, Dispatched};
 
 use super::{YouTubeAgent, Request, SERVICE_INFO};
 use crate::{base_url, Endpoint, EndpointId};
-use crate::articles::ArticleData;
+use crate::articles::{ArticleRc, ArticleWeak};
 use crate::error::{Result, Error};
 use crate::services::{EndpointSerialized, RefreshTime};
 use crate::services::storages::ServiceStorage;
 use crate::services::youtube::article::{PlaylistItem, YouTubeArticleData};
 
-pub async fn fetch_videos(url: Url, storage: &ServiceStorage) -> Result<Vec<Rc<RefCell<YouTubeArticleData>>>> {
+pub async fn fetch_videos(url: Url, storage: &ServiceStorage) -> Result<Vec<ArticleRc<YouTubeArticleData>>> {
 	let response = reqwest::Client::builder()
 		//.timeout(Duration::from_secs(10))
 		.build()?
@@ -44,7 +44,7 @@ pub async fn fetch_videos(url: Url, storage: &ServiceStorage) -> Result<Vec<Rc<R
 
 pub struct PlaylistEndpoint {
 	id: EndpointId,
-	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
+	articles: Vec<ArticleWeak>,
 	agent: Dispatcher<YouTubeAgent>,
 	playlist_id: String,
 }
@@ -74,7 +74,7 @@ impl Endpoint for PlaylistEndpoint {
 		&self.id
 	}
 
-	fn articles(&mut self) -> &mut Vec<Weak<RefCell<dyn ArticleData>>> {
+	fn articles(&mut self) -> &mut Vec<ArticleWeak> {
 		&mut self.articles
 	}
 

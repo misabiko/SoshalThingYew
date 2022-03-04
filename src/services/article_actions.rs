@@ -1,15 +1,13 @@
 use yew::prelude::*;
 use yew_agent::{Agent, AgentLink, HandlerId, Context};
-use std::rc::Weak;
-use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 
-use crate::articles::ArticleData;
+use crate::articles::ArticleWeak;
 
 pub struct ServiceActions {
-	pub like: Option<Callback<(HandlerId, Weak<RefCell<dyn ArticleData>>)>>,
-	pub repost: Option<Callback<(HandlerId, Weak<RefCell<dyn ArticleData>>)>>,
-	pub fetch_data: Option<Callback<(HandlerId, Weak<RefCell<dyn ArticleData>>)>>,
+	pub like: Option<Callback<(HandlerId, ArticleWeak)>>,
+	pub repost: Option<Callback<(HandlerId, ArticleWeak)>>,
+	pub fetch_data: Option<Callback<(HandlerId, ArticleWeak)>>,
 }
 
 pub struct ArticleActionsAgent {
@@ -20,16 +18,16 @@ pub struct ArticleActionsAgent {
 
 pub enum Request {
 	Init(&'static str, ServiceActions),
-	//Callback(Vec<Weak<RefCell<dyn ArticleData>>>),
-	Like(Weak<RefCell<dyn ArticleData>>),
-	Repost(Weak<RefCell<dyn ArticleData>>),
-	FetchData(Weak<RefCell<dyn ArticleData>>),
-	RedrawTimelines(Vec<Weak<RefCell<dyn ArticleData>>>),
+	//Callback(Vec<ArticleWeak>),
+	Like(ArticleWeak),
+	Repost(ArticleWeak),
+	FetchData(ArticleWeak),
+	RedrawTimelines(Vec<ArticleWeak>),
 }
 
 pub enum Response {
-	//Callback(Vec<Weak<RefCell<dyn ArticleData>>>),
-	RedrawTimelines(Vec<Weak<RefCell<dyn ArticleData>>>),
+	//Callback(Vec<ArticleWeak>),
+	RedrawTimelines(Vec<ArticleWeak>),
 }
 
 impl Agent for ArticleActionsAgent {

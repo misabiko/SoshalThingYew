@@ -1,4 +1,4 @@
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 use std::cell::RefCell;
 use yew_agent::{Dispatched, Dispatcher};
 use js_sys::Date;
@@ -8,7 +8,7 @@ use wasm_bindgen::JsValue;
 
 use super::{PixivAgent, Request, SERVICE_INFO};
 use super::article::{PixivArticleData, PixivArticleCached};
-use crate::articles::{ArticleData, ArticleMedia, MediaQueueInfo, MediaType, ValidRatio};
+use crate::articles::{ArticleMedia, ArticleRc, ArticleWeak, MediaQueueInfo, MediaType, ValidRatio};
 use crate::services::{Endpoint, EndpointSerialized};
 use crate::services::endpoint_agent::{EndpointId, RefreshTime};
 use crate::services::storages::{ServiceStorage, get_service_storage};
@@ -160,7 +160,7 @@ impl From<(serde_json::Value, &FollowAPIIllust, &ServiceStorage)> for PixivArtic
 	}
 }
 
-fn parse_article(element: web_sys::Element, storage: &ServiceStorage) -> Option<Rc<RefCell<PixivArticleData>>> {
+fn parse_article(element: web_sys::Element, storage: &ServiceStorage) -> Option<ArticleRc<PixivArticleData>> {
 	let anchors = element.get_elements_by_tag_name("a");
 	let (id, id_str) = match anchors.get_with_index(0) {
 		Some(a) => match a.get_attribute("data-gtm-value") {
@@ -260,7 +260,7 @@ fn parse_article(element: web_sys::Element, storage: &ServiceStorage) -> Option<
 
 pub struct FollowPageEndpoint {
 	id: EndpointId,
-	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
+	articles: Vec<ArticleWeak>,
 	agent: Dispatcher<PixivAgent>,
 	timeout: Option<Timeout>,
 }
@@ -285,7 +285,7 @@ impl Endpoint for FollowPageEndpoint {
 		&self.id
 	}
 
-	fn articles(&mut self) -> &mut Vec<Weak<RefCell<dyn ArticleData>>> {
+	fn articles(&mut self) -> &mut Vec<ArticleWeak> {
 		&mut self.articles
 	}
 
@@ -328,7 +328,7 @@ impl Endpoint for FollowPageEndpoint {
 pub struct FollowAPIEndpoint {
 	id: EndpointId,
 	r18: bool,
-	articles: Vec<Weak<RefCell<dyn ArticleData>>>,
+	articles: Vec<ArticleWeak>,
 	agent: Dispatcher<PixivAgent>,
 	page: u16,
 }
@@ -358,7 +358,7 @@ impl Endpoint for FollowAPIEndpoint {
 		&self.id
 	}
 
-	fn articles(&mut self) -> &mut Vec<Weak<RefCell<dyn ArticleData>>> {
+	fn articles(&mut self) -> &mut Vec<ArticleWeak> {
 		&mut self.articles
 	}
 

@@ -1,5 +1,4 @@
 use std::rc::Weak;
-use std::cell::RefCell;
 use reqwest::header::HeaderMap;
 use serde::{Serialize, Deserialize};
 
@@ -17,7 +16,7 @@ pub mod dummy_service;
 
 pub use endpoint_agent::{EndpointId, EndpointAgent, RefreshTime};
 use crate::error::Error;
-use crate::articles::ArticleData;
+use crate::articles::ArticleWeak;
 use crate::timeline::sort_methods::sort_by_id;
 use crate::timeline::filters::FilterCollection;
 
@@ -95,9 +94,9 @@ pub trait Endpoint {
 
 	fn id(&self) -> &EndpointId;
 
-	fn articles(&mut self) -> &mut Vec<Weak<RefCell<dyn ArticleData>>>;
+	fn articles(&mut self) -> &mut Vec<ArticleWeak>;
 
-	fn add_articles(&mut self, articles: Vec<Weak<RefCell<dyn ArticleData>>>)  {
+	fn add_articles(&mut self, articles: Vec<ArticleWeak>)  {
 		for a in articles {
 			if !self.articles().iter().any(|existing| Weak::ptr_eq(&existing, &a)) {
 				self.articles().push(a);

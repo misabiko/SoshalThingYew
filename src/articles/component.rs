@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::rc::Weak;
 use yew::prelude::*;
 use yew_agent::{Dispatcher, Dispatched, Bridge, Bridged};
@@ -8,7 +7,7 @@ use wasm_bindgen::JsValue;
 use std::convert::identity;
 
 use super::{ArticleView, SocialArticle, GalleryArticle};
-use crate::articles::{ArticleData, ArticleRefType, MediaQueueInfo, ArticleMedia};
+use crate::articles::{ArticleRefType, MediaQueueInfo, ArticleMedia, ArticleWeak, ArticleBox};
 use crate::articles::media_load_queue::{MediaLoadAgent, Request as MediaLoadRequest, Response as MediaLoadResponse, MediaLoadState};
 use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest};
 use crate::modals::Modal;
@@ -55,9 +54,9 @@ pub enum Msg {
 
 #[derive(Properties)]
 pub struct Props {
-	pub weak_ref: Weak<RefCell<dyn ArticleData>>,
-	pub article: Box<dyn ArticleData>,
-	pub ref_article: ArticleRefType<Box<dyn ArticleData>>,
+	pub weak_ref: ArticleWeak,
+	pub article: ArticleBox,
+	pub ref_article: ArticleRefType<ArticleBox>,
 	pub article_view: ArticleView,
 	pub load_priority: u32,
 	pub compact: bool,
@@ -106,9 +105,9 @@ impl Clone for Props {
 
 #[derive(Properties)]
 pub struct ViewProps {
-	pub weak_ref: Weak<RefCell<dyn ArticleData>>,
-	pub article: Box<dyn ArticleData>,
-	pub ref_article: ArticleRefType<Box<dyn ArticleData>>,
+	pub weak_ref: ArticleWeak,
+	pub article: ArticleBox,
+	pub ref_article: ArticleRefType<ArticleBox>,
 	pub compact: bool,
 	pub animated_as_gifs: bool,
 	pub hide_text: bool,
