@@ -13,7 +13,7 @@ use crate::articles::{ArticleRc, ArticleRefType, ArticleWeak};
 use crate::{base_url, SearchEndpoint};
 use crate::notifications::{Notification, NotificationAgent, Request as NotificationRequest};
 use crate::services::{
-	service,
+	macros::*,
 	RateLimit,
 	endpoint_agent::{EndpointAgent, Request as EndpointRequest, EndpointId, EndpointConstructor, EndpointConstructors, RefreshTime},
 	article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest},
@@ -62,20 +62,19 @@ enum AuthState {
 }
 
 #[service("Twitter", TweetArticleData, u64)]
+#[service_article_actions(like, repost)]
 pub struct TwitterAgent {
 	link: AgentLink<Self>,
 	endpoint_agent: Dispatcher<EndpointAgent>,
-	actions_agent: Dispatcher<ArticleActionsAgent>,
 	auth_state: AuthState,
 	sidebar_handler: Option<HandlerId>,
 	notification_agent: Dispatcher<NotificationAgent>,
 }
 
+#[article_actions_msg]
 pub enum Msg {
 	FetchResponse(HandlerId, RatelimitedResult<Vec<(ArticleRc<TweetArticleData>, StrongArticleRefType)>>),
 	EndpointFetchResponse(RefreshTime, EndpointId, RatelimitedResult<Vec<(ArticleRc<TweetArticleData>, StrongArticleRefType)>>),
-	Like(HandlerId, ArticleWeak),
-	Retweet(HandlerId, ArticleWeak),
 }
 
 pub enum Request {

@@ -10,6 +10,13 @@ pub struct ServiceActions {
 	pub fetch_data: Option<Callback<(HandlerId, ArticleWeak)>>,
 }
 
+//TODO Port to #[service_actions] or service_actions!(like, repost, fetch_data)
+pub struct ServiceInfoActions {
+	pub like: bool,
+	pub repost: bool,
+	pub fetch_data: bool,
+}
+
 pub struct ArticleActionsAgent {
 	link: AgentLink<Self>,
 	services: HashMap<&'static str, ServiceActions>,

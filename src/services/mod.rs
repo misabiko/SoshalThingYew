@@ -2,7 +2,8 @@ use std::rc::Weak;
 use reqwest::header::HeaderMap;
 use serde::{Serialize, Deserialize};
 
-pub use soshalthing_macros::service;
+pub use soshalthing_macros as macros;
+pub use soshalthing_macros::{service, service_article_actions};
 
 pub mod endpoint_agent;
 pub mod article_actions;
@@ -20,6 +21,7 @@ use crate::articles::ArticleWeak;
 use crate::timeline::sort_methods::sort_by_id;
 use crate::timeline::filters::FilterCollection;
 
+//TODO Add ServiceInfoActions
 pub struct ServiceInfo {
 	pub name: &'static str
 }
