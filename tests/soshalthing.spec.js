@@ -109,7 +109,7 @@ test('like feedback', async ({page}) => {
 			"title": "Timeline",
 			"endpoints": [
 				{
-					"service": "Dummy Service",
+					"service": "Dummy",
 					"endpoint_type": 0,
 					"params": {},
 					"on_start": true,
@@ -132,7 +132,7 @@ test('repost feedback', async ({page}) => {
 			"title": "Timeline",
 			"endpoints": [
 				{
-					"service": "Dummy Service",
+					"service": "Dummy",
 					"endpoint_type": 0,
 					"params": {},
 					"on_start": true,
