@@ -7,7 +7,9 @@ const config = {
 	},
 	use: {
 		baseURL: 'http://localhost:8080/',
+		trace: 'on-first-retry',
 	},
 	reporter: process.env.CI ? 'github' : 'list',
+	retries: 1,
 };
 module.exports = config;
