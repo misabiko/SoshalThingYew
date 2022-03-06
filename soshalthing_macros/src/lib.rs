@@ -9,13 +9,13 @@ struct ServiceArgs {
 	name: LitStr,
 	article_type: Type,
 	article_id_type: Type,
-	endpoints: Option<EndpointsArg>,
+	_endpoints: Option<EndpointsArg>,
 }
 
 #[derive(Debug)]
 struct EndpointsArg {
-	bracket_token: token::Bracket,
-	endpoints: Punctuated<Type, Token![,]>,
+	_bracket_token: token::Bracket,
+	_endpoints: Punctuated<Type, Token![,]>,
 }
 
 impl Parse for ServiceArgs {
@@ -32,7 +32,7 @@ impl Parse for ServiceArgs {
 			name,
 			article_type,
 			article_id_type,
-			endpoints: if input.is_empty() {
+			_endpoints: if input.is_empty() {
 				None
 			}else {
 				Some(input.parse()?)
@@ -45,8 +45,8 @@ impl Parse for EndpointsArg {
 	fn parse(input: ParseStream) -> syn::Result<Self> {
 		let content;
 		Ok(Self {
-			bracket_token: bracketed!(content in input),
-			endpoints: content.parse_terminated(Type::parse)?,
+			_bracket_token: bracketed!(content in input),
+			_endpoints: content.parse_terminated(Type::parse)?,
 		})
 	}
 }
