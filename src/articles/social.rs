@@ -169,6 +169,7 @@ impl SocialArticle {
 		let strong = ctx.props().weak_ref.upgrade().unwrap();
 		let borrow = strong.borrow();
 		let ontoggle_compact = ctx.link().callback(|_| Msg::ToggleCompact);
+		let ontoggle_markasread = ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleMarkAsRead));
 		let dropdown_buttons = match &borrow.referenced_article() {
 			ArticleRefType::NoRef => html! {},
 			ArticleRefType::Repost(_) | ArticleRefType::QuoteRepost(_, _) => html! {
@@ -223,6 +224,9 @@ impl SocialArticle {
 										_ => html! {},
 									}
 								}
+								<a class="level-item articleButton" onclick={&ontoggle_markasread}>
+									<FA icon={if actual_borrow.marked_as_read() { "eye" } else { "eye-slash" }}/>
+								</a>
 								{
 									match ctx.props().in_modal {
 										false => html! {
