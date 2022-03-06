@@ -14,6 +14,7 @@ members = [
 dummy_service = []
 
 [dependencies]
+soshalthing_macros = { path = "soshalthing_macros" }
 yew = "0.19.3"
 yew-agent = "0.1.0"
 yewtil = { version = "0.4.0", features = ["future"] }
@@ -41,7 +42,7 @@ getrandom = { version = "0.2.3", features = ["js"] }
 gloo-storage = "0.2.0"
 gloo-timers = "0.2.2"
 derivative = "2.2.0"
-soshalthing_macros = { path = "soshalthing_macros" }
+html-escape = "0.2.9"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.28"

@@ -1,0 +1,120 @@
+{
+	"coordinates": null,
+	"created_at": "Sun Mar 06 16:25:55 +0000 2022",
+	"current_user_retweet": null,
+	"display_text_range": [
+		0,
+		36
+	],
+	"entities": {
+		"hashtags": [],
+		"media": null,
+		"symbols": [],
+		"urls": [
+			{
+				"display_url": "curiouscat.me/k0nfette",
+				"expanded_url": "https://curiouscat.me/k0nfette",
+				"indices": [
+					13,
+					36
+				],
+				"url": "https://t.co/DJM3u5NGJi"
+			}
+		],
+		"user_mentions": []
+	},
+	"extended_entities": null,
+	"favorite_count": 1,
+	"favorited": false,
+	"filter_level": null,
+	"id": 1500507982894882800,
+	"in_reply_to_screen_name": null,
+	"in_reply_to_status_id": null,
+	"in_reply_to_user_id": null,
+	"lang": "und",
+	"place": null,
+	"possibly_sensitive": false,
+	"quoted_status": null,
+	"quoted_status_id": null,
+	"retweet_count": 0,
+	"retweeted": false,
+	"retweeted_status": null,
+	"source": {
+		"name": "Twitter for iPhone",
+		"url": "http://twitter.com/download/iphone"
+	},
+	"text": "Q&amp;A?😊\nhttps://t.co/DJM3u5NGJi",
+	"truncated": false,
+	"user": {
+		"contributors_enabled": false,
+		"created_at": "2018-12-23T12:57:31Z",
+		"default_profile": true,
+		"default_profile_image": false,
+		"description": "https://t.co/wGksvfanw5",
+		"entities": {
+			"description": {
+				"urls": [
+					{
+						"display_url": "ko-fi.com/K0nfette",
+						"expanded_url": "https://www.ko-fi.com/K0nfette",
+						"indices": [
+							0,
+							23
+						],
+						"url": "https://t.co/wGksvfanw5"
+					}
+				]
+			},
+			"url": {
+				"urls": [
+					{
+						"display_url": "beacons.ai/k0nfette",
+						"expanded_url": "https://beacons.ai/k0nfette",
+						"indices": [
+							0,
+							23
+						],
+						"url": "https://t.co/Q94d0oOgLN"
+					}
+				]
+			}
+		},
+		"favourites_count": 4717,
+		"follow_request_sent": false,
+		"followers_count": 6133,
+		"friends_count": 173,
+		"geo_enabled": false,
+		"id": 1076824121437315100,
+		"is_translator": false,
+		"lang": null,
+		"listed_count": 56,
+		"location": "Gensokyo",
+		"name": "Kon 🐉",
+		"profile_background_color": "F5F8FA",
+		"profile_background_image_url": null,
+		"profile_background_image_url_https": null,
+		"profile_background_tile": false,
+		"profile_banner_url": "https://pbs.twimg.com/profile_banners/1076824121437315072/1638740109",
+		"profile_image_url": "http://pbs.twimg.com/profile_images/1426606932241043459/OGmgWKru_normal.jpg",
+		"profile_image_url_https": "https://pbs.twimg.com/profile_images/1426606932241043459/OGmgWKru_normal.jpg",
+		"profile_link_color": "1DA1F2",
+		"profile_sidebar_border_color": "C0DEED",
+		"profile_sidebar_fill_color": "DDEEF6",
+		"profile_text_color": "333333",
+		"profile_use_background_image": true,
+		"protected": false,
+		"screen_name": "k0nfette",
+		"show_all_inline_media": null,
+		"status": null,
+		"statuses_count": 475,
+		"time_zone": null,
+		"url": "https://t.co/Q94d0oOgLN",
+		"utc_offset": null,
+		"verified": false,
+		"withheld_in_countries": [],
+		"withheld_scope": null
+	},
+	"withheld_copyright": false,
+	"withheld_in_countries": null,
+	"withheld_scope": null
+}

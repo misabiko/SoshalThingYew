@@ -184,6 +184,43 @@ fn test_parse_text_quote_emoji() {
 	assert_eq!(parsed_html, expected_html, "parsed html");
 }
 
+#[wasm_bindgen_test]
+fn test_parse_ampersand_emoji_url() {
+	//1500507982894882816
+	let entities = serde_json::from_str(r#"{
+		"hashtags": [],
+		"media": null,
+		"symbols": [],
+		"urls": [
+			{
+				"display_url": "curiouscat.me/k0nfette",
+				"expanded_url": "https://curiouscat.me/k0nfette",
+				"indices": [
+					13,
+					36
+				],
+				"url": "https://t.co/DJM3u5NGJi"
+			}
+		],
+		"user_mentions": []
+	}"#).unwrap();
+	let extended_entities = serde_json::from_str("null").unwrap();
+
+	let (parsed_text, parsed_html) = parse_text("Q&amp;A?😊\nhttps://t.co/DJM3u5NGJi".to_owned(), entities, &extended_entities);
+
+	assert_eq!(parsed_text, "Q&A?😊\ncuriouscat.me/k0nfette".to_owned(), "parsed text");
+
+	let expected_html = html! {
+		<>
+			{"Q&A?😊\n"}
+			<a href={"https://curiouscat.me/k0nfette".to_owned()}>
+				{ "curiouscat.me/k0nfette" }
+			</a>
+		</>
+	};
+	assert_eq!(parsed_html, expected_html, "parsed html");
+}
+
 //works but assert_eq still fails...
 /*#[wasm_bindgen_test]
 fn test_parse_text_hashtags_url() {
