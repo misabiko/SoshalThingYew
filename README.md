@@ -1,6 +1,7 @@
 # SoshalThingYew [![CI@main](https://github.com/misabiko/SoshalThingYew/actions/workflows/ci.yml/badge.svg?branch=main "CI@main")](https://github.com/misabiko/SoshalThingYew/actions/workflows/ci.yml) <a href="https://bulma.io"> <img src="https://bulma.io/images/made-with-bulma.png" alt="Made with Bulma" width="128" height="24"> </a>
 
 Tweetdeck-style timeline app to display feeds from various services in columns.
+Mostly for my personal use.
 
 ---
 
