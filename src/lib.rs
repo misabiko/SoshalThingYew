@@ -40,9 +40,9 @@ use crate::services::storages::SoshalLocalStorage;
 pub enum DisplayMode {
 	Single {
 		container: Container,
-		column_count: u8
+		column_count: u8,
 	},
-	Default
+	Default,
 }
 
 impl Default for DisplayMode {
@@ -142,7 +142,7 @@ impl Component for Model {
 				Some(PageInfo::Ready {
 					style_html: style_html.clone(),
 					style: initial_style.clone(),
-					favviewer_button: (make_activator)(ctx.link().callback(| _ | Msg::ToggleFavViewer)),
+					favviewer_button: (make_activator)(ctx.link().callback(|_| Msg::ToggleFavViewer)),
 				})
 			}
 			_ => None,
@@ -159,7 +159,7 @@ impl Component for Model {
 
 		let display_mode = if let Some(SoshalLocalStorage { display_mode, .. }) = gloo_storage::LocalStorage::get("SoshalThingYew").ok() {
 			display_mode
-		}else if let Some(display_mode) = &ctx.props().display_mode {
+		} else if let Some(display_mode) = &ctx.props().display_mode {
 			*display_mode
 		} else if single_timeline_bool {
 			DisplayMode::Single {
@@ -172,7 +172,7 @@ impl Component for Model {
 					.and_then(|s| s.parse().ok())
 					.unwrap_or(4),
 			}
-		}else {
+		} else {
 			DisplayMode::Default
 		};
 
@@ -185,7 +185,7 @@ impl Component for Model {
 		Self {
 			_timeline_agent,
 			last_display_single: match display_mode {
-				DisplayMode::Single{ .. } => display_mode,
+				DisplayMode::Single { .. } => display_mode,
 				_ => DisplayMode::Single {
 					container: Container::Masonry,
 					column_count: 4,
@@ -246,7 +246,7 @@ impl Component for Model {
 				if let Some(page_info) = &mut self.page_info {
 					page_info.toggle_hidden();
 					true
-				}else {
+				} else {
 					false
 				}
 			}
@@ -256,7 +256,7 @@ impl Component for Model {
 					DisplayMode::Single { .. } => DisplayMode::Default,
 				};
 				true
-			},
+			}
 			Msg::TimelineAgentResponse(response) => match response {
 				TimelineAgentResponse::SetMainTimeline(id) => {
 					self.main_timeline = id;
@@ -269,7 +269,7 @@ impl Component for Model {
 					if let DisplayMode::Single { container, .. } = &mut self.display_mode {
 						*container = new_container;
 						true
-					}else {
+					} else {
 						log::warn!("DisplayMode not single");
 						false
 					}
@@ -278,7 +278,7 @@ impl Component for Model {
 					if let DisplayMode::Single { column_count, .. } = &mut self.display_mode {
 						*column_count = new_count;
 						true
-					}else {
+					} else {
 						log::warn!("DisplayMode not single");
 						false
 					}
@@ -320,7 +320,7 @@ impl Component for Model {
 				EndpointResponse::AddTimeline(creation_mode, set_as_main_timeline) => {
 					ctx.link().send_message(Msg::AddTimeline(creation_mode, set_as_main_timeline));
 					false
-				},
+				}
 				_ => false
 			}
 			Msg::TwitterResponse(response) => {
@@ -387,47 +387,53 @@ impl Component for Model {
 						false => html! {},
 					}
 				}
-				{
-					match &self.display_mode {
-						DisplayMode::Default => html! {
-							<div id="timelineContainer" key="timelineContainerDefault">
-								{for self.timelines.iter().map(|props| html! {
-									<Timeline key={props.id} ..props.clone()/>
-								})}
-							</div>
-						},
-						DisplayMode::Single {container, column_count} => html! {
-							<div id="timelineContainer" key="timelineContainerSingle">
-								{for self.timelines.iter().map(|props| if props.id == self.main_timeline {
-									 html! {
-										<Timeline key={props.id} main_timeline=true container={container.clone()} column_count={column_count.clone()} ..props.clone()>
-											{
-												match ctx.props().favviewer {
-													true => html! {
-														<>
-															<button title="Toggle FavViewer" onclick={ctx.link().callback(|_| Msg::ToggleFavViewer)}>
-																<FA icon="eye-slash" size={IconSize::Large}/>
-															</button>
-															<button title="Show Sidebar" onclick={ctx.link().callback(|_| Msg::ToggleSidebarFavViewer)}>
-																<FA icon="ellipsis-v" size={IconSize::Large}/>
-															</button>
-														</>
-													},
-													false => html! {}
-												}
-											}
-										</Timeline>
-									}
-								}else  {
-									html! {
-										<Timeline hide=true key={props.id} ..props.clone()/>
-									}
-								})}
-							</div>
-						}
-					}
-				}
+				{ self.view_timelines(ctx) }
 			</>
+		}
+	}
+}
+
+impl Model {
+	fn view_timelines(&self, ctx: &Context<Self>) -> Html {
+		match &self.display_mode {
+			DisplayMode::Default => html! {
+				<div id="timelineContainer">
+					{for self.timelines.iter().map(|props| html! {
+						<Timeline key={props.id} ..props.clone()/>
+					})}
+				</div>
+			},
+			DisplayMode::Single { container, column_count } => html! {
+				<div id="timelineContainer">
+					{for self.timelines.iter().map(|props|
+						if props.id == self.main_timeline {
+							html! {
+								<Timeline key={props.id} main_timeline=true container={container.clone()} column_count={column_count.clone()} ..props.clone()>
+									{
+										match ctx.props().favviewer {
+											true => html! {
+												<>
+													<button title="Toggle FavViewer" onclick={ctx.link().callback(|_| Msg::ToggleFavViewer)}>
+														<FA icon="eye-slash" size={IconSize::Large}/>
+													</button>
+													<button title="Show Sidebar" onclick={ctx.link().callback(|_| Msg::ToggleSidebarFavViewer)}>
+														<FA icon="ellipsis-v" size={IconSize::Large}/>
+													</button>
+												</>
+											},
+											false => html! {}
+										}
+									}
+								</Timeline>
+							}
+						}else  {
+							html! {
+								<Timeline hide=true key={props.id} ..props.clone()/>
+							}
+						}
+					)}
+				</div>
+			}
 		}
 	}
 }
@@ -488,7 +494,7 @@ pub fn parse_pathname(ctx: &Context<Model>, pathname: &str, search_opt: &Option<
 			}))
 		);
 	} else if pathname.starts_with("/twitter/home") {
-		let callback = ctx.link().callback( |id| Msg::AddTimeline(
+		let callback = ctx.link().callback(|id| Msg::AddTimeline(
 			TimelineCreationMode::NameEndpoints("Home".to_owned(), vec![TimelineEndpointWrapper::new_both(id)]),
 			false,
 		));
