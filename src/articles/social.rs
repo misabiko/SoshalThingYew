@@ -306,14 +306,14 @@ impl SocialArticle {
 			}
 			(false, [(MediaType::Video, video_src)]) => html! {
 				<div class="postMedia postVideo">
-					<video ref={ctx.props().video_ref.clone()} controls=true onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}>
+					<video ref={ctx.props().video_ref.clone()} controls=true onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnMediaClick))}>
 						<source src={video_src.clone()} type="video/mp4"/>
 					</video>
 				</div>
 			},
 			(_, [(MediaType::VideoGif, gif_src)]) | (true, [(MediaType::Video, gif_src)]) => html! {
 				<div class="postMedia postVideo">
-					<video ref={ctx.props().video_ref.clone()} controls=true autoplay=true loop=true muted=true onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}>
+					<video ref={ctx.props().video_ref.clone()} controls=true autoplay=true loop=true muted=true onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnMediaClick))}>
 						<source src={gif_src.clone()} type="video/mp4"/>
 					</video>
 				</div>
@@ -333,7 +333,7 @@ impl SocialArticle {
 		html! {
 			<div class={media_holder_classes}>
 				<div class="is-hidden imgPlaceholder"/>
-				<img alt={actual_borrow.id()} src={image} onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}/>
+				<img alt={actual_borrow.id()} src={image} onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnMediaClick))}/>
 			</div>
 		}
 	}

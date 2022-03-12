@@ -59,6 +59,27 @@ pub enum TimelineCreationMode {
 	Props(TimelinePropsClosure),
 }
 
+//TODO Have a ArticleAction enum
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum OnMediaClick {
+	Like,
+	Expand,
+	MarkAsRead,
+	Hide,
+	Nothing,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct AppSettings {
+	on_media_click: OnMediaClick,
+	//social filtered out effect {nothing, minimized, transparent}
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct AppSettingsOverride {
+	on_media_click: Option<OnMediaClick>,
+}
+
 #[derive(serde::Deserialize)]
 pub struct AuthInfo {
 	twitter: Option<String>,
@@ -82,6 +103,7 @@ pub struct Model {
 	_notification_agent: Box<dyn Bridge<NotificationAgent>>,
 	notifications: Vec<Html>,
 	sidebar_favviewer: bool,
+	app_settings: AppSettings,
 }
 
 pub enum Msg {
@@ -205,6 +227,7 @@ impl Component for Model {
 			_notification_agent,
 			notifications: Vec::new(),
 			sidebar_favviewer: false,
+			app_settings: AppSettings { on_media_click: OnMediaClick::MarkAsRead }
 		}
 	}
 
@@ -399,7 +422,7 @@ impl Model {
 			DisplayMode::Default => html! {
 				<div id="timelineContainer">
 					{for self.timelines.iter().map(|props| html! {
-						<Timeline key={props.id} ..props.clone()/>
+						<Timeline key={props.id} app_settings={self.app_settings} ..props.clone()/>
 					})}
 				</div>
 			},
@@ -408,7 +431,7 @@ impl Model {
 					{for self.timelines.iter().map(|props|
 						if props.id == self.main_timeline {
 							html! {
-								<Timeline key={props.id} main_timeline=true container={container.clone()} column_count={column_count.clone()} ..props.clone()>
+								<Timeline key={props.id} app_settings={self.app_settings} main_timeline=true container={container.clone()} column_count={column_count.clone()} ..props.clone()>
 									{
 										match ctx.props().favviewer {
 											true => html! {
@@ -428,7 +451,7 @@ impl Model {
 							}
 						}else  {
 							html! {
-								<Timeline hide=true key={props.id} ..props.clone()/>
+								<Timeline hide=true key={props.id} app_settings={self.app_settings} ..props.clone()/>
 							}
 						}
 					)}

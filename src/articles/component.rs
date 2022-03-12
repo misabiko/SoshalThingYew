@@ -11,7 +11,7 @@ use crate::articles::{ArticleRefType, MediaQueueInfo, ArticleMedia, ArticleWeak,
 use crate::articles::media_load_queue::{MediaLoadAgent, Request as MediaLoadRequest, Response as MediaLoadResponse, MediaLoadState};
 use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest};
 use crate::modals::Modal;
-use crate::log_warn;
+use crate::{AppSettings, log_warn, OnMediaClick};
 use crate::services::storages::mark_article_as_read;
 
 #[wasm_bindgen]
@@ -38,7 +38,7 @@ pub struct ArticleComponent {
 }
 
 pub enum Msg {
-	OnImageClick,
+	OnMediaClick,
 	LogData,
 	LogJsonData,
 	FetchData,
@@ -67,6 +67,7 @@ pub struct Props {
 	#[prop_or_default]
 	pub lazy_loading: bool,
 	pub column_count: u8,
+	pub app_settings: AppSettings,
 }
 
 impl PartialEq for Props {
@@ -81,7 +82,8 @@ impl PartialEq for Props {
 			self.load_priority == other.load_priority &&
 			self.column_count == other.column_count &&
 			&self.article == &other.article &&
-			&self.ref_article == &other.ref_article
+			&self.ref_article == &other.ref_article &&
+			self.app_settings == other.app_settings
 	}
 }
 
@@ -99,6 +101,7 @@ impl Clone for Props {
 			lazy_loading: self.lazy_loading,
 			load_priority: self.load_priority,
 			column_count: self.column_count,
+			app_settings: self.app_settings,
 		}
 	}
 }
@@ -117,6 +120,7 @@ pub struct ViewProps {
 	pub parent_callback: Callback<Msg>,
 	pub media_load_states: Vec<MediaLoadState>,
 	pub column_count: u8,
+	pub app_settings: AppSettings,
 }
 
 impl PartialEq<ViewProps> for ViewProps {
@@ -129,7 +133,8 @@ impl PartialEq<ViewProps> for ViewProps {
 			self.column_count == other.column_count &&
 			Weak::ptr_eq(&self.weak_ref, &other.weak_ref) &&
 			&self.article == &other.article &&
-			&self.ref_article == &other.ref_article
+			&self.ref_article == &other.ref_article &&
+			self.app_settings == other.app_settings
 	}
 }
 
@@ -147,6 +152,7 @@ impl Clone for ViewProps {
 			parent_callback: self.parent_callback.clone(),
 			media_load_states: self.media_load_states.clone(),
 			column_count: self.column_count,
+			app_settings: self.app_settings,
 		}
 	}
 }
@@ -210,8 +216,18 @@ impl Component for ArticleComponent {
 
 	fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
 		match msg {
-			Msg::OnImageClick => {
-				ctx.link().send_message(Msg::ToggleMarkAsRead);
+			Msg::OnMediaClick => {
+				match ctx.props().app_settings.on_media_click {
+					OnMediaClick::Like =>
+						ctx.link().send_message(Msg::Like),
+					OnMediaClick::Expand =>
+						ctx.link().send_message(Msg::ToggleInModal),
+					OnMediaClick::MarkAsRead =>
+						ctx.link().send_message(Msg::ToggleMarkAsRead),
+					OnMediaClick::Hide =>
+						ctx.link().send_message(Msg::ToggleHide),
+					OnMediaClick::Nothing => {}
+				}
 				false
 			}
 			Msg::LogJsonData => {
@@ -359,6 +375,7 @@ impl Component for ArticleComponent {
 					parent_callback={ctx.link().callback(identity)}
 					media_load_states={self.media_load_states.clone()}
 					column_count={ctx.props().column_count}
+					app_settings={ctx.props().app_settings}
 				/>
 			},
 			ArticleView::Gallery => html! {
@@ -375,6 +392,7 @@ impl Component for ArticleComponent {
 					parent_callback={ctx.link().callback(identity)}
 					media_load_states={self.media_load_states.clone()}
 					column_count={ctx.props().column_count}
+					app_settings={ctx.props().app_settings}
 				/>
 			},
 		};

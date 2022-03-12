@@ -1,6 +1,7 @@
 use yew::prelude::*;
 use std::rc::{Rc, Weak};
 use serde::{Serialize, Deserialize};
+use crate::AppSettings;
 
 use crate::error::Result;
 use crate::articles::{ArticleComponent, ArticleView, ArticleRefType, ArticleBox, ArticleRc};
@@ -67,6 +68,7 @@ pub struct Props {
 	pub article_view: ArticleView,
 	pub articles: Vec<ArticleTuple>,
 	pub lazy_loading: bool,
+	pub app_settings: AppSettings,
 }
 
 impl PartialEq for Props {
@@ -77,6 +79,7 @@ impl PartialEq for Props {
 			self.column_count == other.column_count &&
 			self.lazy_loading == other.lazy_loading &&
 			self.article_view == other.article_view &&
+			self.app_settings == other.app_settings &&
 			self.articles.len() == other.articles.len() &&
 			self.articles.iter().zip(other.articles.iter())
 				.all(|((weak_a, a, ref_a), (weak_b, b, ref_b))| Weak::ptr_eq(&weak_a, &weak_b) && a == b && ref_a == ref_b)
@@ -101,6 +104,7 @@ pub fn column_container(props: &Props) -> Html {
 					lazy_loading={props.lazy_loading}
 					load_priority={load_priority as u32}
 					column_count=1
+					app_settings={props.app_settings}
 				/>
 			}) }
 		</div>
@@ -132,6 +136,7 @@ pub fn row_container(props: &Props) -> Html {
 					style={format!("width: calc(100% / {})", props.column_count)}
 					load_priority={load_priority as u32}
 					column_count={props.column_count}
+					app_settings={props.app_settings}
 				/>
 			}}) }
 		</div>
@@ -209,6 +214,7 @@ pub fn masonry_container(props: &Props) -> Html {
 							lazy_loading={props.lazy_loading}
 							load_priority={load_priority as u32 + column_index as u32 * props.column_count as u32}
 							column_count={props.column_count}
+							app_settings={props.app_settings}
 						/>
 					}) }
 				</div>

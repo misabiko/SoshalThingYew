@@ -24,7 +24,7 @@ use crate::choose_endpoints::ChooseEndpoints;
 use crate::components::{Dropdown, DropdownLabel, FA, IconSize};
 use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest, Response as ArticleActionsResponse};
 use crate::services::storages::{hide_article, mark_article_as_read};
-use crate::TimelineEndpointWrapper;
+use crate::{AppSettings, TimelineEndpointWrapper};
 
 pub type TimelineId = i8;
 
@@ -112,6 +112,9 @@ pub enum Msg {
 pub struct Props {
 	pub name: String,
 	pub id: TimelineId,
+	//TODO Split TimelineProps into TimelineData and TimelineProps
+	#[prop_or_default]
+	pub app_settings: Option<AppSettings>,
 	#[prop_or_default]
 	pub hide: bool,
 	#[prop_or_default]
@@ -149,6 +152,7 @@ impl PartialEq for Props {
 		self.name == other.name &&
 			self.id == other.id &&
 			self.hide == other.hide &&
+			self.app_settings == other.app_settings &&
 			self.endpoints == other.endpoints &&
 			self.main_timeline == other.main_timeline &&
 			self.container == other.container &&
@@ -559,7 +563,8 @@ impl Component for Timeline {
 					rtl: self.rtl,
 					lazy_loading: self.lazy_loading,
 					article_view: self.article_view,
-					articles
+					articles,
+					app_settings: ctx.props().app_settings.unwrap()
 				}}) }
 			</div>
 		}

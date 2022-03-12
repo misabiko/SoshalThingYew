@@ -91,7 +91,7 @@ impl GalleryArticle {
 					let thumb = match &m.queue_load_info {
 						MediaQueueInfo::LazyLoad { thumbnail, .. } => match thumbnail {
 							Some((src, _)) => Some(html! {
-								<img key={i} class="articleThumb" src={src.clone()} onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}/>
+								<img key={i} class="articleThumb" src={src.clone()} onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnMediaClick))}/>
 							}),
 							None => Some(html! {
 								<img key={i} class="articleThumb" style={format!("background-color: grey; height: calc({} * 100vw / {})", &m.ratio, &ctx.props().column_count)}/>
@@ -111,7 +111,7 @@ impl GalleryArticle {
 									<img
 										key={i}
 										src={m.src.clone()}
-										onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}
+										onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnMediaClick))}
 										onload={if is_loading { Some(onloaded.clone()) } else { None }}
 										class={if is_loading { Some("articleMediaLoading") } else { None }}
 									/>
@@ -129,7 +129,7 @@ impl GalleryArticle {
 									key={i}
 									ref={ctx.props().video_ref.clone()}
 									controls=true
-									onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}
+									onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnMediaClick))}
 									onloadeddata={if is_loading { Some(onloaded.clone()) } else { None }}
 									onload={if is_loading { Some(onloaded.clone()) } else { None }}
 								>
@@ -144,7 +144,7 @@ impl GalleryArticle {
 									autoplay=true
 									loop=true
 									muted=true
-									onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnImageClick))}
+									onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnMediaClick))}
 									onloadeddata={if is_loading { Some(onloaded.clone()) } else { None }}
 									onload={if is_loading { Some(onloaded.clone()) } else { None }}
 								>
