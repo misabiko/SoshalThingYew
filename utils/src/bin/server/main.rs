@@ -2,9 +2,12 @@ use actix_web::{get, web, App, HttpResponse, HttpServer, middleware::Logger};
 use actix_identity::{Identity, CookieIdentityPolicy, IdentityService};
 use serde::Serialize;
 use std::fmt::{Display, Formatter};
+use std::fs::File;
 use actix_web::web::Data;
+use log::LevelFilter;
 use rand::Rng;
 use serde::Deserialize;
+use simplelog::{ColorChoice, CombinedLogger, Config, TerminalMode, TermLogger, WriteLogger};
 
 mod twitter;
 mod youtube;
@@ -100,7 +103,12 @@ async fn auth_info(id: Identity, data: Data<State>) -> HttpResponse {
 
 #[actix_web::main]
 async fn main() -> Result<()> {
-	env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
+	CombinedLogger::init(
+		vec![
+			TermLogger::new(LevelFilter::Info, Config::default(), TerminalMode::Mixed, ColorChoice::Auto),
+			WriteLogger::new(LevelFilter::Trace, Config::default(), File::create(format!("soshalthing.log")).unwrap()),
+		]
+	).unwrap();
 
 	//TODO std::mem::take instead of cloning
 	let credentials: Option<Credentials> = std::fs::read_to_string("credentials.json").ok()

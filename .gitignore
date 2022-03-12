@@ -5,3 +5,4 @@ dist/
 credentials.json
 generated_files.json
 /test-results/
+/soshalthing.log
