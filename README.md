@@ -4,6 +4,15 @@ Tweetdeck-style timeline app to display feeds from various services in columns.
 
 ![screenshot](/docs/screenshot.png?raw=true)
 ---
+## Why I use it (vs Tweetdeck)
+- Not having every image cropped
+- Mark posts as read and hide them as I read
+- Having multiple sources per timeline rather than 15 individual ones
+- Multi column timelines
+- Adding timelines to other websites
+- Using it for other services than Twitter (not quite there yet)
+
+## Usage
 
 ### Dev
 Serve the app  on `localhost:8080` with `cargo run -p utils --bin server`  
