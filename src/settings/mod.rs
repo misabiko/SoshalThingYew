@@ -2,14 +2,21 @@ mod agent;
 mod component;
 
 use std::fmt::{Display, Formatter};
-pub use component::{SettingsModal, view_on_media_click_setting, view_article_filtered_mode_setting, view_keep_column_count_setting};
+pub use component::{
+	SettingsModal,
+	view_on_media_click_setting,
+	view_article_filtered_mode_setting,
+	view_keep_column_count_setting,
+	view_masonry_independent_columns_setting
+};
 pub use agent::{SettingsAgent, Request as SettingsRequest, Response as SettingsResponse};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct AppSettings {
 	pub on_media_click: OnMediaClick,
 	pub article_filtered_mode: ArticleFilteredMode,
-	pub keep_column_count: bool
+	pub keep_column_count: bool,
+	pub masonry_independent_columns: bool,
 }
 
 impl AppSettings {
@@ -18,6 +25,7 @@ impl AppSettings {
 			on_media_click: settings_override.on_media_click.unwrap_or(self.on_media_click),
 			article_filtered_mode: settings_override.article_filtered_mode.unwrap_or(self.article_filtered_mode),
 			keep_column_count: settings_override.keep_column_count.unwrap_or(self.keep_column_count),
+			masonry_independent_columns: settings_override.masonry_independent_columns.unwrap_or(self.masonry_independent_columns),
 		}
 	}
 }
@@ -27,6 +35,7 @@ pub struct AppSettingsOverride {
 	pub on_media_click: Option<OnMediaClick>,
 	pub article_filtered_mode: Option<ArticleFilteredMode>,
 	pub keep_column_count: Option<bool>,
+	pub masonry_independent_columns: Option<bool>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -34,6 +43,7 @@ pub enum ChangeSettingMsg {
 	OnMediaClick(OnMediaClick),
 	ArticleFilteredMode(ArticleFilteredMode),
 	KeepColumnCount(bool),
+	MasonryIndependentColumns(bool),
 }
 
 //TODO Have a ArticleAction enum

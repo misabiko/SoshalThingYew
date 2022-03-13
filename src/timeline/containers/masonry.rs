@@ -9,9 +9,7 @@ pub struct MasonryContainer {
 	columns: Vec<(Vec<ArticleStruct>, f32)>,
 }
 
-pub enum Msg {
-
-}
+pub enum Msg {}
 
 impl Component for MasonryContainer {
 	type Message = Msg;
@@ -20,14 +18,58 @@ impl Component for MasonryContainer {
 	fn create(ctx: &Context<Self>) -> Self {
 		Self {
 			cached_articles: Vec::new(),
-			columns: vec![(Vec::<ArticleStruct>::new(), 0.0 as f32); ctx.props().column_count as usize],
-			//columns: to_columns(ctx.props().articles.iter(), &ctx.props().column_count, &ctx.props().rtl).collect(),
+			columns: to_columns(ctx.props().articles.iter(), ctx.props().column_count, ctx.props().rtl)
 		}
 	}
 
 	fn changed(&mut self, ctx: &Context<Self>) -> bool {
+		if ctx.props().column_count != self.columns.len() as u8 {
+			self.columns = to_columns(ctx.props().articles.iter(), ctx.props().column_count, ctx.props().rtl);
+		}else if ctx.props().app_settings.masonry_independent_columns {
+			self.handle_independent_columns(ctx);
+		}
+		true
+	}
+
+	fn view(&self, ctx: &Context<Self>) -> Html {
+		if ctx.props().app_settings.masonry_independent_columns {
+			MasonryContainer::view_columns(ctx, &self.columns)
+		}else {
+			MasonryContainer::view_columns(ctx, &to_columns(ctx.props().articles.iter(), ctx.props().column_count, ctx.props().rtl))
+		}
+	}
+}
+
+impl MasonryContainer {
+	fn view_columns<'a>(ctx: &Context<Self>, columns: &Vec<(Vec<ArticleStruct>, f32)>) -> Html {
+		let article_view = ctx.props().article_view.clone();
+		html! {
+			<div class="articlesContainer masonryContainer" ref={ctx.props().container_ref.clone()}>
+				{ for columns.iter().enumerate().map(|(column_index, (column, _))| html! {
+					<div class="masonryColumn" key={column_index}>
+						{ for column.iter().enumerate().map(|(load_priority, article_struct)| html! {
+							<ArticleComponent
+								key={format!("{:?}{}", &article_view, article_struct.boxed.id())}
+								article_struct={(*article_struct).clone()}
+								{article_view}
+								compact={ctx.props().compact}
+								animated_as_gifs={ctx.props().animated_as_gifs}
+								hide_text={ctx.props().hide_text}
+								lazy_loading={ctx.props().lazy_loading}
+								load_priority={load_priority as u32 + column_index as u32 * ctx.props().column_count as u32}
+								column_count={ctx.props().column_count}
+								app_settings={ctx.props().app_settings}
+							/>
+						}) }
+					</div>
+				})}
+			</div>
+		}
+	}
+
+	fn handle_independent_columns(&mut self, ctx: &Context<Self>) {
 		let mut cached = self.cached_articles.clone();
-		let mut articles = ctx.props().articles.clone();
+		let articles = ctx.props().articles.clone();
 
 		let mut added = Vec::new();
 		let mut removed = Vec::new();
@@ -43,10 +85,10 @@ impl Component for MasonryContainer {
 		removed.extend(cached);
 
 		'outer: for a in removed.into_iter() {
-			for (column, mut height) in self.columns.iter_mut() {
+			for (column, mut _height) in self.columns.iter_mut() {
 				if let Some(index) = column.iter().position(|c_article| c_article.global_id() == a.global_id()) {
 					column.remove(index);
-					height -= relative_height(&a.boxed);
+					_height -= relative_height(&a.boxed);
 					continue 'outer;
 				}
 			}
@@ -71,33 +113,6 @@ impl Component for MasonryContainer {
 		}
 
 		self.cached_articles = ctx.props().articles.clone();
-		true
-	}
-
-	fn view(&self, ctx: &Context<Self>) -> Html {
-		let article_view = ctx.props().article_view.clone();
-		html! {
-			<div class="articlesContainer masonryContainer" ref={ctx.props().container_ref.clone()}>
-				{ for self.columns.iter().enumerate().map(|(column_index, (column, _))| html! {
-					<div class="masonryColumn" key={column_index}>
-						{ for column.iter().enumerate().map(|(load_priority, article_struct)| html! {
-							<ArticleComponent
-								key={format!("{:?}{}", &article_view, article_struct.boxed.id())}
-								article_struct={(*article_struct).clone()}
-								{article_view}
-								compact={ctx.props().compact}
-								animated_as_gifs={ctx.props().animated_as_gifs}
-								hide_text={ctx.props().hide_text}
-								lazy_loading={ctx.props().lazy_loading}
-								load_priority={load_priority as u32 + column_index as u32 * ctx.props().column_count as u32}
-								column_count={ctx.props().column_count}
-								app_settings={ctx.props().app_settings}
-							/>
-						}) }
-					</div>
-				})}
-			</div>
-		}
 	}
 }
 
@@ -121,11 +136,11 @@ fn height(column: &Vec<RatioedArticle>) -> f32 {
 	}
 }
 
-fn to_columns<'a>(articles: impl Iterator<Item=&'a ArticleStruct>, column_count: &'a u8, rtl: &bool) -> impl Iterator<Item=(impl Iterator<Item=&'a ArticleStruct>, f32)> {
+fn to_columns<'a>(articles: impl Iterator<Item=&'a ArticleStruct>, column_count: u8, rtl: bool) -> Vec<(Vec<ArticleStruct>, f32)> {
 	let ratioed_articles = articles.map(|a| (a, relative_height(&a.boxed)));
 
 	let mut columns = ratioed_articles.fold(
-		(0..*column_count)
+		(0..column_count)
 			.map(|i| (i, Vec::new()))
 			.collect::<Vec<Column>>(),
 		|mut cols, article| {
@@ -139,15 +154,18 @@ fn to_columns<'a>(articles: impl Iterator<Item=&'a ArticleStruct>, column_count:
 		},
 	);
 
-	columns.sort_by(if *rtl {
+	columns.sort_by(if rtl {
 		|a: &Column, b: &Column| b.0.partial_cmp(&a.0).unwrap()
 	} else {
 		|a: &Column, b: &Column| a.0.partial_cmp(&b.0).unwrap()
 	});
 
 	//columns.into_iter().map(|c| c.1.into_iter().map(|r| r.0))
-	columns.into_iter().map(|c| {
-		let height = height(&c.1);
-		(c.1.into_iter().map(|r| r.0), height)
-	})
+	columns.into_iter()
+		.map(|c| {
+			let height = height(&c.1);
+			(c.1.into_iter().map(|r| r.0).cloned().collect(), height)
+		})
+		//.map(|(c, h)| (c.cloned().collect(), h))
+		.collect()
 }

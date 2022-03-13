@@ -115,6 +115,10 @@ impl Component for SettingsModal {
 					ctx.props().app_settings.keep_column_count,
 					ctx.link().callback(Msg::ChangeSetting)
 				) }
+				{ view_masonry_independent_columns_setting(
+					ctx.props().app_settings.masonry_independent_columns,
+					ctx.link().callback(Msg::ChangeSetting)
+				) }
 				<div class="field">
   					<div class="control">
 						<label class="checkbox">
@@ -188,6 +192,17 @@ pub fn view_keep_column_count_setting(checked: bool, callback: Callback<ChangeSe
 			<label class="checkbox">
 				<input type="checkbox" {checked} onclick={Callback::from(move |_| callback.emit(ChangeSettingMsg::KeepColumnCount(!checked)))}/>
 				{ " Keep column count when not enough articles" }
+			</label>
+		</div>
+	}
+}
+
+pub fn view_masonry_independent_columns_setting(checked: bool, callback: Callback<ChangeSettingMsg>) -> Html {
+	html! {
+		<div class="block control">
+			<label class="checkbox">
+				<input type="checkbox" {checked} onclick={Callback::from(move |_| callback.emit(ChangeSettingMsg::MasonryIndependentColumns(!checked)))}/>
+				{ " Keep articles on the same column in masonry" }
 			</label>
 		</div>
 	}

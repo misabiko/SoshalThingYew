@@ -24,7 +24,7 @@ use crate::choose_endpoints::ChooseEndpoints;
 use crate::components::{Dropdown, DropdownLabel, FA, IconSize};
 use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest, Response as ArticleActionsResponse};
 use crate::services::storages::{hide_article, mark_article_as_read};
-use crate::settings::{AppSettings, AppSettingsOverride, ArticleFilteredMode, view_on_media_click_setting, view_article_filtered_mode_setting, view_keep_column_count_setting, ChangeSettingMsg};
+use crate::settings::{AppSettings, AppSettingsOverride, ArticleFilteredMode, view_on_media_click_setting, view_article_filtered_mode_setting, view_keep_column_count_setting, view_masonry_independent_columns_setting, ChangeSettingMsg};
 use crate::TimelineEndpointWrapper;
 
 pub type TimelineId = i8;
@@ -517,6 +517,7 @@ impl Component for Timeline {
 					ChangeSettingMsg::OnMediaClick(on_media_click) => self.app_settings_override.on_media_click = Some(on_media_click),
 					ChangeSettingMsg::ArticleFilteredMode(article_filtered_mode) => self.app_settings_override.article_filtered_mode = Some(article_filtered_mode),
 					ChangeSettingMsg::KeepColumnCount(keep_column_count) => self.app_settings_override.keep_column_count = Some(keep_column_count),
+					ChangeSettingMsg::MasonryIndependentColumns(masonry_independent_columns) => self.app_settings_override.masonry_independent_columns = Some(masonry_independent_columns),
 				}
 				true
 			}
@@ -691,6 +692,10 @@ impl Timeline {
 							{ view_keep_column_count_setting(self.app_settings(ctx).keep_column_count, ctx.link().callback(Msg::ChangeSetting)) }
 						</>
 					},
+				} }
+				{ match self.container(ctx) {
+					Container::Masonry => view_masonry_independent_columns_setting(self.app_settings(ctx).masonry_independent_columns, ctx.link().callback(Msg::ChangeSetting)),
+					_ => html! {},
 				} }
 				{ match ctx.props().main_timeline {
 					true => html! {},

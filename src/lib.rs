@@ -216,6 +216,7 @@ impl Component for Model {
 				on_media_click: OnMediaClick::MarkAsRead,
 				article_filtered_mode: ArticleFilteredMode::Hidden,
 				keep_column_count: true,
+				masonry_independent_columns: true,
 			},
 			_settings_agent,
 		}
@@ -373,7 +374,8 @@ impl Component for Model {
 					match change_msg {
 						ChangeSettingMsg::OnMediaClick(on_media_click) => self.app_settings.on_media_click = on_media_click,
 						ChangeSettingMsg::ArticleFilteredMode(article_filtered_mode) => self.app_settings.article_filtered_mode = article_filtered_mode,
-						ChangeSettingMsg::KeepColumnCount(keep_column_count) => self.app_settings.keep_column_count = keep_column_count
+						ChangeSettingMsg::KeepColumnCount(keep_column_count) => self.app_settings.keep_column_count = keep_column_count,
+						ChangeSettingMsg::MasonryIndependentColumns(masonry_independent_columns) => self.app_settings.masonry_independent_columns = masonry_independent_columns,
 					}
 					true
 				}
