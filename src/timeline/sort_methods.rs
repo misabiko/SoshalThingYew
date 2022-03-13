@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter};
 use serde::{Serialize, Deserialize};
 
-use crate::articles::{actual_article, ArticleWeak};
+use crate::articles::{weak_actual_article, ArticleWeak};
 
 //TODO Check for cases where Copy is derivable
 #[derive(Clone, Copy, Serialize, Deserialize, Debug)]
@@ -51,13 +51,13 @@ impl SortMethod {
 				a.partial_cmp(&b).unwrap()
 			}
 			SortMethod::Likes => {
-				let (a, b) = (actual_article(&a), actual_article(&b));
+				let (a, b) = (weak_actual_article(&a), weak_actual_article(&b));
 				let a = a.upgrade().map(|s| s.borrow().like_count()).unwrap_or_default();
 				let b = b.upgrade().map(|s| s.borrow().like_count()).unwrap_or_default();
 				a.cmp(&b)
 			}
 			SortMethod::Reposts => {
-				let (a, b) = (actual_article(&a), actual_article(&b));
+				let (a, b) = (weak_actual_article(&a), weak_actual_article(&b));
 				let a = a.upgrade().map(|s| s.borrow().repost_count()).unwrap_or_default();
 				let b = b.upgrade().map(|s| s.borrow().repost_count()).unwrap_or_default();
 				a.cmp(&b)

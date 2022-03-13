@@ -6,12 +6,12 @@ use wasm_bindgen::JsValue;
 use std::convert::identity;
 
 use super::{ArticleView, SocialArticle, GalleryArticle};
-use crate::articles::{ArticleRefType, MediaQueueInfo, ArticleMedia};
+use crate::articles::{MediaQueueInfo, ArticleMedia, weak_actual_article};
 use crate::articles::media_load_queue::{MediaLoadAgent, Request as MediaLoadRequest, Response as MediaLoadResponse, MediaLoadState};
 use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest};
 use crate::modals::Modal;
 use crate::log_warn;
-use crate::services::storages::mark_article_as_read;
+use crate::services::storages::{hide_article, mark_article_as_read};
 use crate::settings::{AppSettings, OnMediaClick, ArticleFilteredMode};
 use crate::timeline::ArticleStruct;
 
@@ -177,24 +177,15 @@ impl Component for ArticleComponent {
 				false
 			}
 			Msg::FetchData => {
-				self.article_actions.send(ArticleActionsRequest::FetchData(match ctx.props().article_struct.boxed.referenced_article() {
-					ArticleRefType::NoRef | ArticleRefType::Quote(_) => ctx.props().article_struct.weak.clone(),
-					ArticleRefType::Reposted(a) | ArticleRefType::RepostedQuote(a, _) => a,
-				}));
+				self.article_actions.send(ArticleActionsRequest::FetchData(weak_actual_article(&ctx.props().article_struct.weak)));
 				false
 			}
 			Msg::Like => {
-				self.article_actions.send(ArticleActionsRequest::Like(match ctx.props().article_struct.boxed.referenced_article() {
-					ArticleRefType::NoRef | ArticleRefType::Quote(_) => ctx.props().article_struct.weak.clone(),
-					ArticleRefType::Reposted(a) | ArticleRefType::RepostedQuote(a, _) => a,
-				}));
+				self.article_actions.send(ArticleActionsRequest::Like(weak_actual_article(&ctx.props().article_struct.weak)));
 				false
 			}
 			Msg::Repost => {
-				self.article_actions.send(ArticleActionsRequest::Repost(match ctx.props().article_struct.boxed.referenced_article() {
-					ArticleRefType::NoRef | ArticleRefType::Quote(_) => ctx.props().article_struct.weak.clone(),
-					ArticleRefType::Reposted(a) | ArticleRefType::RepostedQuote(a, _) => a,
-				}));
+				self.article_actions.send(ArticleActionsRequest::Repost(weak_actual_article(&ctx.props().article_struct.weak)));
 				false
 			}
 			Msg::ToggleMarkAsRead => {
@@ -206,27 +197,14 @@ impl Component for ArticleComponent {
 					}
 				}
 
-				let strong = ctx.props().article_struct.weak.upgrade().unwrap();
-				let mut borrow = strong.borrow_mut();
+				let actual_article = &ctx.props().article_struct.boxed_actual_article();
+				let weak_actual_article = weak_actual_article(&ctx.props().article_struct.weak);
 
-				match borrow.referenced_article() {
-					ArticleRefType::NoRef | ArticleRefType::Quote(_) => {
-						let new_marked_as_read = !borrow.marked_as_read();
-						borrow.set_marked_as_read(new_marked_as_read);
+				let new_marked_as_read = !actual_article.marked_as_read();
+				weak_actual_article.upgrade().unwrap().borrow_mut().set_marked_as_read(new_marked_as_read);
+				mark_article_as_read(actual_article.service(), actual_article.id(), new_marked_as_read);
 
-						mark_article_as_read(borrow.service(), borrow.id(), new_marked_as_read);
-					},
-					ArticleRefType::Reposted(a) | ArticleRefType::RepostedQuote(a, _) => {
-						let strong = a.upgrade().unwrap();
-						let mut borrow = strong.borrow_mut();
-
-						let new_marked_as_read = !borrow.marked_as_read();
-						borrow.set_marked_as_read(new_marked_as_read);
-						mark_article_as_read(borrow.service(), borrow.id(), new_marked_as_read);
-					}
-				};
-
-				self.article_actions.send(ArticleActionsRequest::RedrawTimelines(vec![ctx.props().article_struct.weak.clone()]));
+				self.article_actions.send(ArticleActionsRequest::RedrawTimelines(vec![weak_actual_article.clone()]));
 
 				true
 			}
@@ -239,24 +217,14 @@ impl Component for ArticleComponent {
 					}
 				}
 
-				let strong = ctx.props().article_struct.weak.upgrade().unwrap();
-				let mut borrow = strong.borrow_mut();
+				let actual_article = &ctx.props().article_struct.boxed_actual_article();
+				let weak_actual_article = weak_actual_article(&ctx.props().article_struct.weak);
 
-				match borrow.referenced_article() {
-					ArticleRefType::NoRef | ArticleRefType::Quote(_) => {
-						let hidden = borrow.hidden();
-						borrow.set_hidden(!hidden);
-					},
-					ArticleRefType::Reposted(a) | ArticleRefType::RepostedQuote(a, _) => {
-						let strong = a.upgrade().unwrap();
-						let mut borrow = strong.borrow_mut();
+				let new_hidden = !actual_article.hidden();
+				weak_actual_article.upgrade().unwrap().borrow_mut().set_hidden(new_hidden);
+				hide_article(actual_article.service(), actual_article.id(), new_hidden);
 
-						let hidden = borrow.hidden();
-						borrow.set_hidden(!hidden);
-					}
-				};
-
-				self.article_actions.send(ArticleActionsRequest::RedrawTimelines(vec![ctx.props().article_struct.weak.clone()]));
+				self.article_actions.send(ArticleActionsRequest::RedrawTimelines(vec![weak_actual_article.clone()]));
 
 				true
 			}

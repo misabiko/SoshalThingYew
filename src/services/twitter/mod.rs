@@ -22,7 +22,7 @@ use crate::services::{
 use crate::error::{Error, RatelimitedResult};
 use crate::services::storages::{get_service_storage, ServiceStorage};
 
-pub async fn fetch_tweets(url: Url, storage: &ServiceStorage) -> RatelimitedResult<Vec<(ArticleRc<TweetArticleData>, StrongArticleRefType)>> {
+pub async fn fetch_tweets(url: Url, storage: &ServiceStorage) -> RatelimitedResult<Vec<(ArticleRc<TweetArticleData>, Vec<StrongArticleRefType>)>> {
 	let response = reqwest::Client::builder()
 		//.timeout(Duration::from_secs(10))
 		.build()?
@@ -47,8 +47,11 @@ pub async fn fetch_tweets(url: Url, storage: &ServiceStorage) -> RatelimitedResu
 	serde_json::from_str(&json_str)
 		.map(|value: serde_json::Value|
 			(match value.as_array() {
-				Some(array) => array.iter().map(|json| TweetArticleData::from(json, storage)).collect(),
-				None => vec![TweetArticleData::from(&value, storage)],
+				Some(array) => array.iter().map(|json| TweetArticleData::from(json, storage)).map(|(rc, refs, _)| (rc, refs)).collect(),
+				None => {
+					let (rc, refs, _) = TweetArticleData::from(&value, storage);
+					vec![(rc, refs)]
+				},
 			},
 			 Some(ratelimit))
 		)
@@ -72,8 +75,8 @@ pub struct TwitterAgent {
 }
 
 pub enum Msg {
-	FetchResponse(HandlerId, RatelimitedResult<Vec<(ArticleRc<TweetArticleData>, StrongArticleRefType)>>),
-	EndpointFetchResponse(RefreshTime, EndpointId, RatelimitedResult<Vec<(ArticleRc<TweetArticleData>, StrongArticleRefType)>>),
+	FetchResponse(HandlerId, RatelimitedResult<Vec<(ArticleRc<TweetArticleData>, Vec<StrongArticleRefType>)>>),
+	EndpointFetchResponse(RefreshTime, EndpointId, RatelimitedResult<Vec<(ArticleRc<TweetArticleData>, Vec<StrongArticleRefType>)>>),
 	Like(HandlerId, ArticleWeak),
 	Retweet(HandlerId, ArticleWeak),
 }
@@ -175,8 +178,8 @@ impl Agent for TwitterAgent {
 				let r = match r {
 					Ok((articles, ratelimit)) => {
 						let mut updated_articles = Vec::new();
-						for (article, ref_article) in articles {
-							let article = self.insert_or_update(article, Some(ref_article));
+						for (article, ref_articles) in articles {
+							let article = self.insert_or_update(article, ref_articles);
 							updated_articles.push(article as ArticleRc);
 						}
 
@@ -203,8 +206,8 @@ impl Agent for TwitterAgent {
 			Msg::FetchResponse(_id, r) => {
 				if let Ok((articles, _)) = r {
 					let articles = articles.into_iter()
-						.map(|(article, ref_article)| {
-							let article = self.insert_or_update(article, Some(ref_article));
+						.map(|(article, ref_articles)| {
+							let article = self.insert_or_update(article, ref_articles);
 							Rc::downgrade(&article) as ArticleWeak
 						})
 						.collect();
@@ -216,7 +219,7 @@ impl Agent for TwitterAgent {
 				let strong = article.upgrade().unwrap();
 				let borrow = strong.borrow();
 
-				if let ArticleRefType::NoRef | ArticleRefType::Quote(_) = borrow.referenced_article() {
+				if let Some(_) = borrow.referenced_articles().into_iter().find(|a| matches!(a, ArticleRefType::Quote(_))) {
 					let url = Url::parse(&format!("{}/proxy/twitter/{}/{}", base_url(), if borrow.liked() { "unlike" } else { "like" }, borrow.id())).unwrap();
 
 					self.link.send_future(async move {
@@ -228,7 +231,7 @@ impl Agent for TwitterAgent {
 				let strong = article.upgrade().unwrap();
 				let borrow = strong.borrow();
 
-				if let ArticleRefType::NoRef | ArticleRefType::Quote(_) = borrow.referenced_article() {
+				if let Some(_) = borrow.referenced_articles().into_iter().find(|a| matches!(a, ArticleRefType::Quote(_))) {
 					let url = Url::parse(&format!("{}/proxy/twitter/{}/{}", base_url(), if borrow.reposted() { "unretweet" } else { "retweet" }, borrow.id())).unwrap();
 
 					self.link.send_future(async move {
@@ -294,34 +297,33 @@ impl TwitterAgent {
 		}
 	}
 
-	fn insert_or_update(&mut self, article: ArticleRc<TweetArticleData>, ref_article: Option<StrongArticleRefType>) -> ArticleRc<TweetArticleData> {
+	fn insert_or_update(&mut self, article: ArticleRc<TweetArticleData>, ref_articles: Vec<StrongArticleRefType>) -> ArticleRc<TweetArticleData> {
 		let borrow = article.borrow();
 		let article = self.articles.entry(borrow.id)
 			.and_modify(|a| a.borrow_mut().update(&borrow))
 			.or_insert_with(|| article.clone()).clone();
 		drop(borrow);
 
-		if let Some(ref_article) = ref_article {
+		for ref_article in ref_articles {
 			match ref_article {
-				StrongArticleRefType::NoRef => {},
 				StrongArticleRefType::Reposted(a) => {
-					let ref_article = self.insert_or_update(a, None);
+					let ref_article = self.insert_or_update(a, vec![]);
 					let mut borrow_mut = article.borrow_mut();
-					borrow_mut.referenced_article = ArticleRefType::Reposted(Rc::downgrade(&ref_article));
+					borrow_mut.referenced_articles.push(ArticleRefType::Reposted(Rc::downgrade(&ref_article)));
 				}
 				StrongArticleRefType::Quote(a) => {
-					let ref_article = self.insert_or_update(a, None);
+					let ref_article = self.insert_or_update(a, vec![]);
 					let mut borrow_mut = article.borrow_mut();
-					borrow_mut.referenced_article = ArticleRefType::Quote(Rc::downgrade(&ref_article));
+					borrow_mut.referenced_articles.push(ArticleRefType::Quote(Rc::downgrade(&ref_article)));
 				}
 				StrongArticleRefType::RepostedQuote(a, q) => {
-					let ref_quote = self.insert_or_update(a, None);
+					let ref_quote = self.insert_or_update(a, vec![]);
 					let mut borrow_mut = article.borrow_mut();
-					borrow_mut.referenced_article = ArticleRefType::Quote(Rc::downgrade(&ref_quote));
+					borrow_mut.referenced_articles.push(ArticleRefType::Quote(Rc::downgrade(&ref_quote)));
 
-					let ref_article = self.insert_or_update(q, None);
+					let ref_article = self.insert_or_update(q, vec![]);
 					let mut quote_borrow_mut = ref_quote.borrow_mut();
-					quote_borrow_mut.referenced_article = ArticleRefType::Quote(Rc::downgrade(&ref_article));
+					quote_borrow_mut.referenced_articles.push(ArticleRefType::Quote(Rc::downgrade(&ref_article)));
 				}
 			}
 		}

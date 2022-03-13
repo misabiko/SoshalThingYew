@@ -17,7 +17,7 @@ use containers::{view_container, Props as ContainerProps};
 use filters::{FilterCollection, FilterMsg, FiltersOptions};
 use sort_methods::SortMethod;
 use agent::{TimelineAgent, Request as TimelineAgentRequest};
-use crate::articles::{ArticleView, ArticleRefType, ArticleWeak, ArticleBox};
+use crate::articles::{ArticleView, ArticleRefType, ArticleWeak, ArticleBox, weak_actual_article};
 use crate::services::endpoint_agent::{EndpointAgent, Request as EndpointRequest};
 use crate::modals::ModalCard;
 use crate::choose_endpoints::ChooseEndpoints;
@@ -51,8 +51,9 @@ pub struct ArticleStruct {
 	pub weak: ArticleWeak,
 	pub included: bool,
 	pub boxed: ArticleBox,
-	pub boxed_actual_article_opt: Option<ArticleBox>,
-	pub boxed_ref: ArticleRefType<ArticleBox>,
+	boxed_actual_article_index_opt: Option<usize>,
+	boxed_actual_article_opt: Option<ArticleBox>,
+	pub boxed_refs: Vec<ArticleRefType<ArticleBox>>,
 }
 
 impl ArticleStruct {
@@ -74,8 +75,9 @@ impl Clone for ArticleStruct {
 			weak: self.weak.clone(),
 			included: self.included,
 			boxed: self.boxed.clone_data(),
+			boxed_actual_article_index_opt: self.boxed_actual_article_index_opt,
 			boxed_actual_article_opt: self.boxed_actual_article_opt.as_ref().map(|a| a.clone_data()),
-			boxed_ref: self.boxed_ref.clone_data(),
+			boxed_refs: self.boxed_refs.iter().map(|ref_article| ref_article.clone_data()).collect(),
 		}
 	}
 }
@@ -85,7 +87,7 @@ impl PartialEq for ArticleStruct {
 		Weak::ptr_eq(&self.weak, &other.weak) &&
 			self.included == other.included &&
 			&self.boxed == &other.boxed &&
-			self.boxed_ref == other.boxed_ref
+			self.boxed_refs == other.boxed_refs
 	}
 }
 
@@ -471,25 +473,13 @@ impl Component for Timeline {
 			Msg::Redraw => true,
 			Msg::MarkAllAsRead => {
 				for article in self.filtered_sectioned_articles(ctx) {
-					let strong = article.upgrade().unwrap();
+					let strong = weak_actual_article(&article).upgrade().unwrap();
 					let mut borrow = strong.borrow_mut();
 
-					match borrow.referenced_article() {
-						ArticleRefType::NoRef | ArticleRefType::Quote(_) => {
-							let new_marked_as_read = !borrow.marked_as_read();
-							borrow.set_marked_as_read(new_marked_as_read);
+					let new_marked_as_read = !borrow.marked_as_read();
+					borrow.set_marked_as_read(new_marked_as_read);
 
-							mark_article_as_read(borrow.service(), borrow.id(), new_marked_as_read);
-						}
-						ArticleRefType::Reposted(a) | ArticleRefType::RepostedQuote(a, _) => {
-							let strong = a.upgrade().unwrap();
-							let mut borrow = strong.borrow_mut();
-
-							let new_marked_as_read = !borrow.marked_as_read();
-							borrow.set_marked_as_read(new_marked_as_read);
-							mark_article_as_read(borrow.service(), borrow.id(), new_marked_as_read);
-						}
-					};
+					mark_article_as_read(borrow.service(), borrow.id(), new_marked_as_read);
 				}
 
 				self.article_actions.send(ArticleActionsRequest::RedrawTimelines(self.filtered_sectioned_articles(ctx)));
@@ -497,25 +487,13 @@ impl Component for Timeline {
 			}
 			Msg::HideAll => {
 				for article in self.filtered_sectioned_articles(ctx) {
-					let strong = article.upgrade().unwrap();
+					let strong = weak_actual_article(&article).upgrade().unwrap();
 					let mut borrow = strong.borrow_mut();
 
-					match borrow.referenced_article() {
-						ArticleRefType::NoRef | ArticleRefType::Quote(_) => {
-							let new_hidden = !borrow.hidden();
-							borrow.set_hidden(new_hidden);
+					let new_hidden = !borrow.hidden();
+					borrow.set_hidden(new_hidden);
 
-							hide_article(borrow.service(), borrow.id(), new_hidden);
-						}
-						ArticleRefType::Reposted(a) | ArticleRefType::RepostedQuote(a, _) => {
-							let strong = a.upgrade().unwrap();
-							let mut borrow = strong.borrow_mut();
-
-							let new_hidden = borrow.hidden();
-							borrow.set_hidden(new_hidden);
-							hide_article(borrow.service(), borrow.id(), new_hidden);
-						}
-					};
+					hide_article(borrow.service(), borrow.id(), new_hidden);
 				}
 
 				self.article_actions.send(ArticleActionsRequest::RedrawTimelines(self.filtered_sectioned_articles(ctx)));
@@ -544,9 +522,9 @@ impl Component for Timeline {
 					weak: a,
 					included,
 					boxed: borrow.clone_data(),
+					boxed_actual_article_index_opt: borrow.actual_article_index(),
 					boxed_actual_article_opt: borrow.actual_article().map(|a| a.upgrade().expect("upgrading actual article").borrow().clone_data()),
-					boxed_ref: match borrow.referenced_article() {
-						ArticleRefType::NoRef => ArticleRefType::NoRef,
+					boxed_refs: borrow.referenced_articles().into_iter().map(|ref_article| match ref_article {
 						ArticleRefType::Reposted(a) => ArticleRefType::Reposted(
 							a.upgrade().expect("upgrading reposted article").borrow().clone_data()
 						),
@@ -557,7 +535,7 @@ impl Component for Timeline {
 							a.upgrade().expect("upgrading reposted quote").borrow().clone_data(),
 							q.upgrade().expect("upgrading quoted article").borrow().clone_data(),
 						)
-					},
+					}).collect(),
 				}
 			}).collect();
 

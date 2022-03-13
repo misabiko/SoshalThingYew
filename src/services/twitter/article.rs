@@ -147,7 +147,8 @@ pub struct TweetArticleData {
 	pub media: Vec<ArticleMedia>,
 	#[derivative(Debug = "ignore")]
 	pub raw_json: serde_json::Value,
-	pub referenced_article: ArticleRefType<Weak<RefCell<TweetArticleData>>>,
+	pub referenced_articles: Vec<ArticleRefType<Weak<RefCell<TweetArticleData>>>>,
+	actual_article_index: Option<usize>,
 	pub marked_as_read: bool,
 	pub hidden: bool,
 	#[derivative(Debug = "ignore")]
@@ -200,21 +201,29 @@ impl ArticleData for TweetArticleData {
 		self.media.clone()
 	}
 	fn json(&self) -> serde_json::Value { self.raw_json.clone() }
-	fn referenced_article(&self) -> ArticleRefType {
-		match &self.referenced_article {
-			ArticleRefType::NoRef => ArticleRefType::NoRef,
+	fn referenced_articles(&self) -> Vec<ArticleRefType> {
+		self.referenced_articles.iter().map(|ref_article| match ref_article {
 			ArticleRefType::Reposted(a) => ArticleRefType::Reposted(a.clone() as ArticleWeak),
 			ArticleRefType::Quote(a) => ArticleRefType::Quote(a.clone() as ArticleWeak),
 			ArticleRefType::RepostedQuote(a, q) => ArticleRefType::RepostedQuote(
 				a.clone() as ArticleWeak,
 				q.clone() as ArticleWeak,
 			),
-		}
+		}).collect()
+	}
+	fn actual_article_index(&self) -> Option<usize> {
+		self.actual_article_index
 	}
 	fn actual_article(&self) -> Option<ArticleWeak> {
-		match self.referenced_article() {
-			ArticleRefType::NoRef | ArticleRefType::Quote(_) => None,
-			ArticleRefType::Reposted(a) | ArticleRefType::RepostedQuote(a, _) => Some(a.clone())
+		match self.actual_article_index {
+			Some(i) => match &self.referenced_articles[i] {
+				ArticleRefType::Reposted(a) | ArticleRefType::RepostedQuote(a, _) => Some(a.clone() as ArticleWeak),
+				ArticleRefType::Quote(_) => {
+					log::warn!("{} gave invalid actual_article ref type", self.id());
+					None
+				},
+			},
+			None => None,
 		}
 	}
 	fn url(&self) -> String {
@@ -244,46 +253,53 @@ impl ArticleData for TweetArticleData {
 }
 
 impl TweetArticleData {
-	pub fn from(json: &serde_json::Value, storage: &ServiceStorage) -> (ArticleRc<Self>, StrongArticleRefType) {
+	pub fn from(json: &serde_json::Value, storage: &ServiceStorage) -> (ArticleRc<Self>, Vec<StrongArticleRefType>, Option<usize>) {
 		let id = json["id"].as_u64().unwrap();
 
-		let referenced_article: StrongArticleRefType = {
+		let mut referenced_articles: Vec<StrongArticleRefType> = Vec::new();
+		let actual_article_index = {
 			let referenced = &json["retweeted_status"];
 			let quoted = &json["quoted_status"];
 
 			if !referenced.is_null() {
-				let parsed = TweetArticleData::from(&referenced.clone(), storage);
-				match parsed.1 {
-					ArticleRefType::NoRef => StrongArticleRefType::Reposted(parsed.0),
-					ArticleRefType::Quote(parsed_ref) => StrongArticleRefType::RepostedQuote(parsed.0, parsed_ref),
-					ArticleRefType::Reposted(parsed_ref) => {
-						log::warn!("Retweet({}) of a retweet({})?", &id, &parsed_ref.borrow().id());
-						StrongArticleRefType::Reposted(parsed.0)
-					}
-					ArticleRefType::RepostedQuote(parsed_ref, parsed_quoted) => {
-						log::warn!("Retweet({}) of a retweet({}) of a quote({})??", &id, &parsed_ref.borrow().id(), &parsed_quoted.borrow().id());
-						StrongArticleRefType::Reposted(parsed.0)
-					}
-				}
+				let (parsed_rc, parsed_refs, parsed_actual) = TweetArticleData::from(&referenced.clone(), storage);
+				match parsed_actual {
+					Some(i) => match &parsed_refs[i] {
+						ArticleRefType::Quote(parsed_ref) => referenced_articles.push(StrongArticleRefType::RepostedQuote(parsed_rc, parsed_ref.clone())),
+						ArticleRefType::Reposted(parsed_ref) => {
+							log::warn!("Retweet({}) of a retweet({})?", &id, &parsed_ref.borrow().id());
+							referenced_articles.push(StrongArticleRefType::Reposted(parsed_rc));
+						}
+						ArticleRefType::RepostedQuote(parsed_ref, parsed_quoted) => {
+							log::warn!("Retweet({}) of a retweet({}) of a quote({})??", &id, &parsed_ref.borrow().id(), &parsed_quoted.borrow().id());
+							referenced_articles.push(StrongArticleRefType::Reposted(parsed_rc));
+						}
+					},
+					None => referenced_articles.push(StrongArticleRefType::Reposted(parsed_rc)),
+				};
+				Some(0)
 			}else if !quoted.is_null() {
-				let parsed = TweetArticleData::from(&quoted.clone(), storage);
-				match parsed.1 {
-					ArticleRefType::NoRef => StrongArticleRefType::Quote(parsed.0),
-					ArticleRefType::Quote(parsed_ref) => {
-						log::warn!("Quote({}) of a quote({})?", &id, &parsed_ref.borrow().id());
-						StrongArticleRefType::Quote(parsed.0)
-					}
-					ArticleRefType::Reposted(parsed_ref) => {
-						log::warn!("Retweet({}) of a retweet({})?", &id, &parsed_ref.borrow().id());
-						StrongArticleRefType::Quote(parsed.0)
-					}
-					ArticleRefType::RepostedQuote(parsed_ref, parsed_quoted) => {
-						log::warn!("Retweet({}) of a retweet({}) of a quote({})??", &id, &parsed_ref.borrow().id(), &parsed_quoted.borrow().id());
-						StrongArticleRefType::Quote(parsed.0)
-					}
-				}
+				let (parsed_rc, parsed_refs, parsed_actual) = TweetArticleData::from(&quoted.clone(), storage);
+				match parsed_actual {
+					Some(i) => match &parsed_refs[i] {
+						ArticleRefType::Quote(parsed_ref) => {
+							log::warn!("Quote({}) of a quote({})?", &id, &parsed_ref.borrow().id());
+							referenced_articles.push(StrongArticleRefType::Quote(parsed_rc))
+						}
+						ArticleRefType::Reposted(parsed_ref) => {
+							log::warn!("Retweet({}) of a retweet({})?", &id, &parsed_ref.borrow().id());
+							referenced_articles.push(StrongArticleRefType::Quote(parsed_rc))
+						}
+						ArticleRefType::RepostedQuote(parsed_ref, parsed_quoted) => {
+							log::warn!("Retweet({}) of a retweet({}) of a quote({})??", &id, &parsed_ref.borrow().id(), &parsed_quoted.borrow().id());
+							referenced_articles.push(StrongArticleRefType::Quote(parsed_rc))
+						}
+					},
+					None => referenced_articles.push(StrongArticleRefType::Quote(parsed_rc)),
+				};
+				None
 			}else {
-				StrongArticleRefType::NoRef
+				None
 			}
 		};
 
@@ -311,20 +327,20 @@ impl TweetArticleData {
 			retweet_count: json["retweet_count"].as_u64().unwrap() as u32,
 			media: parse_media(extended_entities.map(|e| e.media)),
 			raw_json: json.clone(),
-			referenced_article: match &referenced_article {
-				StrongArticleRefType::NoRef => ArticleRefType::NoRef,
+			referenced_articles: referenced_articles.iter().map(|ref_article| match ref_article {
 				StrongArticleRefType::Reposted(a) => ArticleRefType::Reposted(Rc::downgrade(a)),
 				StrongArticleRefType::Quote(a) => ArticleRefType::Quote(Rc::downgrade(a)),
 				StrongArticleRefType::RepostedQuote(quote, quoted) => ArticleRefType::RepostedQuote(
 					Rc::downgrade(quote),
 					Rc::downgrade(quoted)
 				),
-			},
+			}).collect(),
+			actual_article_index,
 			marked_as_read: storage.session.articles_marked_as_read.contains(&id.to_string()),
 			hidden: storage.local.hidden_articles.contains(&id.to_string()),
 			text_html,
 		}));
-		(data, referenced_article)
+		(data, referenced_articles, actual_article_index)
 	}
 
 	pub fn update(&mut self, new: &Ref<TweetArticleData>) {

@@ -2,7 +2,7 @@ use yew::prelude::*;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsValue;
 
-use crate::articles::{ArticleRefType, MediaType, MediaQueueInfo, media_load_queue::MediaLoadState, ArticleBox};
+use crate::articles::{MediaType, MediaQueueInfo, media_load_queue::MediaLoadState};
 use crate::articles::component::{ViewProps, Msg as ParentMsg};
 use crate::components::{Dropdown, DropdownLabel};
 use crate::components::{FA, font_awesome::Props as FAProps};

@@ -9,6 +9,7 @@ use crate::articles::{ArticleData, ArticleMedia, ArticleRefType, ArticleWeak, Me
 use crate::components::{Dropdown, DropdownLabel};
 
 pub type FilterPredicate = fn(&ArticleWeak, inverted: &bool) -> bool;
+
 const ALL_FILTERS: [Filter; 9] = [
 	Filter::Media,
 	Filter::Animated,
@@ -52,7 +53,7 @@ impl Filter {
 				Filter::Repost { .. } => "Not a Repost",
 				Filter::Quote { .. } => "No a Quote",
 			}
-		}else {
+		} else {
 			match self {
 				Filter::Media => "Has Media",
 				Filter::Animated => "Animated",
@@ -67,88 +68,72 @@ impl Filter {
 		}
 	}
 
-	pub fn iter() -> impl ExactSizeIterator<Item = &'static Filter> {
+	pub fn iter() -> impl ExactSizeIterator<Item=&'static Filter> {
 		ALL_FILTERS.iter()
 	}
 
+	//TODO Pass &ArticleBox?
 	pub fn filter(&self, article: &Ref<dyn ArticleData>) -> bool {
 		match self {
 			Filter::Media => {
-				match article.referenced_article() {
-					ArticleRefType::NoRef => !article.media().is_empty(),
+				article.referenced_articles().into_iter().any(|ref_article| match ref_article {
 					ArticleRefType::Reposted(a) => a.upgrade().map(|r| !r.borrow().media().is_empty()).unwrap_or(false),
 					ArticleRefType::Quote(a) => (a.upgrade().map(|r| !r.borrow().media().is_empty()).unwrap_or(false) || !article.media().is_empty()),
 					ArticleRefType::RepostedQuote(a, q) => (q.upgrade().map(|r| !r.borrow().media().is_empty()).unwrap_or(false) || a.upgrade().map(|r| !r.borrow().media().is_empty()).unwrap_or(false) || !article.media().is_empty()),
-				}
+				})
 			}
 			Filter::Animated => {
-				match article.referenced_article() {
-					ArticleRefType::NoRef => article.media().iter().any(|m| is_animated(m)),
+				article.referenced_articles().into_iter().any(|ref_article| match ref_article {
 					ArticleRefType::Reposted(a) => a.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false),
 					ArticleRefType::Quote(a) => (a.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false) || (article.media().iter().any(|m| is_animated(m)))),
 					ArticleRefType::RepostedQuote(a, q) => (q.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false) || a.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false) || (article.media().iter().any(|m| is_animated(m)))),
-				}
-			},
+				})
+			}
 			Filter::NotMarkedAsRead => {
-				match article.referenced_article() {
-					ArticleRefType::NoRef => (!article.marked_as_read()),
-					ArticleRefType::Reposted(a) | ArticleRefType::Quote(a)
-					=> (a.upgrade().map(|r| !r.borrow().marked_as_read()).unwrap_or(false) && !article.marked_as_read()),
-					ArticleRefType::RepostedQuote(a, q)
-					=> (q.upgrade().map(|r| !r.borrow().marked_as_read()).unwrap_or(false) && a.upgrade().map(|r| !r.borrow().marked_as_read()).unwrap_or(false) && !article.marked_as_read()),
+				match article.actual_article() {
+					Some(a) => !a.upgrade().unwrap().borrow().marked_as_read(),
+					None => !article.marked_as_read(),
 				}
-			},
+			}
 			Filter::NotHidden => {
-				match article.referenced_article() {
-					ArticleRefType::NoRef => !article.hidden(),
-					ArticleRefType::Reposted(a) | ArticleRefType::Quote(a)
-					=> a.upgrade().map(|r| !r.borrow().hidden()).unwrap_or(false) && !article.hidden(),
-					ArticleRefType::RepostedQuote(a, q)
-					=> q.upgrade().map(|r| !r.borrow().hidden()).unwrap_or(false) && a.upgrade().map(|r| !r.borrow().hidden()).unwrap_or(false) && !article.hidden(),
+				match article.actual_article() {
+					Some(a) => !a.upgrade().unwrap().borrow().hidden(),
+					None => !article.hidden(),
 				}
 			}
 			Filter::Liked => {
-				match article.referenced_article() {
-					ArticleRefType::NoRef => article.liked(),
-					ArticleRefType::Reposted(a) | ArticleRefType::Quote(a)
-					=> a.upgrade().map(|r| r.borrow().liked()).unwrap_or(false) || article.liked(),
-					ArticleRefType::RepostedQuote(a, q)
-					=> q.upgrade().map(|r| r.borrow().liked()).unwrap_or(false) || a.upgrade().map(|r| r.borrow().liked()).unwrap_or(false) || article.liked(),
+				match article.actual_article() {
+					Some(a) => !a.upgrade().unwrap().borrow().liked(),
+					None => !article.liked(),
 				}
 			}
 			Filter::Reposted => {
-				match article.referenced_article() {
-					ArticleRefType::NoRef => article.reposted(),
-					ArticleRefType::Reposted(a) | ArticleRefType::Quote(a)
-					=> a.upgrade().map(|r| r.borrow().reposted()).unwrap_or(false) || article.reposted(),
-					ArticleRefType::RepostedQuote(a, q)
-					=> q.upgrade().map(|r| r.borrow().reposted()).unwrap_or(false) || a.upgrade().map(|r| r.borrow().reposted()).unwrap_or(false) || article.reposted(),
+				match article.actual_article() {
+					Some(a) => !a.upgrade().unwrap().borrow().reposted(),
+					None => !article.reposted(),
 				}
 			}
 			Filter::PlainTweet => {
-				if let ArticleRefType::NoRef = article.referenced_article() {
-					true
-				}else {
-					false
-				}
+				!article.referenced_articles().into_iter()
+					.any(|a| matches!(a, ArticleRefType::Reposted(_) | ArticleRefType::Quote(_) | ArticleRefType::RepostedQuote(_, _)))
 			}
 			Filter::Repost { by_username } => {
-				match article.referenced_article() {
+				article.referenced_articles().into_iter().any(|a| match a {
 					ArticleRefType::Reposted(_) | ArticleRefType::RepostedQuote(_, _) => match by_username {
 						Some(username) => &article.author_username() == username,
 						None => true,
 					},
-					ArticleRefType::NoRef | ArticleRefType::Quote(_) => false,
-				}
+					ArticleRefType::Quote(_) => false,
+				})
 			}
 			Filter::Quote { by_username } => {
-				match article.referenced_article() {
+				article.referenced_articles().into_iter().any(|a| match a {
 					ArticleRefType::Quote(_) | ArticleRefType::RepostedQuote(_, _) => match by_username {
 						Some(username) => &article.author_username() == username,
 						None => true,
 					},
-					ArticleRefType::NoRef | ArticleRefType::Reposted(_) => false,
-				}
+					ArticleRefType::Reposted(_) => false,
+				})
 			}
 		}
 	}
@@ -184,17 +169,17 @@ impl Filter {
 						match by_username {
 							Some(username) => if new_username == *username {
 								false
-							}else {
+							} else {
 								if new_username.is_empty() {
 									*by_username = None;
-								}else {
+								} else {
 									*by_username = Some(new_username);
 								}
 								true
 							},
 							None => if new_username.is_empty() {
 								false
-							}else {
+							} else {
 								*by_username = Some(new_username);
 								true
 							},
@@ -317,7 +302,7 @@ impl FilterCollection {
 				true
 			}
 			FilterMsg::AddFilter((filter, inverted)) => {
-				self.push(FilterInstance {filter, inverted, enabled: true});
+				self.push(FilterInstance { filter, inverted, enabled: true });
 				true
 			}
 			FilterMsg::RemoveFilter(index) => {

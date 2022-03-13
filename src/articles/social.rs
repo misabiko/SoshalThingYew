@@ -1,11 +1,10 @@
 use yew::prelude::*;
 use js_sys::Date;
-use std::cell::Ref;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsValue;
 use yew_agent::{Dispatcher, Dispatched};
 
-use crate::articles::{ArticleBox, ArticleData, ArticleRefType, MediaType};
+use crate::articles::{ArticleBox, ArticleRefType, MediaType};
 use crate::articles::component::{ViewProps, Msg as ParentMsg};
 use crate::components::{Dropdown, DropdownLabel, FA, IconType, font_awesome::Props as FAProps};
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest};
@@ -55,16 +54,26 @@ impl Component for SocialArticle {
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
-		let boxed_ref = &ctx.props().article_struct.boxed_ref;
-		let retweet_header = if let ArticleRefType::Reposted(_) | ArticleRefType::RepostedQuote(_, _) = boxed_ref {
+		let boxed_refs = &ctx.props().article_struct.boxed_refs;
+		let retweet_header = if ctx.props().article_struct.boxed.actual_article_index().is_some() {
 			self.view_repost_label(ctx)
 		}else {
 			html! {}
 		};
-		let quoted_post = if let ArticleRefType::Quote(q) | ArticleRefType::RepostedQuote(_, q) = boxed_ref {
-			self.view_quoted_post(ctx, &q)
-		}else {
-			html! {}
+
+		let quoted_post = {
+			let quoted = boxed_refs.iter().find_map(|ref_article|
+				if let ArticleRefType::Quote(q) | ArticleRefType::RepostedQuote(_, q) = ref_article {
+					Some(q)
+				}else {
+					None
+				}
+			);
+			if let Some(q) = quoted {
+				self.view_quoted_post(ctx, &q)
+			} else {
+				html! {}
+			}
 		};
 		let actual_article = ctx.props().article_struct.boxed_actual_article();
 
@@ -158,9 +167,8 @@ impl SocialArticle {
 	fn view_nav(&self, ctx: &Context<Self>, actual_article: &ArticleBox) -> Html {
 		let ontoggle_compact = ctx.link().callback(|_| Msg::ToggleCompact);
 		let ontoggle_markasread = ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleMarkAsRead));
-		let dropdown_buttons = match &ctx.props().article_struct.boxed_ref {
-			ArticleRefType::NoRef => html! {},
-			ArticleRefType::Reposted(_) | ArticleRefType::RepostedQuote(_, _) => html! {
+		let dropdown_buttons = match &ctx.props().article_struct.boxed_refs.iter().find(|ref_article| matches!(ref_article, ArticleRefType::Reposted(_) | ArticleRefType::RepostedQuote(_, _))) {
+			Some(_) => html! {
 				<a
 					class="dropdown-item"
 					href={ ctx.props().article_struct.boxed.url() }
@@ -169,7 +177,7 @@ impl SocialArticle {
 					{ "Repost's External Link" }
 				</a>
 			},
-			ArticleRefType::Quote(_) => html! {},
+			None => html! {},
 		};
 
 		html! {
@@ -373,22 +381,30 @@ impl SocialArticle {
 
 	fn view_avatar(&self, ctx: &Context<Self>) -> Html {
 		let article = &ctx.props().article_struct.boxed;
+		let repost = ctx.props().article_struct.boxed_refs.iter().find_map(|ref_article| {
+			if let ArticleRefType::Reposted(a) | ArticleRefType::RepostedQuote(a, _) = ref_article {
+				Some(a)
+			}else {
+				None
+			}
+		});
 		match article.author_avatar_url().as_str() {
 			"" => html! {},
 			url => html! {
 				<figure class="media-left">
-					{ match &ctx.props().article_struct.boxed_ref {
-						ArticleRefType::NoRef | ArticleRefType::Quote(_) => html! {
-							<p class="image is-64x64">
-								<img src={url.to_owned()} alt={format!("{}'s avatar", &article.author_username())}/>
-							</p>
-						},
-						ArticleRefType::Reposted(a) | ArticleRefType::RepostedQuote(a, _) => html! {
+					{ if let Some(a) = repost {
+						html! {
 							<p class="image is-64x64 sharedAvatar">
 								<img src={a.author_avatar_url().as_str().to_owned()} alt={format!("{}'s avatar", &a.author_username())}/>
 								<img src={url.to_owned()} alt={format!("{}'s avatar", &article.author_username())}/>
 							</p>
-						},
+						}
+					}else {
+						html! {
+							<p class="image is-64x64">
+								<img src={url.to_owned()} alt={format!("{}'s avatar", &article.author_username())}/>
+							</p>
+						}
 					} }
 				</figure>
 			}
