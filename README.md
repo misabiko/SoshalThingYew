@@ -2,6 +2,7 @@
 
 Tweetdeck-style timeline app to display feeds from various services in columns.
 
+![screenshot](/docs/screenshot.png?raw=true)
 ---
 
 ### Dev
