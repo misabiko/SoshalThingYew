@@ -54,6 +54,12 @@ pub struct ArticleStruct {
 	pub boxed_ref: ArticleRefType<ArticleBox>,
 }
 
+impl ArticleStruct {
+	pub fn global_id(&self) -> String {
+		format!("{}{}", &self.boxed.service(), &self.boxed.id())
+	}
+}
+
 impl Clone for ArticleStruct {
 	fn clone(&self) -> Self {
 		Self {
