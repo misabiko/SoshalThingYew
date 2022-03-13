@@ -103,12 +103,14 @@ async fn auth_info(id: Identity, data: Data<State>) -> HttpResponse {
 
 #[actix_web::main]
 async fn main() -> Result<()> {
-	CombinedLogger::init(
+	//For testing actix freeze, leaving this in for a few commits
+	/*CombinedLogger::init(
 		vec![
 			TermLogger::new(LevelFilter::Info, Config::default(), TerminalMode::Mixed, ColorChoice::Auto),
 			WriteLogger::new(LevelFilter::Trace, Config::default(), File::create(format!("soshalthing.log")).unwrap()),
 		]
-	).unwrap();
+	).unwrap();*/
+	TermLogger::init(LevelFilter::Info, Config::default(), TerminalMode::Mixed, ColorChoice::Auto).unwrap();
 
 	//TODO std::mem::take instead of cloning
 	let credentials: Option<Credentials> = std::fs::read_to_string("credentials.json").ok()
