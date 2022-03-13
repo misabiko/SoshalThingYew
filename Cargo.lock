@@ -3912,7 +3912,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "soshalthing-yew"
+name = "soshalthing"
 version = "0.1.0"
 dependencies = [
  "derivative",

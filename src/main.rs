@@ -1,4 +1,4 @@
-use soshalthing_yew::{Model, favviewer::try_inject};
+use soshalthing::{Model, favviewer::try_inject};
 
 fn main() {
 	wasm_logger::init(wasm_logger::Config::new(log::Level::Trace));

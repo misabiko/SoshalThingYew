@@ -1,7 +1,7 @@
 use wasm_bindgen_test::*;
 use yew::html;
 
-use soshalthing_yew::services::twitter::article::parse_text;
+use soshalthing::services::twitter::article::parse_text;
 
 wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 
