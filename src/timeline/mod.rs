@@ -24,7 +24,7 @@ use crate::choose_endpoints::ChooseEndpoints;
 use crate::components::{Dropdown, DropdownLabel, FA, IconSize};
 use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest, Response as ArticleActionsResponse};
 use crate::services::storages::{hide_article, mark_article_as_read};
-use crate::settings::{AppSettings, AppSettingsOverride, OnMediaClick};
+use crate::settings::{AppSettings, AppSettingsOverride, OnMediaClick, ArticleFilteredMode, view_on_media_click_setting, view_article_filtered_mode_setting};
 use crate::TimelineEndpointWrapper;
 
 pub type TimelineId = i8;
@@ -47,7 +47,12 @@ struct Autoscroll {
 	anim: Option<AutoscrollAnim>,
 }
 
-pub type ArticleTuple = (ArticleWeak, ArticleBox, ArticleRefType<ArticleBox>);
+pub struct ArticleStruct {
+	pub weak: ArticleWeak,
+	pub included: bool,
+	pub boxed: ArticleBox,
+	pub boxed_ref: ArticleRefType < ArticleBox >,
+}
 
 pub struct Timeline {
 	endpoints: Rc<RefCell<Vec<TimelineEndpointWrapper>>>,
@@ -109,6 +114,7 @@ pub enum Msg {
 	MarkAllAsRead,
 	HideAll,
 	ChangeOnMediaClick(OnMediaClick),
+	ChangeSocialFilteredMode(ArticleFilteredMode),
 }
 
 #[derive(Properties, Clone)]
@@ -430,7 +436,7 @@ impl Component for Timeline {
 			}
 			Msg::Redraw => true,
 			Msg::MarkAllAsRead => {
-				for article in self.sectioned_articles() {
+				for article in self.filtered_sectioned_articles(ctx) {
 					let strong = article.upgrade().unwrap();
 					let mut borrow = strong.borrow_mut();
 
@@ -452,11 +458,11 @@ impl Component for Timeline {
 					};
 				}
 
-				self.article_actions.send(ArticleActionsRequest::RedrawTimelines(self.sectioned_articles()));
+				self.article_actions.send(ArticleActionsRequest::RedrawTimelines(self.filtered_sectioned_articles(ctx)));
 				false
 			}
 			Msg::HideAll => {
-				for article in self.sectioned_articles() {
+				for article in self.filtered_sectioned_articles(ctx) {
 					let strong = article.upgrade().unwrap();
 					let mut borrow = strong.borrow_mut();
 
@@ -478,36 +484,45 @@ impl Component for Timeline {
 					};
 				}
 
-				self.article_actions.send(ArticleActionsRequest::RedrawTimelines(self.sectioned_articles()));
+				self.article_actions.send(ArticleActionsRequest::RedrawTimelines(self.filtered_sectioned_articles(ctx)));
 				false
 			}
 			Msg::ChangeOnMediaClick(on_media_click) => {
 				self.app_settings_override.on_media_click = Some(on_media_click);
 				true
 			}
+			Msg::ChangeSocialFilteredMode(article_filtered_mode) => {
+				self.app_settings_override.article_filtered_mode = Some(article_filtered_mode);
+				true
+			}
 		}
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
-		let articles = self.sectioned_articles();
+		let articles = self.sectioned_articles(ctx);
 
-		let articles: Vec<ArticleTuple> = articles.into_iter()
-			.map(|a| {
+		let articles: Vec<ArticleStruct> = articles.into_iter()
+			.map(|(a, included)| {
 				let strong = a.upgrade().expect("upgrading article");
 				let borrow = strong.borrow();
-				(a, borrow.clone_data(), match borrow.referenced_article() {
-					ArticleRefType::NoRef => ArticleRefType::NoRef,
-					ArticleRefType::Repost(a) => ArticleRefType::Repost(
-						a.upgrade().expect("upgrading reposted article").borrow().clone_data()
-					),
-					ArticleRefType::Quote(a) => ArticleRefType::Quote(
-						a.upgrade().expect("upgrading quoted article").borrow().clone_data()
-					),
-					ArticleRefType::QuoteRepost(a, q) => ArticleRefType::QuoteRepost(
-						a.upgrade().expect("upgrading reposted quote").borrow().clone_data(),
-						q.upgrade().expect("upgrading quoted article").borrow().clone_data(),
-					)
-				})
+				ArticleStruct {
+					weak: a,
+					included,
+					boxed: borrow.clone_data(),
+					boxed_ref: match borrow.referenced_article() {
+						ArticleRefType::NoRef => ArticleRefType::NoRef,
+						ArticleRefType::Repost(a) => ArticleRefType::Repost(
+							a.upgrade().expect("upgrading reposted article").borrow().clone_data()
+						),
+						ArticleRefType::Quote(a) => ArticleRefType::Quote(
+							a.upgrade().expect("upgrading quoted article").borrow().clone_data()
+						),
+						ArticleRefType::QuoteRepost(a, q) => ArticleRefType::QuoteRepost(
+							a.upgrade().expect("upgrading reposted quote").borrow().clone_data(),
+							q.upgrade().expect("upgrading quoted article").borrow().clone_data(),
+						)
+					}
+				}
 			}).collect();
 
 		let style = if self.width > 1 {
@@ -744,16 +759,8 @@ impl Timeline {
 					},
 					ArticleView::Gallery => html! {},
 				} }
-				<div class="block control">
-					<label class="label">{"On Media Click"}</label>
-					<Dropdown current_label={DropdownLabel::Text(self.app_settings(ctx).on_media_click.name().to_owned())}>
-						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeOnMediaClick(OnMediaClick::Like))}> {OnMediaClick::Like.name()} </a>
-						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeOnMediaClick(OnMediaClick::Expand))}> {OnMediaClick::Expand.name()} </a>
-						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeOnMediaClick(OnMediaClick::MarkAsRead))}> {OnMediaClick::MarkAsRead.name()} </a>
-						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeOnMediaClick(OnMediaClick::Hide))}> {OnMediaClick::Hide.name()} </a>
-						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeOnMediaClick(OnMediaClick::Nothing))}> {OnMediaClick::Nothing.name()} </a>
-					</Dropdown>
-				</div>
+				{ view_on_media_click_setting(self.app_settings(ctx).on_media_click, ctx.link().callback(Msg::ChangeOnMediaClick)) }
+				{ view_article_filtered_mode_setting(self.app_settings(ctx).article_filtered_mode, ctx.link().callback(Msg::ChangeSocialFilteredMode)) }
 				<div class="block control">
 					<button class="button is-danger" onclick={ctx.link().callback(|_| Msg::ClearArticles)}>{"Clear Articles"}</button>
 				</div>
@@ -855,23 +862,27 @@ impl Timeline {
 		}
 	}
 
-	fn sectioned_articles(&self) -> Vec<ArticleWeak> {
-		let mut articles = self.articles.clone();
+	fn sectioned_articles(&self, ctx: &Context<Self>) -> Vec<(ArticleWeak, bool)> {
+		let mut articles: Vec<(ArticleWeak, bool)> = self.articles.iter().cloned().map(|a| (a, true)).collect();
 		for instance in &self.filters {
 			if instance.enabled {
-				articles = articles.into_iter().filter(|a| {
+				articles = articles.into_iter().map(|(a, included)| {
 					let strong = a.upgrade();
-					if let Some(a) = strong {
-						instance.filter.filter(&a.borrow()) != instance.inverted
+					if let Some(strong) = strong {
+						(a, included && instance.filter.filter(&strong.borrow()) != instance.inverted)
 					}else {
-						false
+						(a, false)
 					}
 				}).collect();
 			}
 		}
 
+		if let ArticleFilteredMode::Hidden = self.app_settings(ctx).article_filtered_mode {
+			articles = articles.into_iter().filter(|(_, included)| *included).collect();
+		}
+
 		if let Some(method) = self.sort_method.0 {
-			articles.sort_by(|a, b| {
+			articles.sort_by(|(a, _), (b, _)| {
 				match self.sort_method.1 {
 					false => method.compare(&a, &b),
 					true => method.compare(&a, &b).reverse(),
@@ -887,5 +898,13 @@ impl Timeline {
 		}
 
 		articles
+	}
+
+	fn filtered_sectioned_articles(&self, ctx: &Context<Self>) -> Vec<ArticleWeak> {
+		self.sectioned_articles(ctx).into_iter().filter_map(|(a, included)| if included {
+			Some(a)
+		}else {
+			None
+		}).collect()
 	}
 }

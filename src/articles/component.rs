@@ -13,7 +13,7 @@ use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleAc
 use crate::modals::Modal;
 use crate::log_warn;
 use crate::services::storages::mark_article_as_read;
-use crate::settings::{AppSettings, OnMediaClick};
+use crate::settings::{AppSettings, OnMediaClick, ArticleFilteredMode};
 
 #[wasm_bindgen]
 extern "C" {
@@ -69,6 +69,7 @@ pub struct Props {
 	pub lazy_loading: bool,
 	pub column_count: u8,
 	pub app_settings: AppSettings,
+	pub included: bool
 }
 
 impl PartialEq for Props {
@@ -84,7 +85,8 @@ impl PartialEq for Props {
 			self.column_count == other.column_count &&
 			&self.article == &other.article &&
 			&self.ref_article == &other.ref_article &&
-			self.app_settings == other.app_settings
+			self.app_settings == other.app_settings &&
+			self.included == other.included
 	}
 }
 
@@ -103,6 +105,7 @@ impl Clone for Props {
 			load_priority: self.load_priority,
 			column_count: self.column_count,
 			app_settings: self.app_settings,
+			included: self.included,
 		}
 	}
 }
@@ -122,6 +125,7 @@ pub struct ViewProps {
 	pub media_load_states: Vec<MediaLoadState>,
 	pub column_count: u8,
 	pub app_settings: AppSettings,
+	pub included: bool
 }
 
 impl PartialEq<ViewProps> for ViewProps {
@@ -135,7 +139,8 @@ impl PartialEq<ViewProps> for ViewProps {
 			Weak::ptr_eq(&self.weak_ref, &other.weak_ref) &&
 			&self.article == &other.article &&
 			&self.ref_article == &other.ref_article &&
-			self.app_settings == other.app_settings
+			self.app_settings == other.app_settings &&
+			self.included == other.included
 	}
 }
 
@@ -154,6 +159,7 @@ impl Clone for ViewProps {
 			media_load_states: self.media_load_states.clone(),
 			column_count: self.column_count,
 			app_settings: self.app_settings,
+			included: self.included,
 		}
 	}
 }
@@ -377,6 +383,7 @@ impl Component for ArticleComponent {
 					media_load_states={self.media_load_states.clone()}
 					column_count={ctx.props().column_count}
 					app_settings={ctx.props().app_settings}
+					included={ctx.props().included}
 				/>
 			},
 			ArticleView::Gallery => html! {
@@ -394,14 +401,23 @@ impl Component for ArticleComponent {
 					media_load_states={self.media_load_states.clone()}
 					column_count={ctx.props().column_count}
 					app_settings={ctx.props().app_settings}
+					included={ctx.props().included}
 				/>
 			},
 		};
 
-		let class = match ctx.props().article_view {
-			ArticleView::Social => "article socialArticle".to_owned(),
-			ArticleView::Gallery => "article galleryArticle".to_owned(),
-		};
+		let class = classes!(
+			"article",
+			match ctx.props().article_view {
+				ArticleView::Social => "socialArticle",
+				ArticleView::Gallery => "galleryArticle",
+			},
+			if !ctx.props().included && ctx.props().app_settings.article_filtered_mode == ArticleFilteredMode::Transparent {
+				Some("transparent")
+			}else {
+				None
+			},
+		);
 
 		//For some reason, the view needs at least a wrapper otherwise when changing article_view, the container draws everything in reverse order...
 		let article_html = html! {

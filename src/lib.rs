@@ -20,7 +20,7 @@ use components::{FA, IconSize};
 use error::Result;
 use favviewer::PageInfo;
 use modals::add_timeline::AddTimelineModal;
-use settings::{AppSettings, OnMediaClick, SettingsModal, SettingsAgent, SettingsRequest, SettingsResponse};
+use settings::{AppSettings, ArticleFilteredMode, OnMediaClick, SettingsModal, SettingsAgent, SettingsRequest, SettingsResponse};
 use notifications::{NotificationAgent, Request as NotificationRequest, Response as NotificationResponse};
 use services::{
 	Endpoint,
@@ -211,7 +211,10 @@ impl Component for Model {
 			_notification_agent,
 			notifications: Vec::new(),
 			sidebar_favviewer: false,
-			app_settings: AppSettings { on_media_click: OnMediaClick::MarkAsRead },
+			app_settings: AppSettings {
+				on_media_click: OnMediaClick::MarkAsRead,
+				article_filtered_mode: ArticleFilteredMode::Hidden,
+			},
 			_settings_agent,
 		}
 	}
@@ -366,6 +369,10 @@ impl Component for Model {
 			Msg::SettingsResponse(response) => match response {
 				SettingsResponse::ChangeOnMediaClick(on_media_click) => {
 					self.app_settings.on_media_click = on_media_click;
+					true
+				}
+				SettingsResponse::ChangeSocialFilteredMode(article_filtered_mode) => {
+					self.app_settings.article_filtered_mode = article_filtered_mode;
 					true
 				}
 				_ => false

@@ -1,13 +1,12 @@
 use yew::prelude::*;
+use yew_agent::{Bridge, Bridged};
 use web_sys::HtmlInputElement;
-use yew_agent::{Agent, AgentLink, HandlerId, Context as AgentContext, Bridge, Bridged};
 use wasm_bindgen::JsCast;
 
-use super::{AppSettings, OnMediaClick};
+use super::{AppSettings, OnMediaClick, ArticleFilteredMode, SettingsAgent, SettingsResponse, SettingsRequest};
 use crate::modals::ModalCard;
 use crate::components::{Dropdown, DropdownLabel};
 use crate::{Container, DisplayMode};
-use crate::services::storages::update_favviewer_settings;
 
 pub struct SettingsModal {
 	enabled: bool,
@@ -19,9 +18,10 @@ pub enum Msg {
 	SetEnabled(bool),
 	ChangeColumnCount(u8),
 	ChangeContainer(Container),
-	SettingsResponse(Response),
+	SettingsResponse(SettingsResponse),
 	ToggleFavViewerSettings,
 	ChangeOnMediaClick(OnMediaClick),
+	ChangeSocialFilteredMode(ArticleFilteredMode),
 }
 
 #[derive(Properties, PartialEq, Clone)]
@@ -35,7 +35,7 @@ impl Component for SettingsModal {
 
 	fn create(ctx: &Context<Self>) -> Self {
 		let mut settings_agent = SettingsAgent::bridge(ctx.link().callback(Msg::SettingsResponse));
-		settings_agent.send(Request::RegisterModal);
+		settings_agent.send(SettingsRequest::RegisterModal);
 
 		Self {
 			enabled: false,
@@ -54,26 +54,27 @@ impl Component for SettingsModal {
 				if let DisplayMode::Single {container, ..} = &mut self.favviewer_settings {
 					*container = c;
 				}
-				self.settings_agent.send(Request::UpdateFavViewer(self.favviewer_settings));
+				self.settings_agent.send(SettingsRequest::UpdateFavViewer(self.favviewer_settings));
 				true
 			}
 			Msg::ChangeColumnCount(new_column_count) => {
 				if let DisplayMode::Single {column_count, ..} = &mut self.favviewer_settings {
 					*column_count = new_column_count;
 				}
-				self.settings_agent.send(Request::UpdateFavViewer(self.favviewer_settings));
+				self.settings_agent.send(SettingsRequest::UpdateFavViewer(self.favviewer_settings));
 				true
 			}
 			Msg::SettingsResponse(response) => match response {
-				Response::ShowModal => {
+				SettingsResponse::ShowModal => {
 					self.enabled = true;
 					true
 				}
-				Response::UpdateFavViewerSettings(settings) => {
+				SettingsResponse::UpdateFavViewerSettings(settings) => {
 					self.favviewer_settings = settings;
 					true
 				}
-				Response::ChangeOnMediaClick(_) => false
+				SettingsResponse::ChangeOnMediaClick(_) => false,
+				SettingsResponse::ChangeSocialFilteredMode(_) => false,
 			}
 			Msg::ToggleFavViewerSettings => {
 				self.favviewer_settings = match self.favviewer_settings {
@@ -84,11 +85,15 @@ impl Component for SettingsModal {
 						container: Container::Masonry,
 					}
 				};
-				self.settings_agent.send(Request::UpdateFavViewer(self.favviewer_settings));
+				self.settings_agent.send(SettingsRequest::UpdateFavViewer(self.favviewer_settings));
 				true
 			}
 			Msg::ChangeOnMediaClick(on_media_click) => {
-				self.settings_agent.send(Request::ChangeOnMediaClick(on_media_click));
+				self.settings_agent.send(SettingsRequest::ChangeOnMediaClick(on_media_click));
+				false
+			}
+			Msg::ChangeSocialFilteredMode(article_filtered_mode) => {
+				self.settings_agent.send(SettingsRequest::ChangeSocialFilteredMode(article_filtered_mode));
 				false
 			}
 		}
@@ -104,16 +109,8 @@ impl Component for SettingsModal {
 
 		html! {
 			<ModalCard enabled={self.enabled} modal_title="Settings" close_modal_callback={ctx.link().callback(|_| Msg::SetEnabled(false))}>
-				<div class="block control">
-					<label class="label">{"On Media Click"}</label>
-					<Dropdown current_label={DropdownLabel::Text(ctx.props().app_settings.on_media_click.name().to_owned())}>
-						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeOnMediaClick(OnMediaClick::Like))}> {OnMediaClick::Like.name()} </a>
-						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeOnMediaClick(OnMediaClick::Expand))}> {OnMediaClick::Expand.name()} </a>
-						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeOnMediaClick(OnMediaClick::MarkAsRead))}> {OnMediaClick::MarkAsRead.name()} </a>
-						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeOnMediaClick(OnMediaClick::Hide))}> {OnMediaClick::Hide.name()} </a>
-						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeOnMediaClick(OnMediaClick::Nothing))}> {OnMediaClick::Nothing.name()} </a>
-					</Dropdown>
-				</div>
+				{ view_on_media_click_setting(ctx.props().app_settings.on_media_click, ctx.link().callback(Msg::ChangeOnMediaClick)) }
+				{ view_article_filtered_mode_setting(ctx.props().app_settings.article_filtered_mode, ctx.link().callback(Msg::ChangeSocialFilteredMode)) }
 				<div class="field">
   					<div class="control">
 						<label class="checkbox">
@@ -149,92 +146,34 @@ impl Component for SettingsModal {
 	}
 }
 
-pub struct SettingsAgent {
-	link: AgentLink<Self>,
-	favviewer_settings: Option<DisplayMode>,
-	modal: Option<HandlerId>,
-	sidebar: Option<HandlerId>,
-	model: Option<HandlerId>,
-}
-
-pub enum Request {
-	ShowModal,
-	InitFavViewerSettings(DisplayMode),
-	UpdateFavViewer(DisplayMode),
-	RegisterModal,
-	RegisterSidebar,
-	RegisterModel,
-	ChangeOnMediaClick(OnMediaClick),
-}
-
-pub enum Response {
-	ShowModal,
-	UpdateFavViewerSettings(DisplayMode),
-	ChangeOnMediaClick(OnMediaClick),
-}
-
-impl Agent for SettingsAgent {
-	type Reach = AgentContext<Self>;
-	type Message = ();
-	type Input = Request;
-	type Output = Response;
-
-	fn create(link: AgentLink<Self>) -> Self {
-		Self {
-			link,
-			favviewer_settings: None,
-			modal: None,
-			sidebar: None,
-			model: None,
-		}
+pub fn view_on_media_click_setting(current: OnMediaClick, callback: Callback<OnMediaClick>) -> Html {
+	html! {
+		<div class="block control">
+			<label class="label">{"On Media Click"}</label>
+			<Dropdown current_label={DropdownLabel::Text(current.to_string())}>
+				{ for OnMediaClick::iter().map(|item| {
+					let callback = callback.clone();
+					html! {
+						<a class="dropdown-item" onclick={Callback::from(move |_| callback.emit(*item))}> {item.to_string()} </a>
+					}
+				}) }
+			</Dropdown>
+		</div>
 	}
+}
 
-	fn update(&mut self, _msg: Self::Message) {}
-
-	fn handle_input(&mut self, msg: Self::Input, id: HandlerId) {
-		match msg {
-			Request::ShowModal => {
-				if let Some(modal) = self.modal {
-					self.link.respond(modal, Response::ShowModal);
-				}
-			}
-			Request::InitFavViewerSettings(settings) => {
-				self.favviewer_settings = Some(settings);
-			}
-			Request::UpdateFavViewer(settings) => {
-				self.favviewer_settings = Some(settings);
-				update_favviewer_settings(settings);
-				if let Some(modal) = self.modal {
-					self.link.respond(modal, Response::UpdateFavViewerSettings(settings))
-				}
-			}
-			Request::RegisterModal => {
-				self.modal = Some(id);
-				if let Some(settings) = self.favviewer_settings {
-					self.link.respond(id, Response::UpdateFavViewerSettings(settings));
-				}
-			}
-			Request::RegisterSidebar => {
-				self.sidebar = Some(id);
-			}
-			Request::RegisterModel => {
-				self.model = Some(id);
-			}
-			Request::ChangeOnMediaClick(on_media_click) => {
-				if let Some(model) = self.model {
-					self.link.respond(model, Response::ChangeOnMediaClick(on_media_click));
-				}
-			}
-		}
-	}
-
-	fn disconnected(&mut self, id: HandlerId) {
-		if self.modal == Some(id) {
-			self.modal = None
-		}else if self.sidebar == Some(id) {
-			self.sidebar = None
-		}else if self.model == Some(id) {
-			self.model = None
-		}
+pub fn view_article_filtered_mode_setting(current: ArticleFilteredMode, callback: Callback<ArticleFilteredMode>) -> Html {
+	html! {
+		<div class="block control">
+			<label class="label">{"Article Filtered Mode"}</label>
+			<Dropdown current_label={DropdownLabel::Text(current.to_string())}>
+				{ for ArticleFilteredMode::iter().map(|item| {
+					let callback = callback.clone();
+					html! {
+						<a class="dropdown-item" onclick={Callback::from(move |_| callback.emit(*item))}> {item.to_string()} </a>
+					}
+				}) }
+			</Dropdown>
+		</div>
 	}
 }

@@ -5,7 +5,7 @@ use serde::{Serialize, Deserialize};
 use crate::error::Result;
 use crate::articles::{ArticleComponent, ArticleView, ArticleRefType, ArticleBox, ArticleRc};
 use crate::settings::AppSettings;
-use crate::timeline::ArticleTuple;
+use crate::timeline::ArticleStruct;
 
 /*Make containers dynamic?
 	Would require to dynamically list container names without an enum/vec
@@ -66,7 +66,7 @@ pub struct Props {
 	pub column_count: u8,
 	pub rtl: bool,
 	pub article_view: ArticleView,
-	pub articles: Vec<ArticleTuple>,
+	pub articles: Vec<ArticleStruct>,
 	pub lazy_loading: bool,
 	pub app_settings: AppSettings,
 }
@@ -82,21 +82,22 @@ impl PartialEq for Props {
 			self.app_settings == other.app_settings &&
 			self.articles.len() == other.articles.len() &&
 			self.articles.iter().zip(other.articles.iter())
-				.all(|((weak_a, a, ref_a), (weak_b, b, ref_b))| Weak::ptr_eq(&weak_a, &weak_b) && a == b && ref_a == ref_b)
+				.all(|(a, b)| Weak::ptr_eq(&a.weak, &b.weak) && &a.boxed == &b.boxed && a.boxed_ref == b.boxed_ref)
 	}
 }
 
+//TODO Pass ArticleStruct whole to article props
 #[function_component(ColumnContainer)]
 pub fn column_container(props: &Props) -> Html {
 	let article_view = props.article_view.clone();
 	html! {
 		<div class="articlesContainer columnContainer" ref={props.container_ref.clone()}>
-			{ for props.articles.iter().enumerate().map(|(load_priority, (weak_ref, article, ref_article))| html! {
+			{ for props.articles.iter().enumerate().map(|(load_priority, article_struct)| html! {
 				<ArticleComponent
-					key={format!("{:?}{}", &article_view, article.id())}
-					weak_ref={weak_ref.clone()}
-					article={article.clone_data()}
-					ref_article={ref_article.clone_data()}
+					key={format!("{:?}{}", &article_view, article_struct.boxed.id())}
+					weak_ref={article_struct.weak.clone()}
+					article={article_struct.boxed.clone_data()}
+					ref_article={article_struct.boxed_ref.clone_data()}
 					{article_view}
 					compact={props.compact}
 					animated_as_gifs={props.animated_as_gifs}
@@ -105,6 +106,7 @@ pub fn column_container(props: &Props) -> Html {
 					load_priority={load_priority as u32}
 					column_count=1
 					app_settings={props.app_settings}
+					included={article_struct.included}
 				/>
 			}) }
 		</div>
@@ -122,12 +124,12 @@ pub fn row_container(props: &Props) -> Html {
 	let article_view = props.article_view.clone();
 	html! {
 		<div class="articlesContainer rowContainer" ref={props.container_ref.clone()} {style}>
-			{ for props.articles.iter().enumerate().map(|(load_priority, (weak_ref, article, ref_article))| { html! {
+			{ for props.articles.iter().enumerate().map(|(load_priority, article_struct)| { html! {
 				<ArticleComponent
-					key={format!("{:?}{}", &article_view, article.id())}
-					weak_ref={weak_ref.clone()}
-					article={article.clone_data()}
-					ref_article={ref_article.clone_data()}
+					key={format!("{:?}{}", &article_view, article_struct.boxed.id())}
+					weak_ref={article_struct.weak.clone()}
+					article={article_struct.boxed.clone_data()}
+					ref_article={article_struct.boxed_ref.clone_data()}
 					{article_view}
 					compact={props.compact}
 					animated_as_gifs={props.animated_as_gifs}
@@ -137,14 +139,20 @@ pub fn row_container(props: &Props) -> Html {
 					load_priority={load_priority as u32}
 					column_count={props.column_count}
 					app_settings={props.app_settings}
+					included={article_struct.included}
 				/>
 			}}) }
 		</div>
 	}
 }
 
-type StrongArticleTuple = (ArticleRc, ArticleBox, ArticleRefType<ArticleBox>);
-type RatioedArticle<'a> = (&'a StrongArticleTuple, f32);
+struct StrongArticleStruct {
+	strong: ArticleRc,
+	included: bool,
+	boxed: ArticleBox,
+	boxed_ref: ArticleRefType<ArticleBox>
+}
+type RatioedArticle<'a> = (&'a StrongArticleStruct, f32);
 type Column<'a> = (u8, Vec<RatioedArticle<'a>>);
 
 fn relative_height(article: &ArticleBox) -> f32 {
@@ -164,8 +172,8 @@ fn height(column: &Column) -> f32 {
 	}
 }
 
-fn to_columns<'a>(articles: impl Iterator<Item = &'a StrongArticleTuple>, column_count: &'a u8, rtl: &bool) -> impl Iterator<Item = impl Iterator<Item = &'a StrongArticleTuple>> {
-	let ratioed_articles = articles.map(|t| (t, relative_height(&t.1)));
+fn to_columns<'a>(articles: impl Iterator<Item = &'a StrongArticleStruct>, column_count: &'a u8, rtl: &bool) -> impl Iterator<Item = impl Iterator<Item = &'a StrongArticleStruct>> {
+	let ratioed_articles = articles.map(|article_struct| (article_struct, relative_height(&article_struct.boxed)));
 
 	let mut columns = ratioed_articles.fold(
 		(0..*column_count)
@@ -193,7 +201,12 @@ fn to_columns<'a>(articles: impl Iterator<Item = &'a StrongArticleTuple>, column
 
 #[function_component(MasonryContainer)]
 pub fn masonry_container(props: &Props) -> Html {
-	let strongs: Vec<StrongArticleTuple> = props.articles.iter().filter_map(|t| t.0.upgrade().map(|s| (s, t.1.clone_data(), t.2.clone_data()))).collect();
+	let strongs: Vec<StrongArticleStruct> = props.articles.iter().filter_map(|article_struct| article_struct.weak.upgrade().map(|strong| StrongArticleStruct {
+		strong,
+		included: article_struct.included,
+		boxed: article_struct.boxed.clone_data(),
+		boxed_ref: article_struct.boxed_ref.clone_data()
+	})).collect();
 	let columns = to_columns(strongs.iter(), &props.column_count, &props.rtl);
 
 	let article_view = props.article_view.clone();
@@ -201,12 +214,12 @@ pub fn masonry_container(props: &Props) -> Html {
 		<div class="articlesContainer masonryContainer" ref={props.container_ref.clone()}>
 			{ for columns.enumerate().map(|(column_index, column)| html! {
 				<div class="masonryColumn" key={column_index}>
-					{ for column.enumerate().map(|(load_priority, (strong_ref, article, ref_article))| html! {
+					{ for column.enumerate().map(|(load_priority, article_struct)| html! {
 						<ArticleComponent
-							key={format!("{:?}{}", &article_view, article.id())}
-							weak_ref={Rc::downgrade(strong_ref)}
-							article={article.clone_data()}
-							ref_article={ref_article.clone_data()}
+							key={format!("{:?}{}", &article_view, article_struct.boxed.id())}
+							weak_ref={Rc::downgrade(&article_struct.strong)}
+							article={article_struct.boxed.clone_data()}
+							ref_article={article_struct.boxed_ref.clone_data()}
 							{article_view}
 							compact={props.compact}
 							animated_as_gifs={props.animated_as_gifs}
@@ -215,6 +228,7 @@ pub fn masonry_container(props: &Props) -> Html {
 							load_priority={load_priority as u32 + column_index as u32 * props.column_count as u32}
 							column_count={props.column_count}
 							app_settings={props.app_settings}
+							included={article_struct.included}
 						/>
 					}) }
 				</div>

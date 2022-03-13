@@ -10,6 +10,7 @@ use crate::articles::component::{ViewProps, Msg as ParentMsg};
 use crate::components::{Dropdown, DropdownLabel, FA, IconType, font_awesome::Props as FAProps};
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest};
 use crate::log_warn;
+use crate::settings::ArticleFilteredMode;
 
 pub struct SocialArticle {
 	compact: Option<bool>,
@@ -100,7 +101,7 @@ impl Component for SocialArticle {
 								</a>
 								{ self.view_timestamp(&actual_borrow) }
 							</div>
-							{ match ctx.props().hide_text || self.is_filtered_out(&actual_borrow) {
+							{ match ctx.props().hide_text || self.is_minimized(ctx) {
 								false => html! {<p class="articleParagraph">{ actual_borrow.view_text() }</p>},
 								true => html! {},
 							} }
@@ -109,7 +110,7 @@ impl Component for SocialArticle {
 						{ self.view_nav(ctx, &actual_borrow) }
 					</div>
 				</div>
-				{ match self.is_filtered_out(&actual_borrow) {
+				{ match self.is_minimized(ctx) {
 					false => self.view_media(ctx, &actual_borrow),
 					true => html! {},
 				} }
@@ -150,8 +151,8 @@ impl SocialArticle {
 		}
 	}
 
-	fn is_filtered_out(&self, actual_article: &Ref<dyn ArticleData>) -> bool {
-		actual_article.marked_as_read() || actual_article.hidden()
+	fn is_minimized(&self, ctx: &Context<Self>) -> bool {
+		!ctx.props().included && ctx.props().app_settings.article_filtered_mode == ArticleFilteredMode::Minimized
 	}
 
 	fn view_timestamp(&self, actual_article: &Ref<dyn ArticleData>) -> Html {
@@ -187,7 +188,7 @@ impl SocialArticle {
 		html! {
 			<nav class="level is-mobile">
 				<div class="level-left">
-					{ match self.is_filtered_out(&actual_borrow) {
+					{ match self.is_minimized(ctx) {
 						false => html! {
 							<>
 								<a
@@ -348,7 +349,7 @@ impl SocialArticle {
 					</a>
 					{ self.view_timestamp(&quoted) }
 				</div>
-				{ match self.is_filtered_out(&quoted) {
+				{ match self.is_minimized(ctx) {
 					false => html! {
 						<>
 							{ match ctx.props().hide_text {
