@@ -89,8 +89,6 @@ test.describe('main timeline', () => {
 
 		await page.click('button:has-text("Set as main timeline")');
 
-		await page.click('.timeline:first-child .timelineHeader .timelineButtons button[title = "Expand options"]');
-
 		await page.click('text=Remove timeline');
 
 		await page.click('#sidebarButtons button[title = "Multiple Timelines"]');

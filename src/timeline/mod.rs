@@ -488,10 +488,6 @@ impl Component for Timeline {
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
-		if ctx.props().hide {
-			return html! {}
-		}
-
 		let articles = self.sectioned_articles();
 
 		let articles: Vec<ArticleTuple> = articles.into_iter()
@@ -519,7 +515,7 @@ impl Component for Timeline {
 			None
 		};
 		html! {
-			<div class={classes!("timeline", if ctx.props().main_timeline { Some("mainTimeline") } else { None })} {style}>
+			<div class={classes!("timeline", if ctx.props().main_timeline { Some("mainTimeline") } else { None }, if ctx.props().hide { Some("is-hidden") } else { None })} {style}>
 				<ModalCard enabled={self.show_choose_endpoint} modal_title="Choose Endpoints" close_modal_callback={ctx.link().callback(|_| Msg::SetChooseEndpointModal(false))}>
 					<ChooseEndpoints
 						timeline_endpoints={Rc::downgrade(&self.endpoints)}
