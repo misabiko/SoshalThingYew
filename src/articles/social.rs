@@ -5,7 +5,7 @@ use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsValue;
 use yew_agent::{Dispatcher, Dispatched};
 
-use crate::articles::{ArticleData, ArticleRefType, MediaType};
+use crate::articles::{ArticleBox, ArticleData, ArticleRefType, MediaType};
 use crate::articles::component::{ViewProps, Msg as ParentMsg};
 use crate::components::{Dropdown, DropdownLabel, FA, IconType, font_awesome::Props as FAProps};
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest};
@@ -58,34 +58,27 @@ impl Component for SocialArticle {
 		let strong = ctx.props().article_struct.weak.upgrade().unwrap();
 		let borrow = strong.borrow();
 
-		let (actual_article, retweet_header, quoted_post) = match &borrow.referenced_article() {
-			ArticleRefType::NoRef => (strong.clone(), html! {}, html! {}),
-			ArticleRefType::Reposted(a) => (
-				a.upgrade().unwrap(),
-				self.view_repost_label(ctx, &borrow),
-				html! {}
-			),
-			ArticleRefType::Quote(a) => {
-				let quote_article = a.upgrade().unwrap();
-				let quote_borrow = quote_article.borrow();
-				(strong.clone(), html! {}, self.view_quoted_post(ctx, &quote_borrow))
-			}
-			ArticleRefType::RepostedQuote(a, q) => {
-				let reposted_article = a.upgrade().unwrap();
-
-				let quoted_article = q.upgrade().unwrap();
-				let quoted_borrow = quoted_article.borrow();
-				(reposted_article.clone(), self.view_repost_label(ctx, &borrow), self.view_quoted_post(ctx, &quoted_borrow))
-			}
+		let ref_article = &borrow.referenced_article();
+		let retweet_header = if let ArticleRefType::Reposted(a) | ArticleRefType::RepostedQuote(a, _) = ref_article {
+			self.view_repost_label(ctx, &ctx.props().article_struct.boxed)
+		}else {
+			html! {}
 		};
-		let actual_borrow = actual_article.borrow();
+		let quoted_post = if let ArticleRefType::Quote(q) | ArticleRefType::RepostedQuote(_, q) = &ctx.props().article_struct.boxed_ref {
+			self.view_quoted_post(ctx, &q)
+		}else {
+			html! {}
+		};
+		let actual_article = ctx.props().article_struct.boxed_actual_article();
 
-		let actual_c = actual_article.clone();
-		let on_username_click = ctx.link().callback(move |e: MouseEvent| {
-			let borrow = actual_c.borrow();
-			e.prevent_default();
-			Msg::AddUserTimeline(borrow.service(), borrow.author_username())
-		});
+		let on_username_click = {
+			let service = actual_article.service();
+			let author_username = actual_article.author_username();
+			ctx.link().callback(move |e: MouseEvent| {
+				e.prevent_default();
+				Msg::AddUserTimeline(service, author_username.clone())
+			})
+		};
 
 		html! {
 			<>
@@ -95,23 +88,23 @@ impl Component for SocialArticle {
 					<div class="media-content">
 						<div class="content">
 							<div class="articleHeader">
-								<a class="names" href={actual_borrow.author_url()} target="_blank" rel="noopener noreferrer" onclick={on_username_click}>
-									<strong>{ actual_borrow.author_name() }</strong>
-									<small>{ format!("@{}", actual_borrow.author_username()) }</small>
+								<a class="names" href={actual_article.author_url()} target="_blank" rel="noopener noreferrer" onclick={on_username_click}>
+									<strong>{ actual_article.author_name() }</strong>
+									<small>{ format!("@{}", actual_article.author_username()) }</small>
 								</a>
-								{ self.view_timestamp(&actual_borrow) }
+								{ self.view_timestamp(&actual_article) }
 							</div>
 							{ match ctx.props().hide_text || self.is_minimized(ctx) {
-								false => html! {<p class="articleParagraph">{ actual_borrow.view_text() }</p>},
+								false => html! {<p class="articleParagraph">{ actual_article.view_text() }</p>},
 								true => html! {},
 							} }
 						</div>
 						{ quoted_post }
-						{ self.view_nav(ctx, &actual_borrow) }
+						{ self.view_nav(ctx, &actual_article) }
 					</div>
 				</div>
 				{ match self.is_minimized(ctx) {
-					false => self.view_media(ctx, &actual_borrow),
+					false => self.view_media(ctx, &actual_article),
 					true => html! {},
 				} }
 			</>
@@ -155,7 +148,7 @@ impl SocialArticle {
 		!ctx.props().article_struct.included && ctx.props().app_settings.article_filtered_mode == ArticleFilteredMode::Minimized
 	}
 
-	fn view_timestamp(&self, actual_article: &Ref<dyn ArticleData>) -> Html {
+	fn view_timestamp(&self, actual_article: &ArticleBox) -> Html {
 		let label = short_timestamp(&actual_article.creation_time());
 
 		html! {
@@ -165,7 +158,7 @@ impl SocialArticle {
 		}
 	}
 
-	fn view_nav(&self, ctx: &Context<Self>, actual_borrow: &Ref<dyn ArticleData>) -> Html {
+	fn view_nav(&self, ctx: &Context<Self>, actual_article: &ArticleBox) -> Html {
 		//TODO Use cloned data instead of borrowing immutable
 		let strong = ctx.props().article_struct.weak.upgrade().unwrap();
 		let borrow = strong.borrow();
@@ -192,11 +185,11 @@ impl SocialArticle {
 						false => html! {
 							<>
 								<a
-									class={classes!("level-item", "articleButton", "repostButton", if actual_borrow.reposted() { Some("repostedPostButton") } else { None })}
+									class={classes!("level-item", "articleButton", "repostButton", if actual_article.reposted() { Some("repostedPostButton") } else { None })}
 									onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::Repost))}
 								>
 									<FA icon="retweet"/>
-									{match actual_borrow.repost_count() {
+									{match actual_article.repost_count() {
 										0 => html! {},
 										count => html! {
 											<span>{ count }</span>
@@ -204,11 +197,11 @@ impl SocialArticle {
 									}}
 								</a>
 								<a
-									class={classes!("level-item", "articleButton", "likeButton", if actual_borrow.liked() { Some("likedPostButton") } else { None })}
+									class={classes!("level-item", "articleButton", "likeButton", if actual_article.liked() { Some("likedPostButton") } else { None })}
 									onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::Like))}
 								>
-									<FA icon="heart" icon_type={if actual_borrow.liked() { IconType::Solid } else { IconType::Regular }}/>
-									{match actual_borrow.like_count() {
+									<FA icon="heart" icon_type={if actual_article.liked() { IconType::Solid } else { IconType::Regular }}/>
+									{match actual_article.like_count() {
 										0 => html! {},
 										count => html! {
 											<span>{ count }</span>
@@ -216,7 +209,7 @@ impl SocialArticle {
 									}}
 								</a>
 								{
-									match &actual_borrow.media().iter().map(|m| m.media_type).collect::<Vec<MediaType>>()[..] {
+									match &actual_article.media().iter().map(|m| m.media_type).collect::<Vec<MediaType>>()[..] {
 										[MediaType::Image, ..] => html! {
 											<a class="level-item articleButton" onclick={&ontoggle_compact}>
 												<FA icon={if self.is_compact(ctx) { "compress" } else { "expand" }}/>
@@ -226,7 +219,7 @@ impl SocialArticle {
 									}
 								}
 								<a class="level-item articleButton" onclick={&ontoggle_markasread}>
-									<FA icon={if actual_borrow.marked_as_read() { "eye" } else { "eye-slash" }}/>
+									<FA icon={if actual_article.marked_as_read() { "eye" } else { "eye-slash" }}/>
 								</a>
 								{
 									match ctx.props().in_modal {
@@ -249,7 +242,7 @@ impl SocialArticle {
 						<a class="dropdown-item" onclick={&ontoggle_compact}> { if self.is_compact(ctx) { "Show expanded" } else { "Show compact" } } </a>
 						<a
 							class="dropdown-item"
-							href={ actual_borrow.url() }
+							href={ actual_article.url() }
 							target="_blank" rel="noopener noreferrer"
 						>
 							{ "External Link" }
@@ -264,9 +257,9 @@ impl SocialArticle {
 		}
 	}
 
-	fn view_media(&self, ctx: &Context<Self>, actual_borrow: &Ref<dyn ArticleData>) -> Html {
+	fn view_media(&self, ctx: &Context<Self>, actual_article: &ArticleBox) -> Html {
 		//TODO Show thumbnail if queue_load_info
-		let type_src_tuples: Vec<(MediaType, String)> = actual_borrow.media().iter().map(|m| (m.media_type, m.src.clone())).collect();
+		let type_src_tuples: Vec<(MediaType, String)> = actual_article.media().iter().map(|m| (m.media_type, m.src.clone())).collect();
 		match (&ctx.props().animated_as_gifs, &type_src_tuples[..]) {
 			(_, [(MediaType::Image, _), ..]) => {
 				let images_classes = classes!(
@@ -278,26 +271,26 @@ impl SocialArticle {
 				html! {
 					<div class={images_classes.clone()}> {
 						match &type_src_tuples[..] {
-							[(MediaType::Image, src)] => self.view_image(ctx, actual_borrow, src.clone(), false),
+							[(MediaType::Image, src)] => self.view_image(ctx, actual_article, src.clone(), false),
 							[(MediaType::Image, src_1), (MediaType::Image, src_2)] => html! {
 								<>
-									{ self.view_image(ctx, actual_borrow, src_1.clone(), false) }
-									{ self.view_image(ctx, actual_borrow, src_2.clone(), false) }
+									{ self.view_image(ctx, actual_article, src_1.clone(), false) }
+									{ self.view_image(ctx, actual_article, src_2.clone(), false) }
 								</>
 							},
 							[(MediaType::Image, src_1), (MediaType::Image, src_2), (MediaType::Image, src_3)] => html! {
 								<>
-									{ self.view_image(ctx, actual_borrow, src_1.clone(), false) }
-									{ self.view_image(ctx, actual_borrow, src_2.clone(), false) }
-									{ self.view_image(ctx, actual_borrow, src_3.clone(), true) }
+									{ self.view_image(ctx, actual_article, src_1.clone(), false) }
+									{ self.view_image(ctx, actual_article, src_2.clone(), false) }
+									{ self.view_image(ctx, actual_article, src_3.clone(), true) }
 								</>
 							},
 							[(MediaType::Image, src_1), (MediaType::Image, src_2), (MediaType::Image, src_3), (MediaType::Image, src_4), ..] => html! {
 								<>
-									{ self.view_image(ctx, actual_borrow, src_1.clone(), false) }
-									{ self.view_image(ctx, actual_borrow, src_2.clone(), false) }
-									{ self.view_image(ctx, actual_borrow, src_3.clone(), false) }
-									{ self.view_image(ctx, actual_borrow, src_4.clone(), false) }
+									{ self.view_image(ctx, actual_article, src_1.clone(), false) }
+									{ self.view_image(ctx, actual_article, src_2.clone(), false) }
+									{ self.view_image(ctx, actual_article, src_3.clone(), false) }
+									{ self.view_image(ctx, actual_article, src_4.clone(), false) }
 								</>
 							},
 							_ => html! {{"unexpected media format"}}
@@ -324,7 +317,7 @@ impl SocialArticle {
 		}
 	}
 
-	fn view_image(&self, ctx: &Context<Self>, actual_borrow: &Ref<dyn ArticleData>, image: String, is_large_third: bool) -> Html {
+	fn view_image(&self, ctx: &Context<Self>, actual_article: &ArticleBox, image: String, is_large_third: bool) -> Html {
 		let media_holder_classes = classes!(
 			"mediaHolder",
 			if self.is_compact(ctx) { Some("mediaHolderCompact") } else { None },
@@ -334,12 +327,12 @@ impl SocialArticle {
 		html! {
 			<div class={media_holder_classes}>
 				<div class="is-hidden imgPlaceholder"/>
-				<img alt={actual_borrow.id()} src={image} onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnMediaClick))}/>
+				<img alt={actual_article.id()} src={image} onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::OnMediaClick))}/>
 			</div>
 		}
 	}
 
-	fn view_quoted_post(&self, ctx: &Context<Self>, quoted: &Ref<dyn ArticleData>) -> Html {
+	fn view_quoted_post(&self, ctx: &Context<Self>, quoted: &ArticleBox) -> Html {
 		html! {
 			<div class="quotedPost">
 				<div class="articleHeader">
@@ -365,7 +358,7 @@ impl SocialArticle {
 		}
 	}
 
-	fn view_repost_label(&self, ctx: &Context<Self>, repost: &Ref<dyn ArticleData>) -> Html {
+	fn view_repost_label(&self, ctx: &Context<Self>, repost: &ArticleBox) -> Html {
 		let service = repost.service();
 		let username = repost.author_username();
 		let onclick = ctx.link().callback(move |e: MouseEvent| {

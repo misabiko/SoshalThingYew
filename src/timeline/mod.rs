@@ -51,12 +51,20 @@ pub struct ArticleStruct {
 	pub weak: ArticleWeak,
 	pub included: bool,
 	pub boxed: ArticleBox,
+	pub boxed_actual_article_opt: Option<ArticleBox>,
 	pub boxed_ref: ArticleRefType<ArticleBox>,
 }
 
 impl ArticleStruct {
 	pub fn global_id(&self) -> String {
 		format!("{}{}", &self.boxed.service(), &self.boxed.id())
+	}
+
+	pub fn boxed_actual_article(&self) -> &ArticleBox {
+		match &self.boxed_actual_article_opt {
+			Some(a) => a,
+			None => &self.boxed,
+		}
 	}
 }
 
@@ -66,6 +74,7 @@ impl Clone for ArticleStruct {
 			weak: self.weak.clone(),
 			included: self.included,
 			boxed: self.boxed.clone_data(),
+			boxed_actual_article_opt: self.boxed_actual_article_opt.as_ref().map(|a| a.clone_data()),
 			boxed_ref: self.boxed_ref.clone_data(),
 		}
 	}
@@ -535,6 +544,7 @@ impl Component for Timeline {
 					weak: a,
 					included,
 					boxed: borrow.clone_data(),
+					boxed_actual_article_opt: borrow.actual_article().map(|a| a.upgrade().expect("upgrading actual article").borrow().clone_data()),
 					boxed_ref: match borrow.referenced_article() {
 						ArticleRefType::NoRef => ArticleRefType::NoRef,
 						ArticleRefType::Reposted(a) => ArticleRefType::Reposted(

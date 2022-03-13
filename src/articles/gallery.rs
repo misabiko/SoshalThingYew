@@ -41,11 +41,6 @@ impl Component for GalleryArticle {
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
-		let actual_article = match &ctx.props().article_struct.boxed_ref {
-			ArticleRefType::NoRef | ArticleRefType::Quote(_) => &ctx.props().article_struct.boxed,
-			ArticleRefType::Reposted(a) | ArticleRefType::RepostedQuote(a, _) => a,
-		};
-
 		let style = match self.draw_on_top {
 			true => Some("z-index: 20".to_owned()),
 			false => None,
@@ -53,8 +48,8 @@ impl Component for GalleryArticle {
 
 		html! {
 			<div {style}>
-				{ self.view_media(ctx, &actual_article) }
-				{ self.view_nav(ctx, &actual_article) }
+				{ self.view_media(ctx) }
+				{ self.view_nav(ctx) }
 			</div>
 		}
 	}
@@ -84,10 +79,10 @@ impl Component for GalleryArticle {
 }
 
 impl GalleryArticle {
-	fn view_media(&self, ctx: &Context<Self>, actual_article: &ArticleBox) -> Html {
+	fn view_media(&self, ctx: &Context<Self>) -> Html {
 		html! {
 			<>
-				{ for actual_article.media().iter().enumerate().zip(ctx.props().media_load_states.iter()).map(|((i, m), load_state)| {
+				{ for ctx.props().article_struct.boxed_actual_article().media().iter().enumerate().zip(ctx.props().media_load_states.iter()).map(|((i, m), load_state)| {
 					let thumb = match &m.queue_load_info {
 						MediaQueueInfo::LazyLoad { thumbnail, .. } => match thumbnail {
 							Some((src, _)) => Some(html! {
@@ -158,7 +153,8 @@ impl GalleryArticle {
 		}
 	}
 
-	fn view_nav(&self, ctx: &Context<Self>, actual_article: &ArticleBox) -> Html {
+	fn view_nav(&self, ctx: &Context<Self>) -> Html {
+		let actual_article = ctx.props().article_struct.boxed_actual_article();
 		html! {
 			<>
 				<div class="holderBox holderBoxTop">

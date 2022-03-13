@@ -36,6 +36,7 @@ pub trait ArticleData : Debug {
 	fn media(&self) -> Vec<ArticleMedia>;
 	fn json(&self) -> serde_json::Value { serde_json::Value::Null }
 	fn referenced_article(&self) -> ArticleRefType { ArticleRefType::NoRef }
+	fn actual_article(&self) -> Option<ArticleWeak> { None }
 	fn url(&self) -> String;
 	fn marked_as_read(&self) -> bool;
 	fn set_marked_as_read(&mut self, value: bool);
@@ -172,16 +173,13 @@ impl ArticleView {
 	}
 }
 
+//For when you don't have access to ArticleBox
 pub fn actual_article(article: &ArticleWeak) -> ArticleWeak {
-	if let Some(strong) = article.upgrade() {
-		let borrow = strong.borrow();
+	let strong = article.upgrade().unwrap();
+	let borrow = strong.borrow();
 
-		match borrow.referenced_article() {
-			ArticleRefType::NoRef | ArticleRefType::Quote(_) => article.clone(),
-			ArticleRefType::Reposted(a) | ArticleRefType::RepostedQuote(a, _) => a.clone()
-		}
-	}else {
-		log::warn!("Couldn't unwrap article.");
-		article.clone()
+	match borrow.actual_article() {
+		Some(a) => a,
+		None => article.clone(),
 	}
 }

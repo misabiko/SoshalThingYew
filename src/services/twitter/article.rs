@@ -211,6 +211,12 @@ impl ArticleData for TweetArticleData {
 			),
 		}
 	}
+	fn actual_article(&self) -> Option<ArticleWeak> {
+		match self.referenced_article() {
+			ArticleRefType::NoRef | ArticleRefType::Quote(_) => None,
+			ArticleRefType::Reposted(a) | ArticleRefType::RepostedQuote(a, _) => Some(a.clone())
+		}
+	}
 	fn url(&self) -> String {
 		format!("https://twitter.com/{}/status/{}", &self.author_username(), &self.id())
 	}
