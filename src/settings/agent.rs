@@ -1,8 +1,8 @@
 use yew_agent::{Agent, AgentLink, HandlerId, Context as AgentContext};
 
-use super::{OnMediaClick, ArticleFilteredMode};
 use crate::DisplayMode;
 use crate::services::storages::update_favviewer_settings;
+use crate::settings::ChangeSettingMsg;
 
 pub struct SettingsAgent {
 	link: AgentLink<Self>,
@@ -19,16 +19,13 @@ pub enum Request {
 	RegisterModal,
 	RegisterSidebar,
 	RegisterModel,
-	//TODO Make subrequest enum
-	ChangeOnMediaClick(OnMediaClick),
-	ChangeSocialFilteredMode(ArticleFilteredMode),
+	ChangeSetting(ChangeSettingMsg),
 }
 
 pub enum Response {
 	ShowModal,
 	UpdateFavViewerSettings(DisplayMode),
-	ChangeOnMediaClick(OnMediaClick),
-	ChangeSocialFilteredMode(ArticleFilteredMode),
+	ChangeSetting(ChangeSettingMsg),
 }
 
 impl Agent for SettingsAgent {
@@ -78,14 +75,9 @@ impl Agent for SettingsAgent {
 			Request::RegisterModel => {
 				self.model = Some(id);
 			}
-			Request::ChangeOnMediaClick(on_media_click) => {
+			Request::ChangeSetting(change_msg) => {
 				if let Some(model) = self.model {
-					self.link.respond(model, Response::ChangeOnMediaClick(on_media_click));
-				}
-			}
-			Request::ChangeSocialFilteredMode(article_filtered_mode) => {
-				if let Some(model) = self.model {
-					self.link.respond(model, Response::ChangeSocialFilteredMode(article_filtered_mode));
+					self.link.respond(model, Response::ChangeSetting(change_msg));
 				}
 			}
 		}

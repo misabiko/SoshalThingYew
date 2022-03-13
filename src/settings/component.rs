@@ -3,7 +3,7 @@ use yew_agent::{Bridge, Bridged};
 use web_sys::HtmlInputElement;
 use wasm_bindgen::JsCast;
 
-use super::{AppSettings, OnMediaClick, ArticleFilteredMode, SettingsAgent, SettingsResponse, SettingsRequest};
+use super::{AppSettings, ChangeSettingMsg, OnMediaClick, ArticleFilteredMode, SettingsAgent, SettingsResponse, SettingsRequest};
 use crate::modals::ModalCard;
 use crate::components::{Dropdown, DropdownLabel};
 use crate::{Container, DisplayMode};
@@ -20,8 +20,7 @@ pub enum Msg {
 	ChangeContainer(Container),
 	SettingsResponse(SettingsResponse),
 	ToggleFavViewerSettings,
-	ChangeOnMediaClick(OnMediaClick),
-	ChangeSocialFilteredMode(ArticleFilteredMode),
+	ChangeSetting(ChangeSettingMsg),
 }
 
 #[derive(Properties, PartialEq, Clone)]
@@ -73,8 +72,7 @@ impl Component for SettingsModal {
 					self.favviewer_settings = settings;
 					true
 				}
-				SettingsResponse::ChangeOnMediaClick(_) => false,
-				SettingsResponse::ChangeSocialFilteredMode(_) => false,
+				SettingsResponse::ChangeSetting(_) => false,
 			}
 			Msg::ToggleFavViewerSettings => {
 				self.favviewer_settings = match self.favviewer_settings {
@@ -88,12 +86,8 @@ impl Component for SettingsModal {
 				self.settings_agent.send(SettingsRequest::UpdateFavViewer(self.favviewer_settings));
 				true
 			}
-			Msg::ChangeOnMediaClick(on_media_click) => {
-				self.settings_agent.send(SettingsRequest::ChangeOnMediaClick(on_media_click));
-				false
-			}
-			Msg::ChangeSocialFilteredMode(article_filtered_mode) => {
-				self.settings_agent.send(SettingsRequest::ChangeSocialFilteredMode(article_filtered_mode));
+			Msg::ChangeSetting(change_msg) => {
+				self.settings_agent.send(SettingsRequest::ChangeSetting(change_msg));
 				false
 			}
 		}
@@ -109,8 +103,18 @@ impl Component for SettingsModal {
 
 		html! {
 			<ModalCard enabled={self.enabled} modal_title="Settings" close_modal_callback={ctx.link().callback(|_| Msg::SetEnabled(false))}>
-				{ view_on_media_click_setting(ctx.props().app_settings.on_media_click, ctx.link().callback(Msg::ChangeOnMediaClick)) }
-				{ view_article_filtered_mode_setting(ctx.props().app_settings.article_filtered_mode, ctx.link().callback(Msg::ChangeSocialFilteredMode)) }
+				{ view_on_media_click_setting(
+					ctx.props().app_settings.on_media_click,
+					ctx.link().callback(Msg::ChangeSetting)
+				) }
+				{ view_article_filtered_mode_setting(
+					ctx.props().app_settings.article_filtered_mode,
+					ctx.link().callback(Msg::ChangeSetting)
+				) }
+				{ view_keep_column_count_setting(
+					ctx.props().app_settings.keep_column_count,
+					ctx.link().callback(Msg::ChangeSetting)
+				) }
 				<div class="field">
   					<div class="control">
 						<label class="checkbox">
@@ -146,7 +150,7 @@ impl Component for SettingsModal {
 	}
 }
 
-pub fn view_on_media_click_setting(current: OnMediaClick, callback: Callback<OnMediaClick>) -> Html {
+pub fn view_on_media_click_setting(current: OnMediaClick, callback: Callback<ChangeSettingMsg>) -> Html {
 	html! {
 		<div class="block control">
 			<label class="label">{"On Media Click"}</label>
@@ -154,7 +158,7 @@ pub fn view_on_media_click_setting(current: OnMediaClick, callback: Callback<OnM
 				{ for OnMediaClick::iter().map(|item| {
 					let callback = callback.clone();
 					html! {
-						<a class="dropdown-item" onclick={Callback::from(move |_| callback.emit(*item))}> {item.to_string()} </a>
+						<a class="dropdown-item" onclick={Callback::from(move |_| callback.emit(ChangeSettingMsg::OnMediaClick(*item)))}> {item.to_string()} </a>
 					}
 				}) }
 			</Dropdown>
@@ -162,7 +166,7 @@ pub fn view_on_media_click_setting(current: OnMediaClick, callback: Callback<OnM
 	}
 }
 
-pub fn view_article_filtered_mode_setting(current: ArticleFilteredMode, callback: Callback<ArticleFilteredMode>) -> Html {
+pub fn view_article_filtered_mode_setting(current: ArticleFilteredMode, callback: Callback<ChangeSettingMsg>) -> Html {
 	html! {
 		<div class="block control">
 			<label class="label">{"Article Filtered Mode"}</label>
@@ -170,10 +174,21 @@ pub fn view_article_filtered_mode_setting(current: ArticleFilteredMode, callback
 				{ for ArticleFilteredMode::iter().map(|item| {
 					let callback = callback.clone();
 					html! {
-						<a class="dropdown-item" onclick={Callback::from(move |_| callback.emit(*item))}> {item.to_string()} </a>
+						<a class="dropdown-item" onclick={Callback::from(move |_| callback.emit(ChangeSettingMsg::ArticleFilteredMode(*item)))}> {item.to_string()} </a>
 					}
 				}) }
 			</Dropdown>
+		</div>
+	}
+}
+
+pub fn view_keep_column_count_setting(checked: bool, callback: Callback<ChangeSettingMsg>) -> Html {
+	html! {
+		<div class="block control">
+			<label class="checkbox">
+				<input type="checkbox" {checked} onclick={Callback::from(move |_| callback.emit(ChangeSettingMsg::KeepColumnCount(!checked)))}/>
+				{ " Keep column count when not enough articles" }
+			</label>
 		</div>
 	}
 }

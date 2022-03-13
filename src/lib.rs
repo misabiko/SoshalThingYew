@@ -34,6 +34,7 @@ use services::{
 use sidebar::Sidebar;
 use timeline::{Props as TimelineProps, Timeline, TimelineId, Container};
 use timeline::agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse};
+use crate::settings::ChangeSettingMsg;
 
 #[derive(PartialEq, Clone, Copy, Serialize, Deserialize)]
 #[serde(tag = "type")]
@@ -214,6 +215,7 @@ impl Component for Model {
 			app_settings: AppSettings {
 				on_media_click: OnMediaClick::MarkAsRead,
 				article_filtered_mode: ArticleFilteredMode::Hidden,
+				keep_column_count: true,
 			},
 			_settings_agent,
 		}
@@ -367,12 +369,12 @@ impl Component for Model {
 				true
 			}
 			Msg::SettingsResponse(response) => match response {
-				SettingsResponse::ChangeOnMediaClick(on_media_click) => {
-					self.app_settings.on_media_click = on_media_click;
-					true
-				}
-				SettingsResponse::ChangeSocialFilteredMode(article_filtered_mode) => {
-					self.app_settings.article_filtered_mode = article_filtered_mode;
+				SettingsResponse::ChangeSetting(change_msg) => {
+					match change_msg {
+						ChangeSettingMsg::OnMediaClick(on_media_click) => self.app_settings.on_media_click = on_media_click,
+						ChangeSettingMsg::ArticleFilteredMode(article_filtered_mode) => self.app_settings.article_filtered_mode = article_filtered_mode,
+						ChangeSettingMsg::KeepColumnCount(keep_column_count) => self.app_settings.keep_column_count = keep_column_count
+					}
 					true
 				}
 				_ => false

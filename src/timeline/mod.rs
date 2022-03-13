@@ -24,7 +24,7 @@ use crate::choose_endpoints::ChooseEndpoints;
 use crate::components::{Dropdown, DropdownLabel, FA, IconSize};
 use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest, Response as ArticleActionsResponse};
 use crate::services::storages::{hide_article, mark_article_as_read};
-use crate::settings::{AppSettings, AppSettingsOverride, OnMediaClick, ArticleFilteredMode, view_on_media_click_setting, view_article_filtered_mode_setting};
+use crate::settings::{AppSettings, AppSettingsOverride, ArticleFilteredMode, view_on_media_click_setting, view_article_filtered_mode_setting, view_keep_column_count_setting, ChangeSettingMsg};
 use crate::TimelineEndpointWrapper;
 
 pub type TimelineId = i8;
@@ -113,8 +113,7 @@ pub enum Msg {
 	Redraw,
 	MarkAllAsRead,
 	HideAll,
-	ChangeOnMediaClick(OnMediaClick),
-	ChangeSocialFilteredMode(ArticleFilteredMode),
+	ChangeSetting(ChangeSettingMsg),
 }
 
 #[derive(Properties, Clone)]
@@ -487,12 +486,12 @@ impl Component for Timeline {
 				self.article_actions.send(ArticleActionsRequest::RedrawTimelines(self.filtered_sectioned_articles(ctx)));
 				false
 			}
-			Msg::ChangeOnMediaClick(on_media_click) => {
-				self.app_settings_override.on_media_click = Some(on_media_click);
-				true
-			}
-			Msg::ChangeSocialFilteredMode(article_filtered_mode) => {
-				self.app_settings_override.article_filtered_mode = Some(article_filtered_mode);
+			Msg::ChangeSetting(change_msg) => {
+				match change_msg {
+					ChangeSettingMsg::OnMediaClick(on_media_click) => self.app_settings_override.on_media_click = Some(on_media_click),
+					ChangeSettingMsg::ArticleFilteredMode(article_filtered_mode) => self.app_settings_override.article_filtered_mode = Some(article_filtered_mode),
+					ChangeSettingMsg::KeepColumnCount(keep_column_count) => self.app_settings_override.keep_column_count = Some(keep_column_count),
+				}
 				true
 			}
 		}
@@ -530,6 +529,14 @@ impl Component for Timeline {
 		} else {
 			None
 		};
+
+		let article_count = articles.len() as u8;
+		let column_count = if self.app_settings(ctx).keep_column_count {
+			self.column_count(ctx)
+		}else {
+			std::cmp::min(self.column_count(ctx), std::cmp::max(1, article_count))
+		};
+
 		html! {
 			<div class={classes!("timeline", if ctx.props().main_timeline { Some("mainTimeline") } else { None }, if ctx.props().hide { Some("is-hidden") } else { None })} {style}>
 				<ModalCard enabled={self.show_choose_endpoint} modal_title="Choose Endpoints" close_modal_callback={ctx.link().callback(|_| Msg::SetChooseEndpointModal(false))}>
@@ -578,7 +585,7 @@ impl Component for Timeline {
 					compact: self.compact,
 					animated_as_gifs: self.animated_as_gifs,
 					hide_text: self.hide_text,
-					column_count: self.column_count(ctx),
+					column_count,
 					rtl: self.rtl,
 					lazy_loading: self.lazy_loading,
 					article_view: self.article_view,
@@ -650,10 +657,13 @@ impl Timeline {
 				{ match self.container(ctx) {
 					Container::Column => html! {},
 					_ => html! {
-						<div class="block control">
-							<label class="label">{"Column Count"}</label>
-							<input class="input" type="number" value={self.column_count(ctx).to_string()} min=1 oninput={on_column_count_input}/>
-						</div>
+						<>
+							<div class="block control">
+								<label class="label">{"Column Count"}</label>
+								<input class="input" type="number" value={self.column_count(ctx).to_string()} min=1 oninput={on_column_count_input}/>
+							</div>
+							{ view_keep_column_count_setting(self.app_settings(ctx).keep_column_count, ctx.link().callback(Msg::ChangeSetting)) }
+						</>
 					},
 				} }
 				{ match ctx.props().main_timeline {
@@ -759,8 +769,8 @@ impl Timeline {
 					},
 					ArticleView::Gallery => html! {},
 				} }
-				{ view_on_media_click_setting(self.app_settings(ctx).on_media_click, ctx.link().callback(Msg::ChangeOnMediaClick)) }
-				{ view_article_filtered_mode_setting(self.app_settings(ctx).article_filtered_mode, ctx.link().callback(Msg::ChangeSocialFilteredMode)) }
+				{ view_on_media_click_setting(self.app_settings(ctx).on_media_click, ctx.link().callback(Msg::ChangeSetting)) }
+				{ view_article_filtered_mode_setting(self.app_settings(ctx).article_filtered_mode, ctx.link().callback(Msg::ChangeSetting)) }
 				<div class="block control">
 					<button class="button is-danger" onclick={ctx.link().callback(|_| Msg::ClearArticles)}>{"Clear Articles"}</button>
 				</div>
