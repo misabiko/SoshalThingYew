@@ -1,7 +1,6 @@
 mod masonry;
 
 use yew::prelude::*;
-use std::rc::Weak;
 use serde::{Serialize, Deserialize};
 
 pub use masonry::MasonryContainer;
@@ -59,7 +58,7 @@ pub fn view_container(container: &Container, props: Props) -> Html {
 	}
 }
 
-#[derive(Properties)]
+#[derive(Properties, PartialEq)]
 pub struct Props {
 	pub container_ref: NodeRef,
 	pub compact: bool,
@@ -74,22 +73,6 @@ pub struct Props {
 	pub app_settings: AppSettings,
 }
 
-impl PartialEq for Props {
-	fn eq(&self, other: &Self) -> bool {
-		self.compact == other.compact &&
-			self.animated_as_gifs == other.animated_as_gifs &&
-			self.hide_text == other.hide_text &&
-			self.column_count == other.column_count &&
-			self.lazy_loading == other.lazy_loading &&
-			self.article_view == other.article_view &&
-			self.app_settings == other.app_settings &&
-			self.articles.len() == other.articles.len() &&
-			self.articles.iter().zip(other.articles.iter())
-				.all(|(a, b)| Weak::ptr_eq(&a.weak, &b.weak) && &a.boxed == &b.boxed && a.boxed_ref == b.boxed_ref)
-	}
-}
-
-//TODO Pass ArticleStruct whole to article props
 #[function_component(ColumnContainer)]
 pub fn column_container(props: &Props) -> Html {
 	let article_view = props.article_view.clone();
@@ -98,9 +81,7 @@ pub fn column_container(props: &Props) -> Html {
 			{ for props.articles.iter().enumerate().map(|(load_priority, article_struct)| html! {
 				<ArticleComponent
 					key={format!("{:?}{}", &article_view, article_struct.boxed.id())}
-					weak_ref={article_struct.weak.clone()}
-					article={article_struct.boxed.clone_data()}
-					ref_article={article_struct.boxed_ref.clone_data()}
+					article_struct={article_struct.clone()}
 					{article_view}
 					compact={props.compact}
 					animated_as_gifs={props.animated_as_gifs}
@@ -109,7 +90,6 @@ pub fn column_container(props: &Props) -> Html {
 					load_priority={load_priority as u32}
 					column_count=1
 					app_settings={props.app_settings}
-					included={article_struct.included}
 				/>
 			}) }
 		</div>
@@ -130,9 +110,7 @@ pub fn row_container(props: &Props) -> Html {
 			{ for props.articles.iter().enumerate().map(|(load_priority, article_struct)| { html! {
 				<ArticleComponent
 					key={format!("{:?}{}", &article_view, article_struct.boxed.id())}
-					weak_ref={article_struct.weak.clone()}
-					article={article_struct.boxed.clone_data()}
-					ref_article={article_struct.boxed_ref.clone_data()}
+					article_struct={article_struct.clone()}
 					{article_view}
 					compact={props.compact}
 					animated_as_gifs={props.animated_as_gifs}
@@ -142,7 +120,6 @@ pub fn row_container(props: &Props) -> Html {
 					load_priority={load_priority as u32}
 					column_count={props.column_count}
 					app_settings={props.app_settings}
-					included={article_struct.included}
 				/>
 			}}) }
 		</div>

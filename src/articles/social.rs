@@ -55,7 +55,7 @@ impl Component for SocialArticle {
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
-		let strong = ctx.props().weak_ref.upgrade().unwrap();
+		let strong = ctx.props().article_struct.weak.upgrade().unwrap();
 		let borrow = strong.borrow();
 
 		let (actual_article, retweet_header, quoted_post) = match &borrow.referenced_article() {
@@ -152,7 +152,7 @@ impl SocialArticle {
 	}
 
 	fn is_minimized(&self, ctx: &Context<Self>) -> bool {
-		!ctx.props().included && ctx.props().app_settings.article_filtered_mode == ArticleFilteredMode::Minimized
+		!ctx.props().article_struct.included && ctx.props().app_settings.article_filtered_mode == ArticleFilteredMode::Minimized
 	}
 
 	fn view_timestamp(&self, actual_article: &Ref<dyn ArticleData>) -> Html {
@@ -167,7 +167,7 @@ impl SocialArticle {
 
 	fn view_nav(&self, ctx: &Context<Self>, actual_borrow: &Ref<dyn ArticleData>) -> Html {
 		//TODO Use cloned data instead of borrowing immutable
-		let strong = ctx.props().weak_ref.upgrade().unwrap();
+		let strong = ctx.props().article_struct.weak.upgrade().unwrap();
 		let borrow = strong.borrow();
 		let ontoggle_compact = ctx.link().callback(|_| Msg::ToggleCompact);
 		let ontoggle_markasread = ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleMarkAsRead));
@@ -384,12 +384,12 @@ impl SocialArticle {
 	}
 
 	fn view_avatar(&self, ctx: &Context<Self>) -> Html {
-		let article = &ctx.props().article;
+		let article = &ctx.props().article_struct.boxed;
 		match article.author_avatar_url().as_str() {
 			"" => html! {},
 			url => html! {
 				<figure class="media-left">
-					{ match &ctx.props().ref_article {
+					{ match &ctx.props().article_struct.boxed_ref {
 						ArticleRefType::NoRef | ArticleRefType::Quote(_) => html! {
 							<p class="image is-64x64">
 								<img src={url.to_owned()} alt={format!("{}'s avatar", &article.author_username())}/>

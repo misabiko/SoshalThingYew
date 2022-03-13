@@ -51,7 +51,27 @@ pub struct ArticleStruct {
 	pub weak: ArticleWeak,
 	pub included: bool,
 	pub boxed: ArticleBox,
-	pub boxed_ref: ArticleRefType < ArticleBox >,
+	pub boxed_ref: ArticleRefType<ArticleBox>,
+}
+
+impl Clone for ArticleStruct {
+	fn clone(&self) -> Self {
+		Self {
+			weak: self.weak.clone(),
+			included: self.included,
+			boxed: self.boxed.clone_data(),
+			boxed_ref: self.boxed_ref.clone_data(),
+		}
+	}
+}
+
+impl PartialEq for ArticleStruct {
+	fn eq(&self, other: &Self) -> bool {
+		Weak::ptr_eq(&self.weak, &other.weak) &&
+			self.included == other.included &&
+			&self.boxed == &other.boxed &&
+			self.boxed_ref == other.boxed_ref
+	}
 }
 
 pub struct Timeline {
@@ -215,7 +235,7 @@ impl Component for Timeline {
 			section: (0, 50),
 			rtl: ctx.props().rtl,
 			lazy_loading: true,
-			app_settings_override: AppSettingsOverride::default()
+			app_settings_override: AppSettingsOverride::default(),
 		}
 	}
 
@@ -277,7 +297,7 @@ impl Component for Timeline {
 			Msg::ChangeContainer(c) => {
 				if ctx.props().main_timeline {
 					self.timeline_agent.send(TimelineAgentRequest::SetMainContainer(c))
-				}else {
+				} else {
 					self._container = c;
 				}
 				true
@@ -289,7 +309,7 @@ impl Component for Timeline {
 			Msg::ChangeColumnCount(new_column_count) => {
 				if ctx.props().main_timeline {
 					self.timeline_agent.send(TimelineAgentRequest::SetMainColumnCount(new_column_count))
-				}else {
+				} else {
 					self._column_count = new_column_count;
 				}
 				true
@@ -359,7 +379,7 @@ impl Component for Timeline {
 							}
 
 							borrow.anim = None;
-						}) as Box<dyn FnOnce()>)
+						}) as Box<dyn FnOnce()>),
 					};
 					let mut options = web_sys::AddEventListenerOptions::new();
 					window.add_event_listener_with_callback_and_add_event_listener_options(
@@ -445,7 +465,7 @@ impl Component for Timeline {
 							borrow.set_marked_as_read(new_marked_as_read);
 
 							mark_article_as_read(borrow.service(), borrow.id(), new_marked_as_read);
-						},
+						}
 						ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => {
 							let strong = a.upgrade().unwrap();
 							let mut borrow = strong.borrow_mut();
@@ -471,7 +491,7 @@ impl Component for Timeline {
 							borrow.set_hidden(new_hidden);
 
 							hide_article(borrow.service(), borrow.id(), new_hidden);
-						},
+						}
 						ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => {
 							let strong = a.upgrade().unwrap();
 							let mut borrow = strong.borrow_mut();
@@ -520,7 +540,7 @@ impl Component for Timeline {
 							a.upgrade().expect("upgrading reposted quote").borrow().clone_data(),
 							q.upgrade().expect("upgrading quoted article").borrow().clone_data(),
 						)
-					}
+					},
 				}
 			}).collect();
 
@@ -533,7 +553,7 @@ impl Component for Timeline {
 		let article_count = articles.len() as u8;
 		let column_count = if self.app_settings(ctx).keep_column_count {
 			self.column_count(ctx)
-		}else {
+		} else {
 			std::cmp::min(self.column_count(ctx), std::cmp::max(1, article_count))
 		};
 
@@ -601,7 +621,7 @@ impl Timeline {
 	fn container(&self, ctx: &Context<Self>) -> Container {
 		if ctx.props().main_timeline {
 			ctx.props().container
-		}else {
+		} else {
 			self._container
 		}
 	}
@@ -609,7 +629,7 @@ impl Timeline {
 	fn column_count(&self, ctx: &Context<Self>) -> u8 {
 		if ctx.props().main_timeline {
 			ctx.props().column_count
-		}else {
+		} else {
 			self._column_count
 		}
 	}
@@ -836,7 +856,7 @@ impl Timeline {
 					</Dropdown>
 				</div>
 			}
-		}else {
+		} else {
 			html! {}
 		};
 
@@ -880,7 +900,7 @@ impl Timeline {
 					let strong = a.upgrade();
 					if let Some(strong) = strong {
 						(a, included && instance.filter.filter(&strong.borrow()) != instance.inverted)
-					}else {
+					} else {
 						(a, false)
 					}
 				}).collect();
@@ -913,7 +933,7 @@ impl Timeline {
 	fn filtered_sectioned_articles(&self, ctx: &Context<Self>) -> Vec<ArticleWeak> {
 		self.sectioned_articles(ctx).into_iter().filter_map(|(a, included)| if included {
 			Some(a)
-		}else {
+		} else {
 			None
 		}).collect()
 	}

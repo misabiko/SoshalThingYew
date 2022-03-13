@@ -1,4 +1,3 @@
-use std::rc::Weak;
 use yew::prelude::*;
 use yew_agent::{Dispatcher, Dispatched, Bridge, Bridged};
 use web_sys::console;
@@ -7,13 +6,14 @@ use wasm_bindgen::JsValue;
 use std::convert::identity;
 
 use super::{ArticleView, SocialArticle, GalleryArticle};
-use crate::articles::{ArticleRefType, MediaQueueInfo, ArticleMedia, ArticleWeak, ArticleBox};
+use crate::articles::{ArticleRefType, MediaQueueInfo, ArticleMedia};
 use crate::articles::media_load_queue::{MediaLoadAgent, Request as MediaLoadRequest, Response as MediaLoadResponse, MediaLoadState};
 use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest};
 use crate::modals::Modal;
 use crate::log_warn;
 use crate::services::storages::mark_article_as_read;
 use crate::settings::{AppSettings, OnMediaClick, ArticleFilteredMode};
+use crate::timeline::ArticleStruct;
 
 #[wasm_bindgen]
 extern "C" {
@@ -53,11 +53,9 @@ pub enum Msg {
 	MediaLoadResponse(MediaLoadResponse),
 }
 
-#[derive(Properties)]
+#[derive(Properties, PartialEq, Clone)]
 pub struct Props {
-	pub weak_ref: ArticleWeak,
-	pub article: ArticleBox,
-	pub ref_article: ArticleRefType<ArticleBox>,
+	pub article_struct: ArticleStruct,
 	pub article_view: ArticleView,
 	pub load_priority: u32,
 	pub compact: bool,
@@ -69,52 +67,11 @@ pub struct Props {
 	pub lazy_loading: bool,
 	pub column_count: u8,
 	pub app_settings: AppSettings,
-	pub included: bool
 }
 
-impl PartialEq for Props {
-	fn eq(&self, other: &Self) -> bool {
-		Weak::ptr_eq(&self.weak_ref, &other.weak_ref) &&
-			self.article_view == other.article_view &&
-			self.compact == other.compact &&
-			self.animated_as_gifs == other.animated_as_gifs &&
-			self.hide_text == other.hide_text &&
-			self.style == other.style &&
-			self.lazy_loading == other.lazy_loading &&
-			self.load_priority == other.load_priority &&
-			self.column_count == other.column_count &&
-			&self.article == &other.article &&
-			&self.ref_article == &other.ref_article &&
-			self.app_settings == other.app_settings &&
-			self.included == other.included
-	}
-}
-
-impl Clone for Props {
-	fn clone(&self) -> Self {
-		Props {
-			weak_ref: self.weak_ref.clone(),
-			article: self.article.clone_data(),
-			ref_article: self.ref_article.clone_data(),
-			article_view: self.article_view,
-			compact: self.compact,
-			animated_as_gifs: self.animated_as_gifs,
-			hide_text: self.hide_text,
-			style: self.style.clone(),
-			lazy_loading: self.lazy_loading,
-			load_priority: self.load_priority,
-			column_count: self.column_count,
-			app_settings: self.app_settings,
-			included: self.included,
-		}
-	}
-}
-
-#[derive(Properties)]
+#[derive(Properties, PartialEq, Clone)]
 pub struct ViewProps {
-	pub weak_ref: ArticleWeak,
-	pub article: ArticleBox,
-	pub ref_article: ArticleRefType<ArticleBox>,
+	pub article_struct: ArticleStruct,
 	pub compact: bool,
 	pub animated_as_gifs: bool,
 	pub hide_text: bool,
@@ -125,43 +82,6 @@ pub struct ViewProps {
 	pub media_load_states: Vec<MediaLoadState>,
 	pub column_count: u8,
 	pub app_settings: AppSettings,
-	pub included: bool
-}
-
-impl PartialEq<ViewProps> for ViewProps {
-	fn eq(&self, other: &ViewProps) -> bool {
-		self.compact == other.compact &&
-			self.animated_as_gifs == other.animated_as_gifs &&
-			self.hide_text == other.hide_text &&
-			self.in_modal == other.in_modal &&
-			self.media_load_states == other.media_load_states &&
-			self.column_count == other.column_count &&
-			Weak::ptr_eq(&self.weak_ref, &other.weak_ref) &&
-			&self.article == &other.article &&
-			&self.ref_article == &other.ref_article &&
-			self.app_settings == other.app_settings &&
-			self.included == other.included
-	}
-}
-
-impl Clone for ViewProps {
-	fn clone(&self) -> Self {
-		Self {
-			weak_ref: self.weak_ref.clone(),
-			article: self.article.clone_data(),
-			ref_article: self.ref_article.clone_data(),
-			compact: self.compact,
-			animated_as_gifs: self.animated_as_gifs,
-			hide_text: self.hide_text,
-			in_modal: self.in_modal,
-			video_ref: self.video_ref.clone(),
-			parent_callback: self.parent_callback.clone(),
-			media_load_states: self.media_load_states.clone(),
-			column_count: self.column_count,
-			app_settings: self.app_settings,
-			included: self.included,
-		}
-	}
 }
 
 impl Component for ArticleComponent {
@@ -173,8 +93,8 @@ impl Component for ArticleComponent {
 
 		//TODO Avoid first-come-first-serve on initial load
 		if ctx.props().lazy_loading {
-			let id = ctx.props().article.id();
-			let media = ctx.props().article.media();
+			let id = ctx.props().article_struct.boxed.id();
+			let media = ctx.props().article_struct.boxed.media();
 			let media_to_queue = media.iter()
 				.enumerate()
 				.filter_map(|(i, m)|
@@ -191,21 +111,21 @@ impl Component for ArticleComponent {
 			article_actions: ArticleActionsAgent::dispatcher(),
 			video_ref: NodeRef::default(),
 			component_ref: NodeRef::default(),
-			previous_media: ctx.props().article.media(),
-			media_load_states: make_media_load_states(ctx.props().lazy_loading, ctx.props().article.media()),
+			previous_media: ctx.props().article_struct.boxed.media(),
+			media_load_states: make_media_load_states(ctx.props().lazy_loading, ctx.props().article_struct.boxed.media()),
 			media_load_queue,
 		}
 	}
 
 	fn changed(&mut self, ctx: &Context<Self>) -> bool {
-		let new_media = ctx.props().article.media();
+		let new_media = ctx.props().article_struct.boxed.media();
 		if self.previous_media != new_media {
-			self.media_load_states = make_media_load_states(ctx.props().lazy_loading, ctx.props().article.media());
+			self.media_load_states = make_media_load_states(ctx.props().lazy_loading, ctx.props().article_struct.boxed.media());
 
 			//TODO Avoid first-come-first-serve on initial load
 			if self.previous_media.is_empty() && ctx.props().lazy_loading {
-				let id = ctx.props().article.id();
-				let media = ctx.props().article.media();
+				let id = ctx.props().article_struct.boxed.id();
+				let media = ctx.props().article_struct.boxed.media();
 				let media_to_queue = media.iter()
 					.enumerate()
 					.filter_map(|(i, m)|
@@ -240,7 +160,7 @@ impl Component for ArticleComponent {
 				false
 			}
 			Msg::LogJsonData => {
-				let json = &ctx.props().article.json();
+				let json = &ctx.props().article_struct.boxed.json();
 				let is_mobile = web_sys::window().expect("couldn't get global window")
 					.navigator().user_agent()
 					.map(|n| n.contains("Mobile"))
@@ -253,26 +173,26 @@ impl Component for ArticleComponent {
 				false
 			}
 			Msg::LogData => {
-				log::info!("{:#?}", &ctx.props().article);
+				log::info!("{:#?}", &ctx.props().article_struct.boxed);
 				false
 			}
 			Msg::FetchData => {
-				self.article_actions.send(ArticleActionsRequest::FetchData(match ctx.props().article.referenced_article() {
-					ArticleRefType::NoRef | ArticleRefType::Quote(_) => ctx.props().weak_ref.clone(),
+				self.article_actions.send(ArticleActionsRequest::FetchData(match ctx.props().article_struct.boxed.referenced_article() {
+					ArticleRefType::NoRef | ArticleRefType::Quote(_) => ctx.props().article_struct.weak.clone(),
 					ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => a,
 				}));
 				false
 			}
 			Msg::Like => {
-				self.article_actions.send(ArticleActionsRequest::Like(match ctx.props().article.referenced_article() {
-					ArticleRefType::NoRef | ArticleRefType::Quote(_) => ctx.props().weak_ref.clone(),
+				self.article_actions.send(ArticleActionsRequest::Like(match ctx.props().article_struct.boxed.referenced_article() {
+					ArticleRefType::NoRef | ArticleRefType::Quote(_) => ctx.props().article_struct.weak.clone(),
 					ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => a,
 				}));
 				false
 			}
 			Msg::Repost => {
-				self.article_actions.send(ArticleActionsRequest::Repost(match ctx.props().article.referenced_article() {
-					ArticleRefType::NoRef | ArticleRefType::Quote(_) => ctx.props().weak_ref.clone(),
+				self.article_actions.send(ArticleActionsRequest::Repost(match ctx.props().article_struct.boxed.referenced_article() {
+					ArticleRefType::NoRef | ArticleRefType::Quote(_) => ctx.props().article_struct.weak.clone(),
 					ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => a,
 				}));
 				false
@@ -286,7 +206,7 @@ impl Component for ArticleComponent {
 					}
 				}
 
-				let strong = ctx.props().weak_ref.upgrade().unwrap();
+				let strong = ctx.props().article_struct.weak.upgrade().unwrap();
 				let mut borrow = strong.borrow_mut();
 
 				match borrow.referenced_article() {
@@ -306,7 +226,7 @@ impl Component for ArticleComponent {
 					}
 				};
 
-				self.article_actions.send(ArticleActionsRequest::RedrawTimelines(vec![ctx.props().weak_ref.clone()]));
+				self.article_actions.send(ArticleActionsRequest::RedrawTimelines(vec![ctx.props().article_struct.weak.clone()]));
 
 				true
 			}
@@ -319,7 +239,7 @@ impl Component for ArticleComponent {
 					}
 				}
 
-				let strong = ctx.props().weak_ref.upgrade().unwrap();
+				let strong = ctx.props().article_struct.weak.upgrade().unwrap();
 				let mut borrow = strong.borrow_mut();
 
 				match borrow.referenced_article() {
@@ -336,7 +256,7 @@ impl Component for ArticleComponent {
 					}
 				};
 
-				self.article_actions.send(ArticleActionsRequest::RedrawTimelines(vec![ctx.props().weak_ref.clone()]));
+				self.article_actions.send(ArticleActionsRequest::RedrawTimelines(vec![ctx.props().article_struct.weak.clone()]));
 
 				true
 			}
@@ -345,14 +265,14 @@ impl Component for ArticleComponent {
 				true
 			}
 			Msg::LoadMedia(index) => {
-				self.media_load_queue.send(MediaLoadRequest::LoadMedia(ctx.props().article.id(), index));
+				self.media_load_queue.send(MediaLoadRequest::LoadMedia(ctx.props().article_struct.boxed.id(), index));
 				self.media_load_states[index] = MediaLoadState::Loading;
 				true
 			}
 			Msg::MediaLoaded(index) => {
-				self.media_load_queue.send(MediaLoadRequest::MediaLoaded(ctx.props().article.id(), index));
+				self.media_load_queue.send(MediaLoadRequest::MediaLoaded(ctx.props().article_struct.boxed.id(), index));
 				self.media_load_states[index] = MediaLoadState::Loaded;
-				let article = ctx.props().weak_ref.upgrade().unwrap();
+				let article = ctx.props().article_struct.weak.upgrade().unwrap();
 				let mut article = article.borrow_mut();
 				article.media_loaded(index);
 				//This is for future loads of the article, no need to redraw
@@ -372,10 +292,8 @@ impl Component for ArticleComponent {
 		let view_html = match &ctx.props().article_view {
 			ArticleView::Social => html! {
 				<SocialArticle
-					key={ctx.props().article.id()}
-					weak_ref={ctx.props().weak_ref.clone()}
-					article={ctx.props().article.clone_data()}
-					ref_article={ctx.props().ref_article.clone_data()}
+					key={ctx.props().article_struct.boxed.id()}
+					article_struct={ctx.props().article_struct.clone()}
 					compact={ctx.props().compact}
 					animated_as_gifs={ctx.props().animated_as_gifs}
 					hide_text={ctx.props().hide_text}
@@ -385,15 +303,12 @@ impl Component for ArticleComponent {
 					media_load_states={self.media_load_states.clone()}
 					column_count={ctx.props().column_count}
 					app_settings={ctx.props().app_settings}
-					included={ctx.props().included}
 				/>
 			},
 			ArticleView::Gallery => html! {
 				<GalleryArticle
-					key={ctx.props().article.id()}
-					weak_ref={ctx.props().weak_ref.clone()}
-					article={ctx.props().article.clone_data()}
-					ref_article={ctx.props().ref_article.clone_data()}
+					key={ctx.props().article_struct.boxed.id()}
+					article_struct={ctx.props().article_struct.clone()}
 					compact={ctx.props().compact}
 					animated_as_gifs={ctx.props().animated_as_gifs}
 					hide_text={ctx.props().hide_text}
@@ -403,7 +318,6 @@ impl Component for ArticleComponent {
 					media_load_states={self.media_load_states.clone()}
 					column_count={ctx.props().column_count}
 					app_settings={ctx.props().app_settings}
-					included={ctx.props().included}
 				/>
 			},
 		};
@@ -414,7 +328,7 @@ impl Component for ArticleComponent {
 				ArticleView::Social => "socialArticle",
 				ArticleView::Gallery => "galleryArticle",
 			},
-			if !ctx.props().included && ctx.props().app_settings.article_filtered_mode == ArticleFilteredMode::Transparent {
+			if !ctx.props().article_struct.included && ctx.props().app_settings.article_filtered_mode == ArticleFilteredMode::Transparent {
 				Some("transparent")
 			}else {
 				None
@@ -423,7 +337,7 @@ impl Component for ArticleComponent {
 
 		//For some reason, the view needs at least a wrapper otherwise when changing article_view, the container draws everything in reverse order...
 		let article_html = html! {
-			<article {class} articleId={ctx.props().article.id()} style={ctx.props().style.clone()} ref={self.component_ref.clone()}>
+			<article {class} articleId={ctx.props().article_struct.boxed.id()} style={ctx.props().style.clone()} ref={self.component_ref.clone()}>
 				{ view_html }
 			</article>
 		};
