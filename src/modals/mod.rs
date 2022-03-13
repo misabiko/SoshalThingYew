@@ -1,7 +1,6 @@
 use yew::prelude::*;
 
 pub mod add_timeline;
-pub mod settings;
 
 pub use add_timeline::AddTimelineModal;
 use crate::components::FA;

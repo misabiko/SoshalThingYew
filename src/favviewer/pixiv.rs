@@ -5,7 +5,7 @@ use gloo_timers::callback::Timeout;
 
 use crate::favviewer::{FavViewerStyle, PageInfo, default_hidden_style};
 use crate::{Model, Props as ModelProps, DisplayMode, EndpointAgent};
-use crate::modals::settings::{SettingsAgent, Request as SettingsAgentRequest};
+use crate::settings::{SettingsAgent, SettingsRequest};
 use crate::timeline::Container;
 use crate::services::{
 	endpoint_agent::{Request as EndpointRequest, TimelineCreationRequest},
@@ -99,7 +99,7 @@ pub fn setup(href: &str) -> bool {
 			column_count: 5,
 		});
 		let mut settings_agent = SettingsAgent::dispatcher();
-		settings_agent.send(SettingsAgentRequest::InitFavViewerSettings(display_mode));
+		settings_agent.send(SettingsRequest::InitFavViewerSettings(display_mode));
 
 		yew::start_app_with_props_in_element::<Model>(mount_point, yew::props! { ModelProps {
 			favviewer: true,

@@ -5,7 +5,7 @@ mod endpoint_options;
 
 use endpoint_options::EndpointOptions;
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest};
-use crate::modals::settings::{SettingsAgent, Request as SettingsAgentRequest};
+use crate::settings::{SettingsAgent, SettingsRequest};
 use crate::components::{FA, IconSize, IconType};
 
 pub struct Sidebar {
@@ -32,7 +32,7 @@ impl Component for Sidebar {
 
 	fn create(_ctx: &Context<Self>) -> Self {
 		let mut settings_agent = SettingsAgent::dispatcher();
-		settings_agent.send(SettingsAgentRequest::RegisterSidebar);
+		settings_agent.send(SettingsRequest::RegisterSidebar);
 
 		Self {
 			expanded: false,
@@ -52,7 +52,7 @@ impl Component for Sidebar {
 				false
 			}
 			Msg::ShowSettings => {
-				self.settings_agent.send(SettingsAgentRequest::ShowModal);
+				self.settings_agent.send(SettingsRequest::ShowModal);
 				false
 			}
 		}

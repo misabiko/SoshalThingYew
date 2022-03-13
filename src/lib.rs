@@ -12,6 +12,7 @@ pub mod favviewer;
 pub mod modals;
 pub mod notifications;
 pub mod services;
+pub mod settings;
 pub mod timeline;
 mod sidebar;
 
@@ -19,22 +20,20 @@ use components::{FA, IconSize};
 use error::Result;
 use favviewer::PageInfo;
 use modals::add_timeline::AddTimelineModal;
-use modals::settings::SettingsModal;
+use settings::{AppSettings, OnMediaClick, SettingsModal, SettingsAgent, SettingsRequest, SettingsResponse};
 use notifications::{NotificationAgent, Request as NotificationRequest, Response as NotificationResponse};
 use services::{
 	Endpoint,
-	endpoint_agent::{EndpointId, EndpointAgent, Request as EndpointRequest, Response as EndpointResponse, TimelineCreationRequest},
+	endpoint_agent::{EndpointId, EndpointAgent, TimelineEndpointWrapper, Request as EndpointRequest, Response as EndpointResponse, TimelineCreationRequest},
 	pixiv::PixivAgent,
 	dummy_service::DummyServiceAgent,
 	twitter::{endpoints::*, TwitterAgent, Request as TwitterRequest, Response as TwitterResponse, SERVICE_INFO as TwitterServiceInfo},
 	youtube::{YouTubeAgent, Request as YouTubeRequest, Response as YouTubeResponse, SERVICE_INFO as YouTubeServiceInfo},
+	storages::SoshalLocalStorage,
 };
 use sidebar::Sidebar;
 use timeline::{Props as TimelineProps, Timeline, TimelineId, Container};
 use timeline::agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse};
-use crate::modals::settings::{SettingsAgent, Request as SettingsRequest, Response as SettingsResponse, Response};
-use crate::services::endpoint_agent::TimelineEndpointWrapper;
-use crate::services::storages::SoshalLocalStorage;
 
 #[derive(PartialEq, Clone, Copy, Serialize, Deserialize)]
 #[serde(tag = "type")]
@@ -58,47 +57,6 @@ pub type TimelinePropsEndpointsClosure = Box<dyn FnOnce(TimelineId, Vec<Timeline
 pub enum TimelineCreationMode {
 	NameEndpoints(String, Vec<TimelineEndpointWrapper>),
 	Props(TimelinePropsClosure),
-}
-
-//TODO Have a ArticleAction enum
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum OnMediaClick {
-	Like,
-	Expand,
-	MarkAsRead,
-	Hide,
-	Nothing,
-}
-
-impl OnMediaClick {
-	pub fn name(&self) -> &'static str {
-		match self {
-			OnMediaClick::Like => "Like",
-			OnMediaClick::Expand => "Expand",
-			OnMediaClick::MarkAsRead => "Mark As Read",
-			OnMediaClick::Hide => "Hide",
-			OnMediaClick::Nothing => "Nothing",
-		}
-	}
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub struct AppSettings {
-	on_media_click: OnMediaClick,
-	//social filtered out effect {nothing, minimized, transparent}
-}
-
-impl AppSettings {
-	pub fn override_settings(&self, settings_override: &AppSettingsOverride) -> Self {
-		Self {
-			on_media_click: settings_override.on_media_click.unwrap_or(self.on_media_click)
-		}
-	}
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Default)]
-pub struct AppSettingsOverride {
-	on_media_click: Option<OnMediaClick>,
 }
 
 #[derive(serde::Deserialize)]
@@ -406,7 +364,7 @@ impl Component for Model {
 				true
 			}
 			Msg::SettingsResponse(response) => match response {
-				Response::ChangeOnMediaClick(on_media_click) => {
+				SettingsResponse::ChangeOnMediaClick(on_media_click) => {
 					self.app_settings.on_media_click = on_media_click;
 					true
 				}

@@ -3,9 +3,10 @@ use web_sys::HtmlInputElement;
 use yew_agent::{Agent, AgentLink, HandlerId, Context as AgentContext, Bridge, Bridged};
 use wasm_bindgen::JsCast;
 
-use super::ModalCard;
-use crate::{AppSettings, Container, DisplayMode, OnMediaClick};
+use super::{AppSettings, OnMediaClick};
+use crate::modals::ModalCard;
 use crate::components::{Dropdown, DropdownLabel};
+use crate::{Container, DisplayMode};
 use crate::services::storages::update_favviewer_settings;
 
 pub struct SettingsModal {

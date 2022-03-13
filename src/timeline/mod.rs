@@ -24,7 +24,8 @@ use crate::choose_endpoints::ChooseEndpoints;
 use crate::components::{Dropdown, DropdownLabel, FA, IconSize};
 use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest, Response as ArticleActionsResponse};
 use crate::services::storages::{hide_article, mark_article_as_read};
-use crate::{AppSettings, AppSettingsOverride, OnMediaClick, TimelineEndpointWrapper};
+use crate::settings::{AppSettings, AppSettingsOverride, OnMediaClick};
+use crate::TimelineEndpointWrapper;
 
 pub type TimelineId = i8;
 

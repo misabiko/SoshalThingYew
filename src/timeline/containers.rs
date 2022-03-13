@@ -1,10 +1,10 @@
 use yew::prelude::*;
 use std::rc::{Rc, Weak};
 use serde::{Serialize, Deserialize};
-use crate::AppSettings;
 
 use crate::error::Result;
 use crate::articles::{ArticleComponent, ArticleView, ArticleRefType, ArticleBox, ArticleRc};
+use crate::settings::AppSettings;
 use crate::timeline::ArticleTuple;
 
 /*Make containers dynamic?
@@ -170,7 +170,7 @@ fn to_columns<'a>(articles: impl Iterator<Item = &'a StrongArticleTuple>, column
 	let mut columns = ratioed_articles.fold(
 		(0..*column_count)
 			.map(|i| (i, Vec::new()))
-			.collect::<Vec::<Column>>(),
+			.collect::<Vec<Column>>(),
 		|mut cols, article| {
 			cols.sort_by(|a, b| {
 				let h_a = height(a);

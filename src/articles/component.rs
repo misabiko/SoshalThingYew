@@ -11,8 +11,9 @@ use crate::articles::{ArticleRefType, MediaQueueInfo, ArticleMedia, ArticleWeak,
 use crate::articles::media_load_queue::{MediaLoadAgent, Request as MediaLoadRequest, Response as MediaLoadResponse, MediaLoadState};
 use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest};
 use crate::modals::Modal;
-use crate::{AppSettings, log_warn, OnMediaClick};
+use crate::log_warn;
 use crate::services::storages::mark_article_as_read;
+use crate::settings::{AppSettings, OnMediaClick};
 
 #[wasm_bindgen]
 extern "C" {
