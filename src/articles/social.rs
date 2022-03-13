@@ -55,16 +55,13 @@ impl Component for SocialArticle {
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
-		let strong = ctx.props().article_struct.weak.upgrade().unwrap();
-		let borrow = strong.borrow();
-
-		let ref_article = &borrow.referenced_article();
-		let retweet_header = if let ArticleRefType::Reposted(a) | ArticleRefType::RepostedQuote(a, _) = ref_article {
-			self.view_repost_label(ctx, &ctx.props().article_struct.boxed)
+		let boxed_ref = &ctx.props().article_struct.boxed_ref;
+		let retweet_header = if let ArticleRefType::Reposted(_) | ArticleRefType::RepostedQuote(_, _) = boxed_ref {
+			self.view_repost_label(ctx)
 		}else {
 			html! {}
 		};
-		let quoted_post = if let ArticleRefType::Quote(q) | ArticleRefType::RepostedQuote(_, q) = &ctx.props().article_struct.boxed_ref {
+		let quoted_post = if let ArticleRefType::Quote(q) | ArticleRefType::RepostedQuote(_, q) = boxed_ref {
 			self.view_quoted_post(ctx, &q)
 		}else {
 			html! {}
@@ -159,17 +156,14 @@ impl SocialArticle {
 	}
 
 	fn view_nav(&self, ctx: &Context<Self>, actual_article: &ArticleBox) -> Html {
-		//TODO Use cloned data instead of borrowing immutable
-		let strong = ctx.props().article_struct.weak.upgrade().unwrap();
-		let borrow = strong.borrow();
 		let ontoggle_compact = ctx.link().callback(|_| Msg::ToggleCompact);
 		let ontoggle_markasread = ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleMarkAsRead));
-		let dropdown_buttons = match &borrow.referenced_article() {
+		let dropdown_buttons = match &ctx.props().article_struct.boxed_ref {
 			ArticleRefType::NoRef => html! {},
 			ArticleRefType::Reposted(_) | ArticleRefType::RepostedQuote(_, _) => html! {
 				<a
 					class="dropdown-item"
-					href={ borrow.url() }
+					href={ ctx.props().article_struct.boxed.url() }
 					target="_blank" rel="noopener noreferrer"
 				>
 					{ "Repost's External Link" }
@@ -358,19 +352,20 @@ impl SocialArticle {
 		}
 	}
 
-	fn view_repost_label(&self, ctx: &Context<Self>, repost: &ArticleBox) -> Html {
-		let service = repost.service();
-		let username = repost.author_username();
+	fn view_repost_label(&self, ctx: &Context<Self>) -> Html {
+		let boxed = &ctx.props().article_struct.boxed;
+		let service = boxed.service();
+		let username = boxed.author_username();
 		let onclick = ctx.link().callback(move |e: MouseEvent| {
 			e.prevent_default();
 			Msg::AddUserTimeline(service.clone(), username.clone())
 		});
 		html! {
 			<div class="repostLabel"
-				href={repost.url()}
+				href={boxed.url()}
 				target="_blank">
 				<a {onclick}>
-					{ format!("{} reposted - {}", &repost.author_name(), short_timestamp(&repost.creation_time())) }
+					{ format!("{} reposted - {}", &boxed.author_name(), short_timestamp(&boxed.creation_time())) }
 				</a>
 			</div>
 		}
