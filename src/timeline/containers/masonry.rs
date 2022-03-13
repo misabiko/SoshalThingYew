@@ -1,7 +1,4 @@
-use std::cell::RefCell;
 use yew::prelude::*;
-use std::collections::HashSet;
-use std::rc::Rc;
 
 use super::Props;
 use crate::articles::{ArticleComponent, ArticleBox};
@@ -29,75 +26,23 @@ impl Component for MasonryContainer {
 	}
 
 	fn changed(&mut self, ctx: &Context<Self>) -> bool {
-		let mut sorted_cached = self.cached_articles.clone();
-		//sorted_cached.sort_by_key(|a| a.global_id());
-		let mut sorted_articles = ctx.props().articles.clone();
-		//sorted_articles.sort_by_key(|a| a.global_id());
-
-		/*{
-			let mut i = 0;
-			let mut cached_it = sorted_cached.iter();
-			let mut it = sorted_articles.iter();
-			let mut str = String::new();
-			loop {
-				match (it.next(), cached_it.next()) {
-					(None, None) => break,
-					t => str.push_str(&format!("{} - {} - {}\n", i, t.0.map(|a| a.global_id()).unwrap_or_default(), t.1.map(|a| a.global_id()).unwrap_or_default())),
-				};
-				i += 1;
-			}
-			log::debug!("{}", str);
-		}
-		let mut cached_it = sorted_cached.iter().peekable();
-		let mut it = sorted_articles.iter();*/
+		let mut cached = self.cached_articles.clone();
+		let mut articles = ctx.props().articles.clone();
 
 		let mut added = Vec::new();
 		let mut removed = Vec::new();
 
-		for a in &sorted_articles {
-			if let Some(index) = sorted_cached.iter().position(|c| c.global_id() == a.global_id()) {
-				sorted_cached.remove(index);
+		for a in &articles {
+			if let Some(index) = cached.iter().position(|c| c.global_id() == a.global_id()) {
+				cached.remove(index);
 			}else {
 				added.push(a);
 			}
 		}
 
-		removed.extend(sorted_cached);
-
-		/*let mut last_cache = None;
-		log::debug!("Start loop!");
-		loop {
-			match (it.next(), last_cache.or_else(|| cached_it.next())) {
-				(None, None) => {
-					log::debug!("\tbreak!");
-					break;
-				}
-				(Some(article), None) => {
-					log::debug!("\tnew article, no more cached!");
-					added.push(article);
-					last_cache = None;
-				}
-				(None, Some(cached_article)) => {
-					log::debug!("\tremoved article!");
-					removed.push(cached_article);
-					last_cache = None;
-				}
-				(Some(article), Some(cached_article)) if &article.global_id() == cached_article => {
-					log::debug!("\tsame article");
-					last_cache = None;
-					continue;
-				}
-				//new article in props
-				(Some(article), Some(cached_article)) => {
-					log::debug!("\tnew article!");
-					added.push(article);
-					last_cache = Some(cached_article);
-				}
-			};
-		}*/
+		removed.extend(cached);
 
 		'outer: for a in removed.into_iter() {
-			//log::debug!("Removing {}", a.global_id());
 			for (column, mut height) in self.columns.iter_mut() {
 				if let Some(index) = column.iter().position(|c_article| c_article.global_id() == a.global_id()) {
 					column.remove(index);
@@ -108,7 +53,6 @@ impl Component for MasonryContainer {
 		}
 
 		for a in added.into_iter() {
-			//log::debug!("Adding {}", a.global_id());
 			let mut smallest = self.columns.iter_mut().min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap()).unwrap();
 			smallest.1 += relative_height(&a.boxed);
 			smallest.0.push(a.clone());
@@ -117,7 +61,7 @@ impl Component for MasonryContainer {
 
 		for column in &mut self.columns {
 			let mut new_column = Vec::<ArticleStruct>::new();
-			for a in &sorted_articles {
+			for a in &articles {
 				if column.0.iter().find(|c_article| c_article.global_id() == a.global_id()).is_some() {
 					new_column.push(a.clone())
 				}
