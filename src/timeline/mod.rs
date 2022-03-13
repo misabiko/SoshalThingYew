@@ -24,7 +24,7 @@ use crate::choose_endpoints::ChooseEndpoints;
 use crate::components::{Dropdown, DropdownLabel, FA, IconSize};
 use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest, Response as ArticleActionsResponse};
 use crate::services::storages::{hide_article, mark_article_as_read};
-use crate::{AppSettings, TimelineEndpointWrapper};
+use crate::{AppSettings, AppSettingsOverride, OnMediaClick, TimelineEndpointWrapper};
 
 pub type TimelineId = i8;
 
@@ -71,6 +71,7 @@ pub struct Timeline {
 	section: (usize, usize),
 	rtl: bool,
 	lazy_loading: bool,
+	app_settings_override: AppSettingsOverride,
 }
 
 pub enum Msg {
@@ -106,6 +107,7 @@ pub enum Msg {
 	Redraw,
 	MarkAllAsRead,
 	HideAll,
+	ChangeOnMediaClick(OnMediaClick),
 }
 
 #[derive(Properties, Clone)]
@@ -207,6 +209,7 @@ impl Component for Timeline {
 			section: (0, 50),
 			rtl: ctx.props().rtl,
 			lazy_loading: true,
+			app_settings_override: AppSettingsOverride::default()
 		}
 	}
 
@@ -477,6 +480,10 @@ impl Component for Timeline {
 				self.article_actions.send(ArticleActionsRequest::RedrawTimelines(self.sectioned_articles()));
 				false
 			}
+			Msg::ChangeOnMediaClick(on_media_click) => {
+				self.app_settings_override.on_media_click = Some(on_media_click);
+				true
+			}
 		}
 	}
 
@@ -564,7 +571,7 @@ impl Component for Timeline {
 					lazy_loading: self.lazy_loading,
 					article_view: self.article_view,
 					articles,
-					app_settings: ctx.props().app_settings.unwrap()
+					app_settings: self.app_settings(ctx)
 				}}) }
 			</div>
 		}
@@ -586,6 +593,10 @@ impl Timeline {
 		}else {
 			self._column_count
 		}
+	}
+
+	fn app_settings(&self, ctx: &Context<Self>) -> AppSettings {
+		ctx.props().app_settings.unwrap().override_settings(&self.app_settings_override)
 	}
 
 	//TODO Collapse boxes
@@ -736,6 +747,16 @@ impl Timeline {
 					},
 					ArticleView::Gallery => html! {},
 				} }
+				<div class="block control">
+					<label class="label">{"On Media Click"}</label>
+					<Dropdown current_label={DropdownLabel::Text(self.app_settings(ctx).on_media_click.name().to_owned())}>
+						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeOnMediaClick(OnMediaClick::Like))}> {OnMediaClick::Like.name()} </a>
+						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeOnMediaClick(OnMediaClick::Expand))}> {OnMediaClick::Expand.name()} </a>
+						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeOnMediaClick(OnMediaClick::MarkAsRead))}> {OnMediaClick::MarkAsRead.name()} </a>
+						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeOnMediaClick(OnMediaClick::Hide))}> {OnMediaClick::Hide.name()} </a>
+						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeOnMediaClick(OnMediaClick::Nothing))}> {OnMediaClick::Nothing.name()} </a>
+					</Dropdown>
+				</div>
 				<div class="block control">
 					<button class="button is-danger" onclick={ctx.link().callback(|_| Msg::ClearArticles)}>{"Clear Articles"}</button>
 				</div>

@@ -88,7 +88,15 @@ pub struct AppSettings {
 	//social filtered out effect {nothing, minimized, transparent}
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+impl AppSettings {
+	pub fn override_settings(&self, settings_override: &AppSettingsOverride) -> Self {
+		Self {
+			on_media_click: settings_override.on_media_click.unwrap_or(self.on_media_click)
+		}
+	}
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
 pub struct AppSettingsOverride {
 	on_media_click: Option<OnMediaClick>,
 }
