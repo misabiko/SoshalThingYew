@@ -2,12 +2,11 @@ use actix_web::{get, web, App, HttpResponse, HttpServer, middleware::Logger};
 use actix_identity::{Identity, CookieIdentityPolicy, IdentityService};
 use serde::Serialize;
 use std::fmt::{Display, Formatter};
-use std::fs::File;
 use actix_web::web::Data;
 use log::LevelFilter;
 use rand::Rng;
 use serde::Deserialize;
-use simplelog::{ColorChoice, CombinedLogger, Config, TerminalMode, TermLogger, WriteLogger};
+use simplelog::{ColorChoice, Config, TerminalMode, TermLogger};
 
 mod twitter;
 mod youtube;
