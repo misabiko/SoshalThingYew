@@ -76,52 +76,52 @@ impl Filter {
 			Filter::Media => {
 				match article.referenced_article() {
 					ArticleRefType::NoRef => !article.media().is_empty(),
-					ArticleRefType::Repost(a) => a.upgrade().map(|r| !r.borrow().media().is_empty()).unwrap_or(false),
+					ArticleRefType::Reposted(a) => a.upgrade().map(|r| !r.borrow().media().is_empty()).unwrap_or(false),
 					ArticleRefType::Quote(a) => (a.upgrade().map(|r| !r.borrow().media().is_empty()).unwrap_or(false) || !article.media().is_empty()),
-					ArticleRefType::QuoteRepost(a, q) => (q.upgrade().map(|r| !r.borrow().media().is_empty()).unwrap_or(false) || a.upgrade().map(|r| !r.borrow().media().is_empty()).unwrap_or(false) || !article.media().is_empty()),
+					ArticleRefType::RepostedQuote(a, q) => (q.upgrade().map(|r| !r.borrow().media().is_empty()).unwrap_or(false) || a.upgrade().map(|r| !r.borrow().media().is_empty()).unwrap_or(false) || !article.media().is_empty()),
 				}
 			}
 			Filter::Animated => {
 				match article.referenced_article() {
 					ArticleRefType::NoRef => article.media().iter().any(|m| is_animated(m)),
-					ArticleRefType::Repost(a) => a.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false),
+					ArticleRefType::Reposted(a) => a.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false),
 					ArticleRefType::Quote(a) => (a.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false) || (article.media().iter().any(|m| is_animated(m)))),
-					ArticleRefType::QuoteRepost(a, q) => (q.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false) || a.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false) || (article.media().iter().any(|m| is_animated(m)))),
+					ArticleRefType::RepostedQuote(a, q) => (q.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false) || a.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false) || (article.media().iter().any(|m| is_animated(m)))),
 				}
 			},
 			Filter::NotMarkedAsRead => {
 				match article.referenced_article() {
 					ArticleRefType::NoRef => (!article.marked_as_read()),
-					ArticleRefType::Repost(a) | ArticleRefType::Quote(a)
+					ArticleRefType::Reposted(a) | ArticleRefType::Quote(a)
 					=> (a.upgrade().map(|r| !r.borrow().marked_as_read()).unwrap_or(false) && !article.marked_as_read()),
-					ArticleRefType::QuoteRepost(a, q)
+					ArticleRefType::RepostedQuote(a, q)
 					=> (q.upgrade().map(|r| !r.borrow().marked_as_read()).unwrap_or(false) && a.upgrade().map(|r| !r.borrow().marked_as_read()).unwrap_or(false) && !article.marked_as_read()),
 				}
 			},
 			Filter::NotHidden => {
 				match article.referenced_article() {
 					ArticleRefType::NoRef => !article.hidden(),
-					ArticleRefType::Repost(a) | ArticleRefType::Quote(a)
+					ArticleRefType::Reposted(a) | ArticleRefType::Quote(a)
 					=> a.upgrade().map(|r| !r.borrow().hidden()).unwrap_or(false) && !article.hidden(),
-					ArticleRefType::QuoteRepost(a, q)
+					ArticleRefType::RepostedQuote(a, q)
 					=> q.upgrade().map(|r| !r.borrow().hidden()).unwrap_or(false) && a.upgrade().map(|r| !r.borrow().hidden()).unwrap_or(false) && !article.hidden(),
 				}
 			}
 			Filter::Liked => {
 				match article.referenced_article() {
 					ArticleRefType::NoRef => article.liked(),
-					ArticleRefType::Repost(a) | ArticleRefType::Quote(a)
+					ArticleRefType::Reposted(a) | ArticleRefType::Quote(a)
 					=> a.upgrade().map(|r| r.borrow().liked()).unwrap_or(false) || article.liked(),
-					ArticleRefType::QuoteRepost(a, q)
+					ArticleRefType::RepostedQuote(a, q)
 					=> q.upgrade().map(|r| r.borrow().liked()).unwrap_or(false) || a.upgrade().map(|r| r.borrow().liked()).unwrap_or(false) || article.liked(),
 				}
 			}
 			Filter::Reposted => {
 				match article.referenced_article() {
 					ArticleRefType::NoRef => article.reposted(),
-					ArticleRefType::Repost(a) | ArticleRefType::Quote(a)
+					ArticleRefType::Reposted(a) | ArticleRefType::Quote(a)
 					=> a.upgrade().map(|r| r.borrow().reposted()).unwrap_or(false) || article.reposted(),
-					ArticleRefType::QuoteRepost(a, q)
+					ArticleRefType::RepostedQuote(a, q)
 					=> q.upgrade().map(|r| r.borrow().reposted()).unwrap_or(false) || a.upgrade().map(|r| r.borrow().reposted()).unwrap_or(false) || article.reposted(),
 				}
 			}
@@ -134,7 +134,7 @@ impl Filter {
 			}
 			Filter::Repost { by_username } => {
 				match article.referenced_article() {
-					ArticleRefType::Repost(_) | ArticleRefType::QuoteRepost(_, _) => match by_username {
+					ArticleRefType::Reposted(_) | ArticleRefType::RepostedQuote(_, _) => match by_username {
 						Some(username) => &article.author_username() == username,
 						None => true,
 					},
@@ -143,11 +143,11 @@ impl Filter {
 			}
 			Filter::Quote { by_username } => {
 				match article.referenced_article() {
-					ArticleRefType::Quote(_) | ArticleRefType::QuoteRepost(_, _) => match by_username {
+					ArticleRefType::Quote(_) | ArticleRefType::RepostedQuote(_, _) => match by_username {
 						Some(username) => &article.author_username() == username,
 						None => true,
 					},
-					ArticleRefType::NoRef | ArticleRefType::Repost(_) => false,
+					ArticleRefType::NoRef | ArticleRefType::Reposted(_) => false,
 				}
 			}
 		}

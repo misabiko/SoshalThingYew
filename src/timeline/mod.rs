@@ -472,7 +472,7 @@ impl Component for Timeline {
 
 							mark_article_as_read(borrow.service(), borrow.id(), new_marked_as_read);
 						}
-						ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => {
+						ArticleRefType::Reposted(a) | ArticleRefType::RepostedQuote(a, _) => {
 							let strong = a.upgrade().unwrap();
 							let mut borrow = strong.borrow_mut();
 
@@ -498,7 +498,7 @@ impl Component for Timeline {
 
 							hide_article(borrow.service(), borrow.id(), new_hidden);
 						}
-						ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => {
+						ArticleRefType::Reposted(a) | ArticleRefType::RepostedQuote(a, _) => {
 							let strong = a.upgrade().unwrap();
 							let mut borrow = strong.borrow_mut();
 
@@ -537,13 +537,13 @@ impl Component for Timeline {
 					boxed: borrow.clone_data(),
 					boxed_ref: match borrow.referenced_article() {
 						ArticleRefType::NoRef => ArticleRefType::NoRef,
-						ArticleRefType::Repost(a) => ArticleRefType::Repost(
+						ArticleRefType::Reposted(a) => ArticleRefType::Reposted(
 							a.upgrade().expect("upgrading reposted article").borrow().clone_data()
 						),
 						ArticleRefType::Quote(a) => ArticleRefType::Quote(
 							a.upgrade().expect("upgrading quoted article").borrow().clone_data()
 						),
-						ArticleRefType::QuoteRepost(a, q) => ArticleRefType::QuoteRepost(
+						ArticleRefType::RepostedQuote(a, q) => ArticleRefType::RepostedQuote(
 							a.upgrade().expect("upgrading reposted quote").borrow().clone_data(),
 							q.upgrade().expect("upgrading quoted article").borrow().clone_data(),
 						)

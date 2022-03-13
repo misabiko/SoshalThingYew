@@ -179,21 +179,21 @@ impl Component for ArticleComponent {
 			Msg::FetchData => {
 				self.article_actions.send(ArticleActionsRequest::FetchData(match ctx.props().article_struct.boxed.referenced_article() {
 					ArticleRefType::NoRef | ArticleRefType::Quote(_) => ctx.props().article_struct.weak.clone(),
-					ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => a,
+					ArticleRefType::Reposted(a) | ArticleRefType::RepostedQuote(a, _) => a,
 				}));
 				false
 			}
 			Msg::Like => {
 				self.article_actions.send(ArticleActionsRequest::Like(match ctx.props().article_struct.boxed.referenced_article() {
 					ArticleRefType::NoRef | ArticleRefType::Quote(_) => ctx.props().article_struct.weak.clone(),
-					ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => a,
+					ArticleRefType::Reposted(a) | ArticleRefType::RepostedQuote(a, _) => a,
 				}));
 				false
 			}
 			Msg::Repost => {
 				self.article_actions.send(ArticleActionsRequest::Repost(match ctx.props().article_struct.boxed.referenced_article() {
 					ArticleRefType::NoRef | ArticleRefType::Quote(_) => ctx.props().article_struct.weak.clone(),
-					ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => a,
+					ArticleRefType::Reposted(a) | ArticleRefType::RepostedQuote(a, _) => a,
 				}));
 				false
 			}
@@ -216,7 +216,7 @@ impl Component for ArticleComponent {
 
 						mark_article_as_read(borrow.service(), borrow.id(), new_marked_as_read);
 					},
-					ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => {
+					ArticleRefType::Reposted(a) | ArticleRefType::RepostedQuote(a, _) => {
 						let strong = a.upgrade().unwrap();
 						let mut borrow = strong.borrow_mut();
 
@@ -247,7 +247,7 @@ impl Component for ArticleComponent {
 						let hidden = borrow.hidden();
 						borrow.set_hidden(!hidden);
 					},
-					ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => {
+					ArticleRefType::Reposted(a) | ArticleRefType::RepostedQuote(a, _) => {
 						let strong = a.upgrade().unwrap();
 						let mut borrow = strong.borrow_mut();
 

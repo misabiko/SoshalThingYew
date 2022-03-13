@@ -304,17 +304,17 @@ impl TwitterAgent {
 		if let Some(ref_article) = ref_article {
 			match ref_article {
 				StrongArticleRefType::NoRef => {},
-				StrongArticleRefType::Repost(a) => {
+				StrongArticleRefType::Reposted(a) => {
 					let ref_article = self.insert_or_update(a, None);
 					let mut borrow_mut = article.borrow_mut();
-					borrow_mut.referenced_article = ArticleRefType::Repost(Rc::downgrade(&ref_article));
+					borrow_mut.referenced_article = ArticleRefType::Reposted(Rc::downgrade(&ref_article));
 				}
 				StrongArticleRefType::Quote(a) => {
 					let ref_article = self.insert_or_update(a, None);
 					let mut borrow_mut = article.borrow_mut();
 					borrow_mut.referenced_article = ArticleRefType::Quote(Rc::downgrade(&ref_article));
 				}
-				StrongArticleRefType::QuoteRepost(a, q) => {
+				StrongArticleRefType::RepostedQuote(a, q) => {
 					let ref_quote = self.insert_or_update(a, None);
 					let mut borrow_mut = article.borrow_mut();
 					borrow_mut.referenced_article = ArticleRefType::Quote(Rc::downgrade(&ref_quote));

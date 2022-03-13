@@ -60,7 +60,7 @@ impl Component for SocialArticle {
 
 		let (actual_article, retweet_header, quoted_post) = match &borrow.referenced_article() {
 			ArticleRefType::NoRef => (strong.clone(), html! {}, html! {}),
-			ArticleRefType::Repost(a) => (
+			ArticleRefType::Reposted(a) => (
 				a.upgrade().unwrap(),
 				self.view_repost_label(ctx, &borrow),
 				html! {}
@@ -70,7 +70,7 @@ impl Component for SocialArticle {
 				let quote_borrow = quote_article.borrow();
 				(strong.clone(), html! {}, self.view_quoted_post(ctx, &quote_borrow))
 			}
-			ArticleRefType::QuoteRepost(a, q) => {
+			ArticleRefType::RepostedQuote(a, q) => {
 				let reposted_article = a.upgrade().unwrap();
 
 				let quoted_article = q.upgrade().unwrap();
@@ -173,7 +173,7 @@ impl SocialArticle {
 		let ontoggle_markasread = ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleMarkAsRead));
 		let dropdown_buttons = match &borrow.referenced_article() {
 			ArticleRefType::NoRef => html! {},
-			ArticleRefType::Repost(_) | ArticleRefType::QuoteRepost(_, _) => html! {
+			ArticleRefType::Reposted(_) | ArticleRefType::RepostedQuote(_, _) => html! {
 				<a
 					class="dropdown-item"
 					href={ borrow.url() }
@@ -395,7 +395,7 @@ impl SocialArticle {
 								<img src={url.to_owned()} alt={format!("{}'s avatar", &article.author_username())}/>
 							</p>
 						},
-						ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => html! {
+						ArticleRefType::Reposted(a) | ArticleRefType::RepostedQuote(a, _) => html! {
 							<p class="image is-64x64 sharedAvatar">
 								<img src={a.author_avatar_url().as_str().to_owned()} alt={format!("{}'s avatar", &a.author_username())}/>
 								<img src={url.to_owned()} alt={format!("{}'s avatar", &article.author_username())}/>

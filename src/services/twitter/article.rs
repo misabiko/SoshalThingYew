@@ -203,9 +203,9 @@ impl ArticleData for TweetArticleData {
 	fn referenced_article(&self) -> ArticleRefType {
 		match &self.referenced_article {
 			ArticleRefType::NoRef => ArticleRefType::NoRef,
-			ArticleRefType::Repost(a) => ArticleRefType::Repost(a.clone() as ArticleWeak),
+			ArticleRefType::Reposted(a) => ArticleRefType::Reposted(a.clone() as ArticleWeak),
 			ArticleRefType::Quote(a) => ArticleRefType::Quote(a.clone() as ArticleWeak),
-			ArticleRefType::QuoteRepost(a, q) => ArticleRefType::QuoteRepost(
+			ArticleRefType::RepostedQuote(a, q) => ArticleRefType::RepostedQuote(
 				a.clone() as ArticleWeak,
 				q.clone() as ArticleWeak,
 			),
@@ -248,15 +248,15 @@ impl TweetArticleData {
 			if !referenced.is_null() {
 				let parsed = TweetArticleData::from(&referenced.clone(), storage);
 				match parsed.1 {
-					ArticleRefType::NoRef => StrongArticleRefType::Repost(parsed.0),
-					ArticleRefType::Quote(parsed_ref) => StrongArticleRefType::QuoteRepost(parsed.0, parsed_ref),
-					ArticleRefType::Repost(parsed_ref) => {
+					ArticleRefType::NoRef => StrongArticleRefType::Reposted(parsed.0),
+					ArticleRefType::Quote(parsed_ref) => StrongArticleRefType::RepostedQuote(parsed.0, parsed_ref),
+					ArticleRefType::Reposted(parsed_ref) => {
 						log::warn!("Retweet({}) of a retweet({})?", &id, &parsed_ref.borrow().id());
-						StrongArticleRefType::Repost(parsed.0)
+						StrongArticleRefType::Reposted(parsed.0)
 					}
-					ArticleRefType::QuoteRepost(parsed_ref, parsed_quoted) => {
+					ArticleRefType::RepostedQuote(parsed_ref, parsed_quoted) => {
 						log::warn!("Retweet({}) of a retweet({}) of a quote({})??", &id, &parsed_ref.borrow().id(), &parsed_quoted.borrow().id());
-						StrongArticleRefType::Repost(parsed.0)
+						StrongArticleRefType::Reposted(parsed.0)
 					}
 				}
 			}else if !quoted.is_null() {
@@ -267,11 +267,11 @@ impl TweetArticleData {
 						log::warn!("Quote({}) of a quote({})?", &id, &parsed_ref.borrow().id());
 						StrongArticleRefType::Quote(parsed.0)
 					}
-					ArticleRefType::Repost(parsed_ref) => {
+					ArticleRefType::Reposted(parsed_ref) => {
 						log::warn!("Retweet({}) of a retweet({})?", &id, &parsed_ref.borrow().id());
 						StrongArticleRefType::Quote(parsed.0)
 					}
-					ArticleRefType::QuoteRepost(parsed_ref, parsed_quoted) => {
+					ArticleRefType::RepostedQuote(parsed_ref, parsed_quoted) => {
 						log::warn!("Retweet({}) of a retweet({}) of a quote({})??", &id, &parsed_ref.borrow().id(), &parsed_quoted.borrow().id());
 						StrongArticleRefType::Quote(parsed.0)
 					}
@@ -307,9 +307,9 @@ impl TweetArticleData {
 			raw_json: json.clone(),
 			referenced_article: match &referenced_article {
 				StrongArticleRefType::NoRef => ArticleRefType::NoRef,
-				StrongArticleRefType::Repost(a) => ArticleRefType::Repost(Rc::downgrade(a)),
+				StrongArticleRefType::Reposted(a) => ArticleRefType::Reposted(Rc::downgrade(a)),
 				StrongArticleRefType::Quote(a) => ArticleRefType::Quote(Rc::downgrade(a)),
-				StrongArticleRefType::QuoteRepost(quote, quoted) => ArticleRefType::QuoteRepost(
+				StrongArticleRefType::RepostedQuote(quote, quoted) => ArticleRefType::RepostedQuote(
 					Rc::downgrade(quote),
 					Rc::downgrade(quoted)
 				),

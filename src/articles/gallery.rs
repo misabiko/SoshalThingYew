@@ -43,7 +43,7 @@ impl Component for GalleryArticle {
 	fn view(&self, ctx: &Context<Self>) -> Html {
 		let actual_article = match &ctx.props().article_struct.boxed_ref {
 			ArticleRefType::NoRef | ArticleRefType::Quote(_) => &ctx.props().article_struct.boxed,
-			ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => a,
+			ArticleRefType::Reposted(a) | ArticleRefType::RepostedQuote(a, _) => a,
 		};
 
 		let style = match self.draw_on_top {

@@ -57,18 +57,18 @@ pub type ArticleBox<A = dyn ArticleData> = Box<A>;
 #[derive(Clone, Debug, PartialEq)]
 pub enum ArticleRefType<Pointer = ArticleWeak> {
 	NoRef,
-	Repost(Pointer),
+	Reposted(Pointer),
 	Quote(Pointer),
-	QuoteRepost(Pointer, Pointer),
+	RepostedQuote(Pointer, Pointer),
 }
 
 impl ArticleRefType<ArticleBox> {
 	pub fn clone_data(&self) -> Self {
 		match self {
 			ArticleRefType::NoRef => ArticleRefType::NoRef,
-			ArticleRefType::Repost(a) => ArticleRefType::Repost(a.clone_data()),
+			ArticleRefType::Reposted(a) => ArticleRefType::Reposted(a.clone_data()),
 			ArticleRefType::Quote(a) => ArticleRefType::Quote(a.clone_data()),
-			ArticleRefType::QuoteRepost(a, q) => ArticleRefType::QuoteRepost(a.clone_data(), q.clone_data()),
+			ArticleRefType::RepostedQuote(a, q) => ArticleRefType::RepostedQuote(a.clone_data(), q.clone_data()),
 		}
 	}
 }
@@ -178,7 +178,7 @@ pub fn actual_article(article: &ArticleWeak) -> ArticleWeak {
 
 		match borrow.referenced_article() {
 			ArticleRefType::NoRef | ArticleRefType::Quote(_) => article.clone(),
-			ArticleRefType::Repost(a) | ArticleRefType::QuoteRepost(a, _) => a.clone()
+			ArticleRefType::Reposted(a) | ArticleRefType::RepostedQuote(a, _) => a.clone()
 		}
 	}else {
 		log::warn!("Couldn't unwrap article.");
