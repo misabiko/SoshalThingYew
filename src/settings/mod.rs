@@ -40,14 +40,16 @@ pub enum ChangeSettingMsg {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum OnMediaClick {
 	Like,
+	Repost,
 	Expand,
 	MarkAsRead,
 	Hide,
 	Nothing,
 }
 
-const ALL_ONMEDIACLICK: [OnMediaClick; 5] = [
+const ALL_ONMEDIACLICK: [OnMediaClick; 6] = [
 	OnMediaClick::Like,
+	OnMediaClick::Repost,
 	OnMediaClick::Expand,
 	OnMediaClick::MarkAsRead,
 	OnMediaClick::Hide,

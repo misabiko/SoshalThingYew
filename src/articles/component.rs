@@ -227,6 +227,8 @@ impl Component for ArticleComponent {
 				match ctx.props().app_settings.on_media_click {
 					OnMediaClick::Like =>
 						ctx.link().send_message(Msg::Like),
+					OnMediaClick::Repost =>
+						ctx.link().send_message(Msg::Repost),
 					OnMediaClick::Expand =>
 						ctx.link().send_message(Msg::ToggleInModal),
 					OnMediaClick::MarkAsRead =>
