@@ -1,27 +1,19 @@
 use yew::prelude::*;
 
 use super::Props;
-use crate::articles::{ArticleComponent, ArticleBox, ArticleRc};
+use crate::articles::{ArticleComponent, ArticleBox};
 use crate::timeline::ArticleStruct;
 
 #[function_component(MasonryContainer)]
 pub fn masonry_container(props: &Props) -> Html {
-	let strongs: Vec<StrongArticleStruct> =
-		props.articles.iter()
-		.filter_map(|article_struct|
-			article_struct.weak.upgrade()
-				.map(|strong| (strong, article_struct))
-		).collect();
-
-	let &Props {column_count, rtl, ..} = props;
-	let columns = to_columns(strongs.iter(), &column_count, &rtl);
+	let columns = to_columns(props.articles.iter(), &props.column_count, &props.rtl);
 
 	let article_view = props.article_view.clone();
 	html! {
 		<div class="articlesContainer masonryContainer" ref={props.container_ref.clone()}>
 			{ for columns.enumerate().map(|(column_index, column)| html! {
 				<div class="masonryColumn" key={column_index}>
-					{ for column.enumerate().map(|(load_priority, (_, article_struct))| html! {
+					{ for column.enumerate().map(|(load_priority, article_struct)| html! {
 						<ArticleComponent
 							key={format!("{:?}{}", &article_view, article_struct.boxed.id())}
 							article_struct={(*article_struct).clone()}
@@ -41,9 +33,7 @@ pub fn masonry_container(props: &Props) -> Html {
 	}
 }
 
-type StrongArticleStruct<'a> = (ArticleRc, &'a ArticleStruct);
-
-type RatioedArticle<'a> = (&'a StrongArticleStruct<'a>, f32);
+type RatioedArticle<'a> = (&'a ArticleStruct, f32);
 type Column<'a> = (u8, Vec<RatioedArticle<'a>>);
 
 fn relative_height(article: &ArticleBox) -> f32 {
@@ -63,8 +53,8 @@ fn height(column: &Column) -> f32 {
 	}
 }
 
-fn to_columns<'a>(articles: impl Iterator<Item=&'a StrongArticleStruct<'a>>, column_count: &'a u8, rtl: &bool) -> impl Iterator<Item=impl Iterator<Item=&'a StrongArticleStruct<'a>>> {
-	let ratioed_articles = articles.map(|tuple| (tuple, relative_height(&tuple.1.boxed)));
+fn to_columns<'a>(articles: impl Iterator<Item=&'a ArticleStruct>, column_count: &'a u8, rtl: &bool) -> impl Iterator<Item=impl Iterator<Item=&'a ArticleStruct>> {
+	let ratioed_articles = articles.map(|a| (a, relative_height(&a.boxed)));
 
 	let mut columns = ratioed_articles.fold(
 		(0..*column_count)
