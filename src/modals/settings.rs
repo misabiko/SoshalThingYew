@@ -4,7 +4,7 @@ use yew_agent::{Agent, AgentLink, HandlerId, Context as AgentContext, Bridge, Br
 use wasm_bindgen::JsCast;
 
 use super::ModalCard;
-use crate::{Container, DisplayMode};
+use crate::{AppSettings, Container, DisplayMode, OnMediaClick};
 use crate::components::{Dropdown, DropdownLabel};
 use crate::services::storages::update_favviewer_settings;
 
@@ -20,10 +20,12 @@ pub enum Msg {
 	ChangeContainer(Container),
 	SettingsResponse(Response),
 	ToggleFavViewerSettings,
+	ChangeOnMediaClick(OnMediaClick),
 }
 
 #[derive(Properties, PartialEq, Clone)]
 pub struct Props {
+	pub app_settings: AppSettings,
 }
 
 impl Component for SettingsModal {
@@ -70,6 +72,7 @@ impl Component for SettingsModal {
 					self.favviewer_settings = settings;
 					true
 				}
+				Response::ChangeOnMediaClick(_) => false
 			}
 			Msg::ToggleFavViewerSettings => {
 				self.favviewer_settings = match self.favviewer_settings {
@@ -82,6 +85,10 @@ impl Component for SettingsModal {
 				};
 				self.settings_agent.send(Request::UpdateFavViewer(self.favviewer_settings));
 				true
+			}
+			Msg::ChangeOnMediaClick(on_media_click) => {
+				self.settings_agent.send(Request::ChangeOnMediaClick(on_media_click));
+				false
 			}
 		}
 	}
@@ -96,6 +103,16 @@ impl Component for SettingsModal {
 
 		html! {
 			<ModalCard enabled={self.enabled} modal_title="Settings" close_modal_callback={ctx.link().callback(|_| Msg::SetEnabled(false))}>
+				<div class="block control">
+					<label class="label">{"On Media Click"}</label>
+					<Dropdown current_label={DropdownLabel::Text(ctx.props().app_settings.on_media_click.name().to_owned())}>
+						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeOnMediaClick(OnMediaClick::Like))}> {OnMediaClick::Like.name()} </a>
+						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeOnMediaClick(OnMediaClick::Expand))}> {OnMediaClick::Expand.name()} </a>
+						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeOnMediaClick(OnMediaClick::MarkAsRead))}> {OnMediaClick::MarkAsRead.name()} </a>
+						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeOnMediaClick(OnMediaClick::Hide))}> {OnMediaClick::Hide.name()} </a>
+						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ChangeOnMediaClick(OnMediaClick::Nothing))}> {OnMediaClick::Nothing.name()} </a>
+					</Dropdown>
+				</div>
 				<div class="field">
   					<div class="control">
 						<label class="checkbox">
@@ -136,6 +153,7 @@ pub struct SettingsAgent {
 	favviewer_settings: Option<DisplayMode>,
 	modal: Option<HandlerId>,
 	sidebar: Option<HandlerId>,
+	model: Option<HandlerId>,
 }
 
 pub enum Request {
@@ -144,11 +162,14 @@ pub enum Request {
 	UpdateFavViewer(DisplayMode),
 	RegisterModal,
 	RegisterSidebar,
+	RegisterModel,
+	ChangeOnMediaClick(OnMediaClick),
 }
 
 pub enum Response {
 	ShowModal,
-	UpdateFavViewerSettings(DisplayMode)
+	UpdateFavViewerSettings(DisplayMode),
+	ChangeOnMediaClick(OnMediaClick),
 }
 
 impl Agent for SettingsAgent {
@@ -163,6 +184,7 @@ impl Agent for SettingsAgent {
 			favviewer_settings: None,
 			modal: None,
 			sidebar: None,
+			model: None,
 		}
 	}
 
@@ -194,6 +216,14 @@ impl Agent for SettingsAgent {
 			Request::RegisterSidebar => {
 				self.sidebar = Some(id);
 			}
+			Request::RegisterModel => {
+				self.model = Some(id);
+			}
+			Request::ChangeOnMediaClick(on_media_click) => {
+				if let Some(model) = self.model {
+					self.link.respond(model, Response::ChangeOnMediaClick(on_media_click));
+				}
+			}
 		}
 	}
 
@@ -202,6 +232,8 @@ impl Agent for SettingsAgent {
 			self.modal = None
 		}else if self.sidebar == Some(id) {
 			self.sidebar = None
+		}else if self.model == Some(id) {
+			self.model = None
 		}
 	}
 }

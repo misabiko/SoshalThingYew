@@ -32,6 +32,7 @@ use services::{
 use sidebar::Sidebar;
 use timeline::{Props as TimelineProps, Timeline, TimelineId, Container};
 use timeline::agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse};
+use crate::modals::settings::{SettingsAgent, Request as SettingsRequest, Response as SettingsResponse, Response};
 use crate::services::endpoint_agent::TimelineEndpointWrapper;
 use crate::services::storages::SoshalLocalStorage;
 
@@ -61,12 +62,24 @@ pub enum TimelineCreationMode {
 
 //TODO Have a ArticleAction enum
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum OnMediaClick {
+pub enum OnMediaClick {
 	Like,
 	Expand,
 	MarkAsRead,
 	Hide,
 	Nothing,
+}
+
+impl OnMediaClick {
+	pub fn name(&self) -> &'static str {
+		match self {
+			OnMediaClick::Like => "Like",
+			OnMediaClick::Expand => "Expand",
+			OnMediaClick::MarkAsRead => "Mark As Read",
+			OnMediaClick::Hide => "Hide",
+			OnMediaClick::Nothing => "Nothing",
+		}
+	}
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -104,6 +117,7 @@ pub struct Model {
 	notifications: Vec<Html>,
 	sidebar_favviewer: bool,
 	app_settings: AppSettings,
+	_settings_agent: Box<dyn Bridge<SettingsAgent>>,
 }
 
 pub enum Msg {
@@ -119,6 +133,7 @@ pub enum Msg {
 	FetchedAuthInfo(Result<AuthInfo>),
 	NotificationResponse(NotificationResponse),
 	ToggleSidebarFavViewer,
+	SettingsResponse(SettingsResponse),
 }
 
 #[derive(Properties, PartialEq, Default)]
@@ -153,6 +168,9 @@ impl Component for Model {
 
 		let mut endpoint_agent = EndpointAgent::bridge(ctx.link().callback(Msg::EndpointResponse));
 		endpoint_agent.send(EndpointRequest::RegisterTimelineContainer);
+
+		let mut _settings_agent = SettingsAgent::bridge(ctx.link().callback(Msg::SettingsResponse));
+		_settings_agent.send(SettingsRequest::RegisterModel);
 
 		let (pathname_opt, search_opt) = parse_url();
 
@@ -227,7 +245,8 @@ impl Component for Model {
 			_notification_agent,
 			notifications: Vec::new(),
 			sidebar_favviewer: false,
-			app_settings: AppSettings { on_media_click: OnMediaClick::MarkAsRead }
+			app_settings: AppSettings { on_media_click: OnMediaClick::MarkAsRead },
+			_settings_agent,
 		}
 	}
 
@@ -378,6 +397,13 @@ impl Component for Model {
 				self.sidebar_favviewer = !self.sidebar_favviewer;
 				true
 			}
+			Msg::SettingsResponse(response) => match response {
+				Response::ChangeOnMediaClick(on_media_click) => {
+					self.app_settings.on_media_click = on_media_click;
+					true
+				}
+				_ => false
+			}
 		}
 	}
 
@@ -395,7 +421,7 @@ impl Component for Model {
 		html! {
 			<>
 				<AddTimelineModal add_timeline_callback={ctx.link().callback(|(props, set_as_main_timeline)| Msg::AddTimeline(TimelineCreationMode::Props(props), set_as_main_timeline))}/>
-				<SettingsModal/>
+				<SettingsModal app_settings={self.app_settings}/>
 				<div id="soshal-notifications">
 					{ for self.notifications.iter().cloned() }
 				</div>
