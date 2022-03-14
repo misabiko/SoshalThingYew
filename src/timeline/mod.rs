@@ -523,18 +523,21 @@ impl Component for Timeline {
 					included,
 					boxed: borrow.clone_data(),
 					boxed_actual_article_index_opt: borrow.actual_article_index(),
-					boxed_actual_article_opt: borrow.actual_article().map(|a| a.upgrade().expect("upgrading actual article").borrow().clone_data()),
+					boxed_actual_article_opt: borrow.actual_article().map(|a| a.upgrade().unwrap().borrow().clone_data()),
 					boxed_refs: borrow.referenced_articles().into_iter().map(|ref_article| match ref_article {
 						ArticleRefType::Reposted(a) => ArticleRefType::Reposted(
-							a.upgrade().expect("upgrading reposted article").borrow().clone_data()
+							a.upgrade().unwrap().borrow().clone_data()
 						),
 						ArticleRefType::Quote(a) => ArticleRefType::Quote(
-							a.upgrade().expect("upgrading quoted article").borrow().clone_data()
+							a.upgrade().unwrap().borrow().clone_data()
 						),
 						ArticleRefType::RepostedQuote(a, q) => ArticleRefType::RepostedQuote(
-							a.upgrade().expect("upgrading reposted quote").borrow().clone_data(),
-							q.upgrade().expect("upgrading quoted article").borrow().clone_data(),
-						)
+							a.upgrade().unwrap().borrow().clone_data(),
+							q.upgrade().unwrap().borrow().clone_data(),
+						),
+						ArticleRefType::Reply(a) => ArticleRefType::Reply(
+							a.upgrade().unwrap().borrow().clone_data()
+						),
 					}).collect(),
 				}
 			}).collect();

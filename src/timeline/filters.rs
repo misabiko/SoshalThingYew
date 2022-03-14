@@ -80,6 +80,7 @@ impl Filter {
 					ArticleRefType::Reposted(a) => a.upgrade().map(|r| !r.borrow().media().is_empty()).unwrap_or(false),
 					ArticleRefType::Quote(a) => (a.upgrade().map(|r| !r.borrow().media().is_empty()).unwrap_or(false) || !article.media().is_empty()),
 					ArticleRefType::RepostedQuote(a, q) => (q.upgrade().map(|r| !r.borrow().media().is_empty()).unwrap_or(false) || a.upgrade().map(|r| !r.borrow().media().is_empty()).unwrap_or(false) || !article.media().is_empty()),
+					ArticleRefType::Reply(_) => false,
 				})
 			}
 			Filter::Animated => {
@@ -87,6 +88,7 @@ impl Filter {
 					ArticleRefType::Reposted(a) => a.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false),
 					ArticleRefType::Quote(a) => (a.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false) || (article.media().iter().any(|m| is_animated(m)))),
 					ArticleRefType::RepostedQuote(a, q) => (q.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false) || a.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false) || (article.media().iter().any(|m| is_animated(m)))),
+					ArticleRefType::Reply(_) => false,
 				})
 			}
 			Filter::NotMarkedAsRead => {
@@ -123,7 +125,7 @@ impl Filter {
 						Some(username) => &article.author_username() == username,
 						None => true,
 					},
-					ArticleRefType::Quote(_) => false,
+					_ => false,
 				})
 			}
 			Filter::Quote { by_username } => {
@@ -132,7 +134,7 @@ impl Filter {
 						Some(username) => &article.author_username() == username,
 						None => true,
 					},
-					ArticleRefType::Reposted(_) => false,
+					_ => false,
 				})
 			}
 		}

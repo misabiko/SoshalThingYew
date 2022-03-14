@@ -4,7 +4,7 @@ use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsValue;
 use yew_agent::{Dispatcher, Dispatched};
 
-use crate::articles::{ArticleBox, ArticleRefType, MediaType};
+use crate::articles::{ArticleBox, ArticleRefType, MediaType, UnfetchedArticleRef};
 use crate::articles::component::{ViewProps, Msg as ParentMsg};
 use crate::components::{Dropdown, DropdownLabel, FA, IconType, font_awesome::Props as FAProps};
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest};
@@ -55,11 +55,6 @@ impl Component for SocialArticle {
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
 		let boxed_refs = &ctx.props().article_struct.boxed_refs;
-		let retweet_header = if ctx.props().article_struct.boxed.actual_article_index().is_some() {
-			self.view_repost_label(ctx)
-		}else {
-			html! {}
-		};
 
 		let quoted_post = {
 			let quoted = boxed_refs.iter().find_map(|ref_article|
@@ -88,7 +83,8 @@ impl Component for SocialArticle {
 
 		html! {
 			<>
-				{ retweet_header }
+				{ self.view_repost_label(ctx) }
+				{ self.view_reply_label(ctx) }
 				<div class="media">
 					{ self.view_avatar(ctx) }
 					<div class="media-content">
@@ -362,6 +358,10 @@ impl SocialArticle {
 
 	fn view_repost_label(&self, ctx: &Context<Self>) -> Html {
 		let boxed = &ctx.props().article_struct.boxed;
+		if boxed.actual_article_index().is_none() {
+			return html! {}
+		}
+
 		let service = boxed.service();
 		let username = boxed.author_username();
 		let onclick = ctx.link().callback(move |e: MouseEvent| {
@@ -376,6 +376,34 @@ impl SocialArticle {
 					{ format!("{} reposted - {}", &boxed.author_name(), short_timestamp(&boxed.creation_time())) }
 				</a>
 			</div>
+		}
+	}
+
+	fn view_reply_label(&self, ctx: &Context<Self>) -> Html {
+		let boxed = &ctx.props().article_struct.boxed_actual_article();
+
+		let username = if let Some(ArticleRefType::Reply(a)) = boxed.referenced_articles().iter().find(|article_ref| matches!(article_ref, ArticleRefType::Reply(_))) {
+			Some(a.upgrade().unwrap().borrow().author_username())
+		}else if let Some(username) = boxed.unfetched_references().iter().find_map(|article_ref| {
+			if let UnfetchedArticleRef::ReplyToUser(username) = article_ref {
+				Some(username)
+			} else {
+				None
+			}
+		}) {
+			Some(username.clone())
+		}else {
+			None
+		};
+
+		if let Some(username) = username {
+			html! {
+				<div class="replyLabel">
+					<a> { format!("Replying to @{}", username) } </a>
+				</div>
+			}
+		}else {
+			html! {}
 		}
 	}
 

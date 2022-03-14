@@ -304,26 +304,31 @@ impl TwitterAgent {
 			.or_insert_with(|| article.clone()).clone();
 		drop(borrow);
 
-		for ref_article in ref_articles {
+		for (i, ref_article) in ref_articles.into_iter().enumerate() {
 			match ref_article {
 				StrongArticleRefType::Reposted(a) => {
 					let ref_article = self.insert_or_update(a, vec![]);
 					let mut borrow_mut = article.borrow_mut();
-					borrow_mut.referenced_articles.push(ArticleRefType::Reposted(Rc::downgrade(&ref_article)));
+					borrow_mut.referenced_articles[i] = ArticleRefType::Reposted(Rc::downgrade(&ref_article));
 				}
 				StrongArticleRefType::Quote(a) => {
 					let ref_article = self.insert_or_update(a, vec![]);
 					let mut borrow_mut = article.borrow_mut();
-					borrow_mut.referenced_articles.push(ArticleRefType::Quote(Rc::downgrade(&ref_article)));
+					borrow_mut.referenced_articles[i] = ArticleRefType::Quote(Rc::downgrade(&ref_article));
 				}
 				StrongArticleRefType::RepostedQuote(a, q) => {
 					let ref_quote = self.insert_or_update(a, vec![]);
 					let mut borrow_mut = article.borrow_mut();
-					borrow_mut.referenced_articles.push(ArticleRefType::Quote(Rc::downgrade(&ref_quote)));
+					borrow_mut.referenced_articles[i] = ArticleRefType::Quote(Rc::downgrade(&ref_quote));
 
 					let ref_article = self.insert_or_update(q, vec![]);
 					let mut quote_borrow_mut = ref_quote.borrow_mut();
-					quote_borrow_mut.referenced_articles.push(ArticleRefType::Quote(Rc::downgrade(&ref_article)));
+					quote_borrow_mut.referenced_articles[i] = ArticleRefType::Quote(Rc::downgrade(&ref_article));
+				}
+				StrongArticleRefType::Reply(a) => {
+					let ref_article = self.insert_or_update(a, vec![]);
+					let mut borrow_mut = article.borrow_mut();
+					borrow_mut.referenced_articles[i] = ArticleRefType::Reply(Rc::downgrade(&ref_article));
 				}
 			}
 		}

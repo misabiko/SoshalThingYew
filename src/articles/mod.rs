@@ -35,6 +35,7 @@ pub trait ArticleData : Debug {
 	fn reposted(&self) -> bool { false }
 	fn media(&self) -> Vec<ArticleMedia>;
 	fn json(&self) -> serde_json::Value { serde_json::Value::Null }
+	fn unfetched_references(&self) -> Vec<UnfetchedArticleRef> { Vec::new() }
 	fn referenced_articles(&self) -> Vec<ArticleRefType> { Vec::new() }
 	fn actual_article_index(&self) -> Option<usize> { None }
 	fn actual_article(&self) -> Option<ArticleWeak> { None }
@@ -61,6 +62,7 @@ pub enum ArticleRefType<Pointer = ArticleWeak> {
 	Reposted(Pointer),
 	Quote(Pointer),
 	RepostedQuote(Pointer, Pointer),
+	Reply(Pointer),
 }
 
 impl ArticleRefType<ArticleBox> {
@@ -69,8 +71,16 @@ impl ArticleRefType<ArticleBox> {
 			ArticleRefType::Reposted(a) => ArticleRefType::Reposted(a.clone_data()),
 			ArticleRefType::Quote(a) => ArticleRefType::Quote(a.clone_data()),
 			ArticleRefType::RepostedQuote(a, q) => ArticleRefType::RepostedQuote(a.clone_data(), q.clone_data()),
+			ArticleRefType::Reply(a) => ArticleRefType::Reply(a.clone_data()),
 		}
 	}
+}
+
+//Might be a bit too biased toward Twitter ^^
+#[derive(Clone, Debug, PartialEq)]
+pub enum UnfetchedArticleRef {
+	Unused(String),	//Remove this when we add a second variant
+	ReplyToUser(String),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
