@@ -397,10 +397,18 @@ impl SocialArticle {
 		};
 
 		if let Some(username) = username {
-			html! {
-				<div class="replyLabel">
-					<a> { format!("Replying to @{}", username) } </a>
-				</div>
+			if username == boxed.author_username() {
+				html! {
+					<div class="replyLabel">
+						<a> { "in a thread" } </a>
+					</div>
+				}
+			}else {
+				html! {
+					<div class="replyLabel">
+						<a> { format!("Replying to @{}", username) } </a>
+					</div>
+				}
 			}
 		}else {
 			html! {}
