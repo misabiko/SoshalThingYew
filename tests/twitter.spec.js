@@ -1,7 +1,7 @@
 const {expect, test} = require('@playwright/test');
 
 test.describe('article actions', () => {
-	test.only('like feedback', async ({page}) => {
+	test('like feedback', async ({page}) => {
 		await page.goto('/');
 		await page.mainFrame().evaluate(() => {
 			window.localStorage.setItem('SoshalThingYew Timelines', JSON.stringify([{
