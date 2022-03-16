@@ -219,25 +219,21 @@ impl Agent for TwitterAgent {
 				let strong = article.upgrade().unwrap();
 				let borrow = strong.borrow();
 
-				if let Some(_) = borrow.referenced_articles().into_iter().find(|a| matches!(a, ArticleRefType::Quote(_))) {
-					let url = Url::parse(&format!("{}/proxy/twitter/{}/{}", base_url(), if borrow.liked() { "unlike" } else { "like" }, borrow.id())).unwrap();
+				let url = Url::parse(&format!("{}/proxy/twitter/{}/{}", base_url(), if borrow.liked() { "unlike" } else { "like" }, borrow.id())).unwrap();
 
-					self.link.send_future(async move {
-						Msg::FetchResponse(id, fetch_tweets(url, &get_service_storage(SERVICE_INFO.name)).await)
-					})
-				}
+				self.link.send_future(async move {
+					Msg::FetchResponse(id, fetch_tweets(url, &get_service_storage(SERVICE_INFO.name)).await)
+				})
 			}
 			Msg::Retweet(id, article) => {
 				let strong = article.upgrade().unwrap();
 				let borrow = strong.borrow();
 
-				if let Some(_) = borrow.referenced_articles().into_iter().find(|a| matches!(a, ArticleRefType::Quote(_))) {
-					let url = Url::parse(&format!("{}/proxy/twitter/{}/{}", base_url(), if borrow.reposted() { "unretweet" } else { "retweet" }, borrow.id())).unwrap();
+				let url = Url::parse(&format!("{}/proxy/twitter/{}/{}", base_url(), if borrow.reposted() { "unretweet" } else { "retweet" }, borrow.id())).unwrap();
 
-					self.link.send_future(async move {
-						Msg::FetchResponse(id, fetch_tweets(url, &get_service_storage(SERVICE_INFO.name)).await)
-					})
-				}
+				self.link.send_future(async move {
+					Msg::FetchResponse(id, fetch_tweets(url, &get_service_storage(SERVICE_INFO.name)).await)
+				})
 			}
 		};
 	}
