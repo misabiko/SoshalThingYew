@@ -405,6 +405,16 @@ fn parse_media(media: Option<Vec<TweetMedia>>) -> Vec<ArticleMedia> {
 }
 
 pub fn parse_text(original: String, entities: Entities, extended_entities: &Option<ExtendedEntities>) -> (String, Html) {
+	match _parse_text(original.clone(), entities, extended_entities) {
+		Some(t) => t,
+		None => {
+			let original_c = original.clone();
+			(original, html! { {original_c} })
+		}
+	}
+}
+
+fn _parse_text(original: String, entities: Entities, extended_entities: &Option<ExtendedEntities>) -> Option<(String, Html)> {
 	let mut trimmed_text = html_escape::decode_html_entities(original.as_str()).to_string();
 	let medias_opt: Option<Vec<&String>> = extended_entities.as_ref().map(|e|
 			e.media.iter().map(|m| match m {
@@ -456,7 +466,7 @@ pub fn parse_text(original: String, entities: Entities, extended_entities: &Opti
 		let last_index = html_parts.iter().last().unwrap().0.1;
 		for ((first, last), html) in html_parts {
 			if i < first {
-				new_html_parts.push(html! { {html_escape::decode_html_entities(&original.as_str()[i..first]).to_string()} });
+				new_html_parts.push(html! { {html_escape::decode_html_entities(&original.as_str().get(i..first)?).to_string()} });
 			}
 
 			new_html_parts.push(html.clone());
@@ -464,11 +474,11 @@ pub fn parse_text(original: String, entities: Entities, extended_entities: &Opti
 		}
 
 		if i < len - 1 {
-			new_html_parts.push(html! { {trimmed_text.as_str()[last_index..].to_owned()} });
+			new_html_parts.push(html! { {trimmed_text.as_str().get(last_index..)?.to_owned()} });
 		}
 
 		html! { { for new_html_parts.into_iter() } }
 	};
 
-	(final_text, html)
+	Some((final_text, html))
 }
