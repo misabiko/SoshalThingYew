@@ -100,48 +100,50 @@ test.describe('main timeline', () => {
 	});
 });
 
-test('like feedback', async ({page}) => {
-	await page.goto('/');
-	await page.mainFrame().evaluate(() => {
-		window.localStorage.setItem('SoshalThingYew Timelines', JSON.stringify([{
-			"title": "Timeline",
-			"endpoints": [
-				{
-					"service": "Dummy",
-					"endpoint_type": 0,
-					"params": {},
-					"on_start": true,
-					"on_refresh": true
-				}
-			]
-		}]));
+test.describe('article actions', () => {
+	test('like feedback', async ({page}) => {
+		await page.goto('/');
+		await page.mainFrame().evaluate(() => {
+			window.localStorage.setItem('SoshalThingYew Timelines', JSON.stringify([{
+				"title": "Timeline",
+				"endpoints": [
+					{
+						"service": "Dummy",
+						"endpoint_type": 0,
+						"params": {},
+						"on_start": true,
+						"on_refresh": true
+					}
+				]
+			}]));
+		});
+		await page.reload();
+
+		await page.click('.article .likeButton');
+
+		await expect(page.locator('.article .likeButton')).toHaveClass(/likedPostButton/);
 	});
-	await page.reload();
 
-	await page.click('.article .likeButton');
+	test('repost feedback', async ({page}) => {
+		await page.goto('/');
+		await page.mainFrame().evaluate(() => {
+			window.localStorage.setItem('SoshalThingYew Timelines', JSON.stringify([{
+				"title": "Timeline",
+				"endpoints": [
+					{
+						"service": "Dummy",
+						"endpoint_type": 0,
+						"params": {},
+						"on_start": true,
+						"on_refresh": true
+					}
+				]
+			}]));
+		});
+		await page.reload();
 
-	await expect(page.locator('.article .likeButton')).toHaveClass(/likedPostButton/);
-});
+		await page.click('.article .repostButton');
 
-test('repost feedback', async ({page}) => {
-	await page.goto('/');
-	await page.mainFrame().evaluate(() => {
-		window.localStorage.setItem('SoshalThingYew Timelines', JSON.stringify([{
-			"title": "Timeline",
-			"endpoints": [
-				{
-					"service": "Dummy",
-					"endpoint_type": 0,
-					"params": {},
-					"on_start": true,
-					"on_refresh": true
-				}
-			]
-		}]));
+		await expect(page.locator('.article .repostButton')).toHaveClass(/repostedPostButton/);
 	});
-	await page.reload();
-
-	await page.click('.article .repostButton');
-
-	await expect(page.locator('.article .repostButton')).toHaveClass(/repostedPostButton/);
-});
+})
