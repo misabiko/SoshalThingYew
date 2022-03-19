@@ -26,3 +26,11 @@ If not using any endpoints with proxy `trunk serve` should work too.
 ### Release
 
 To deploy, only `server.exe`, `dist/` folder and `credentials.json` or environment variables are needed.
+
+## More screenshots
+
+![Twitter and YouTube services + Sidebar options](/docs/service_sidebar_screenshot.png?raw=true)
+
+![Pixiv extension with social article view](/docs/pixiv_social_screenshot.png?raw=true)
+
+![Pixiv extension with gallery article view](/docs/pixiv_gallery_screenshot.png?raw=true)
