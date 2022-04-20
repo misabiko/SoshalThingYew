@@ -111,7 +111,7 @@ impl GalleryArticle {
 										class={if is_loading { Some("articleMediaLoading") } else { None }}
 									/>
 									{
-										if *load_state == MediaLoadState::Loading {
+										if is_loading {
 											thumb.unwrap_or_default()
 										}else {
 											html! {}

@@ -427,22 +427,22 @@ impl SocialArticle {
 		match article.author_avatar_url().as_str() {
 			"" => html! {},
 			url => html! {
-				<figure class="media-left">
+				<div class="media-left">
 					{ if let Some(a) = repost {
 						html! {
-							<p class="image is-64x64 sharedAvatar">
+							<figure class="image is-64x64 sharedAvatar">
 								<img src={a.author_avatar_url().as_str().to_owned()} alt={format!("{}'s avatar", &a.author_username())}/>
 								<img src={url.to_owned()} alt={format!("{}'s avatar", &article.author_username())}/>
-							</p>
+							</figure>
 						}
 					}else {
 						html! {
-							<p class="image is-64x64">
+							<figure class="image is-64x64">
 								<img src={url.to_owned()} alt={format!("{}'s avatar", &article.author_username())}/>
-							</p>
+							</figure>
 						}
 					} }
-				</figure>
+				</div>
 			}
 		}
 	}
