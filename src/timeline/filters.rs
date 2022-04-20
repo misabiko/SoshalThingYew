@@ -85,7 +85,7 @@ impl Filter {
 				})
 			}
 			Filter::Animated => {
-				!article.media().iter().any(|m| is_animated(m)) ||
+				article.media().iter().any(|m| is_animated(m)) ||
 				article.referenced_articles().into_iter().any(|ref_article| match ref_article {
 					ArticleRefType::Reposted(a) => a.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false),
 					ArticleRefType::Quote(a) => (a.upgrade().map(|r| r.borrow().media().iter().any(|m| is_animated(m))).unwrap_or(false) || (article.media().iter().any(|m| is_animated(m)))),
