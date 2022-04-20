@@ -13,7 +13,7 @@ pub mod filters;
 mod containers;
 
 pub use containers::Container;
-use containers::{view_container, Props as ContainerProps};
+use containers::{view_container, Props as ContainerProps, ContainerMsg};
 use filters::{FilterCollection, FilterMsg, FiltersOptions};
 use sort_methods::SortMethod;
 use agent::{TimelineAgent, Request as TimelineAgentRequest};
@@ -115,6 +115,7 @@ pub struct Timeline {
 	rtl: bool,
 	lazy_loading: bool,
 	app_settings_override: AppSettingsOverride,
+	should_organize_articles: bool,
 }
 
 pub enum Msg {
@@ -151,6 +152,8 @@ pub enum Msg {
 	MarkAllAsRead,
 	HideAll,
 	ChangeSetting(ChangeSettingMsg),
+	BalanceContainer,
+	ContainerCallback(ContainerMsg),
 }
 
 #[derive(Properties, Clone)]
@@ -253,6 +256,7 @@ impl Component for Timeline {
 			rtl: ctx.props().rtl,
 			lazy_loading: true,
 			app_settings_override: AppSettingsOverride::default(),
+			should_organize_articles: false,
 		}
 	}
 
@@ -508,6 +512,16 @@ impl Component for Timeline {
 				}
 				true
 			}
+			Msg::BalanceContainer => {
+				self.should_organize_articles = true;
+				true
+			}
+			Msg::ContainerCallback(container_msg) => match container_msg {
+				ContainerMsg::Organized => {
+					self.should_organize_articles = false;
+					false
+				}
+			}
 		}
 	}
 
@@ -577,6 +591,15 @@ impl Component for Timeline {
 						} }
 					</div>
 					<div class="timelineButtons">
+						{ if let Container::Masonry = self.container(ctx) {
+							html! {
+								<button onclick={ctx.link().callback(|_| Msg::BalanceContainer)} title="Organize Container">
+									<FA icon="scale-balanced" size={IconSize::Large}/>
+								</button>
+							}
+						} else {
+							html! {}
+						} }
 						<button onclick={ctx.link().callback(|_| Msg::Shuffle)} title="Shuffle">
 							<FA icon="random" size={IconSize::Large}/>
 						</button>
@@ -605,6 +628,8 @@ impl Component for Timeline {
 					hide_text: self.hide_text,
 					column_count,
 					rtl: self.rtl,
+					should_organize_articles: self.should_organize_articles,
+					callback: ctx.link().callback(|container_msg| Msg::ContainerCallback(container_msg)),
 					lazy_loading: self.lazy_loading,
 					article_view: self.article_view,
 					articles,

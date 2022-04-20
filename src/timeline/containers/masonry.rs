@@ -3,10 +3,12 @@ use yew::prelude::*;
 use super::Props;
 use crate::articles::{ArticleComponent, ArticleBox};
 use crate::timeline::ArticleStruct;
+use crate::timeline::containers::ContainerMsg;
 
 pub struct MasonryContainer {
 	cached_articles: Vec<ArticleStruct>,
 	columns: Vec<(Vec<ArticleStruct>, f32)>,
+	last_independent_columns: bool,
 }
 
 pub enum Msg {}
@@ -18,14 +20,22 @@ impl Component for MasonryContainer {
 	fn create(ctx: &Context<Self>) -> Self {
 		Self {
 			cached_articles: Vec::new(),
-			columns: to_columns(ctx.props().articles.iter(), ctx.props().column_count, ctx.props().rtl)
+			columns: to_columns(ctx.props().articles.iter(), ctx.props().column_count, ctx.props().rtl),
+			last_independent_columns: ctx.props().app_settings.masonry_independent_columns,
 		}
 	}
 
 	fn changed(&mut self, ctx: &Context<Self>) -> bool {
-		if ctx.props().column_count != self.columns.len() as u8 {
+		let independent_columns = ctx.props().app_settings.masonry_independent_columns;
+		if
+			ctx.props().should_organize_articles ||
+			ctx.props().column_count != self.columns.len() as u8 ||
+			independent_columns != self.last_independent_columns
+		{
+			self.last_independent_columns = independent_columns;
+			ctx.props().callback.emit(ContainerMsg::Organized);
 			self.columns = to_columns(ctx.props().articles.iter(), ctx.props().column_count, ctx.props().rtl);
-		}else if ctx.props().app_settings.masonry_independent_columns {
+		}else if independent_columns {
 			self.handle_independent_columns(ctx);
 		}
 		true

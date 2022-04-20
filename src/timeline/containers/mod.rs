@@ -67,10 +67,16 @@ pub struct Props {
 	#[prop_or(1)]
 	pub column_count: u8,
 	pub rtl: bool,
+	pub should_organize_articles: bool,
+	pub callback: Callback<ContainerMsg>,
 	pub article_view: ArticleView,
 	pub articles: Vec<ArticleStruct>,
 	pub lazy_loading: bool,
 	pub app_settings: AppSettings,
+}
+
+pub enum ContainerMsg {
+	Organized,
 }
 
 #[function_component(ColumnContainer)]
