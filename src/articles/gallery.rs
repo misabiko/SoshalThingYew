@@ -155,6 +155,8 @@ impl GalleryArticle {
 
 	fn view_nav(&self, ctx: &Context<Self>) -> Html {
 		let actual_article = ctx.props().article_struct.boxed_actual_article();
+		let actual_weak = ctx.props().article_struct.boxed.actual_article().unwrap_or_else(|| ctx.props().article_struct.weak.clone());
+		let actual_weak_c = actual_weak.clone();
 		html! {
 			<>
 				<div class="holderBox holderBoxTop">
@@ -195,10 +197,10 @@ impl GalleryArticle {
 					</Dropdown>
 				</div>
 				<div class="holderBox holderBoxBottom">
-					<button class="button" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::Like))}>
+					<button class="button" onclick={ctx.link().callback(move |_| Msg::ParentCallback(ParentMsg::Like(actual_weak.clone())))}>
 						<FA icon="heart" span_classes={classes!("darkIcon", "is-small")}/>
 					</button>
-					<button class="button" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::Repost))}>
+					<button class="button" onclick={ctx.link().callback(move |_| Msg::ParentCallback(ParentMsg::Repost(actual_weak_c.clone())))}>
 						<FA icon="retweet" span_classes={classes!("darkIcon", "is-small")}/>
 					</button>
 				</div>

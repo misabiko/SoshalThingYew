@@ -49,6 +49,7 @@ struct Autoscroll {
 
 pub struct ArticleStruct {
 	pub weak: ArticleWeak,
+	//TODO Rename or describe
 	pub included: bool,
 	pub boxed: ArticleBox,
 	boxed_actual_article_index_opt: Option<usize>,

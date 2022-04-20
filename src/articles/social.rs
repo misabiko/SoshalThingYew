@@ -4,7 +4,7 @@ use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsValue;
 use yew_agent::{Dispatcher, Dispatched};
 
-use crate::articles::{ArticleBox, ArticleRefType, MediaType, UnfetchedArticleRef};
+use crate::articles::{ArticleBox, ArticleWeak, ArticleRefType, MediaType, UnfetchedArticleRef};
 use crate::articles::component::{ViewProps, Msg as ParentMsg};
 use crate::components::{Dropdown, DropdownLabel, FA, IconType, font_awesome::Props as FAProps};
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest};
@@ -57,20 +57,29 @@ impl Component for SocialArticle {
 		let boxed_refs = &ctx.props().article_struct.boxed_refs;
 
 		let quoted_post = {
-			let quoted = boxed_refs.iter().find_map(|ref_article|
+			let quoted = boxed_refs.iter().enumerate().find_map(|(i, ref_article)|
 				if let ArticleRefType::Quote(q) | ArticleRefType::RepostedQuote(_, q) = ref_article {
-					Some(q)
+					Some((i, q))
 				}else {
 					None
 				}
 			);
-			if let Some(q) = quoted {
-				self.view_quoted_post(ctx, &q)
+			if let Some((i, q)) = quoted {
+				match &ctx.props().article_struct.boxed.referenced_articles()[i] {
+					ArticleRefType::Quote(weak) | ArticleRefType::RepostedQuote(_, weak) => {
+						self.view_quoted_post(ctx, &q, weak.clone())
+					}
+					_ => {
+						log::warn!("Boxed quote but no weak reference of it.");
+						html! {}
+					}
+				}
 			} else {
 				html! {}
 			}
 		};
 		let actual_article = ctx.props().article_struct.boxed_actual_article();
+		let actual_weak = ctx.props().article_struct.boxed.actual_article().unwrap_or_else(|| ctx.props().article_struct.weak.clone());
 
 		let on_username_click = {
 			let service = actual_article.service();
@@ -102,7 +111,7 @@ impl Component for SocialArticle {
 							} }
 						</div>
 						{ quoted_post }
-						{ self.view_nav(ctx, &actual_article) }
+						{ self.view_nav(ctx, &actual_article, actual_weak, false) }
 					</div>
 				</div>
 				{ match self.is_minimized(ctx) {
@@ -160,7 +169,7 @@ impl SocialArticle {
 		}
 	}
 
-	fn view_nav(&self, ctx: &Context<Self>, actual_article: &ArticleBox) -> Html {
+	fn view_nav(&self, ctx: &Context<Self>, actual_article: &ArticleBox, actual_weak: ArticleWeak, quote: bool) -> Html {
 		let ontoggle_compact = ctx.link().callback(|_| Msg::ToggleCompact);
 		let ontoggle_markasread = ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleMarkAsRead));
 		let dropdown_buttons = match &ctx.props().article_struct.boxed_refs.iter().find(|ref_article| matches!(ref_article, ArticleRefType::Reposted(_) | ArticleRefType::RepostedQuote(_, _))) {
@@ -175,6 +184,7 @@ impl SocialArticle {
 			},
 			None => html! {},
 		};
+		let actual_weak_c = actual_weak.clone();
 
 		html! {
 			<nav class="level is-mobile">
@@ -184,7 +194,7 @@ impl SocialArticle {
 							<>
 								<a
 									class={classes!("level-item", "articleButton", "repostButton", if actual_article.reposted() { Some("repostedPostButton") } else { None })}
-									onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::Repost))}
+									onclick={ctx.link().callback(move |_| Msg::ParentCallback(ParentMsg::Repost(actual_weak.clone())))}
 								>
 									<FA icon="retweet"/>
 									{match actual_article.repost_count() {
@@ -196,7 +206,7 @@ impl SocialArticle {
 								</a>
 								<a
 									class={classes!("level-item", "articleButton", "likeButton", if actual_article.liked() { Some("likedPostButton") } else { None })}
-									onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::Like))}
+									onclick={ctx.link().callback(move |_| Msg::ParentCallback(ParentMsg::Like(actual_weak_c.clone())))}
 								>
 									<FA icon="heart" icon_type={if actual_article.liked() { IconType::Solid } else { IconType::Regular }}/>
 									{match actual_article.like_count() {
@@ -206,7 +216,7 @@ impl SocialArticle {
 										}
 									}}
 								</a>
-								{
+								{ if !quote {
 									match &actual_article.media().iter().map(|m| m.media_type).collect::<Vec<MediaType>>()[..] {
 										[MediaType::Image, ..] => html! {
 											<a class="level-item articleButton" onclick={&ontoggle_compact}>
@@ -215,41 +225,53 @@ impl SocialArticle {
 										},
 										_ => html! {},
 									}
-								}
-								<a class="level-item articleButton" onclick={&ontoggle_markasread}>
-									<FA icon={if actual_article.marked_as_read() { "eye" } else { "eye-slash" }}/>
-								</a>
-								{
-									match ctx.props().in_modal {
-										false => html! {
-											<a class="level-item articleButton" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleInModal))}>
-												<FA icon="expand-alt"/>
-											</a>
-										},
-										true => html! {},
+								} else {
+									html! {}
+								} }
+								{ if !quote {
+									html! {
+										<a class="level-item articleButton" onclick={&ontoggle_markasread}>
+											<FA icon={if actual_article.marked_as_read() { "eye" } else { "eye-slash" }}/>
+										</a>
+										}
+								}else {
+									html! {}
+								} }
+								{ if !quote && !ctx.props().in_modal {
+									html! {
+										<a class="level-item articleButton" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleInModal))}>
+											<FA icon="expand-alt"/>
+										</a>
 									}
-								}
-
+								}else {
+									html! {}
+								} }
 							</>
 						},
 						true => html! {},
 					} }
-					<Dropdown current_label={DropdownLabel::Icon(yew::props! { FAProps {icon: "ellipsis-h".to_owned()}})} trigger_classes={classes!("level-item")} label_classes={classes!("articleButton")}>
-						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleMarkAsRead))}> {"Mark as read"} </a>
-						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleHide))}> {"Hide"} </a>
-						<a class="dropdown-item" onclick={&ontoggle_compact}> { if self.is_compact(ctx) { "Show expanded" } else { "Show compact" } } </a>
-						<a
-							class="dropdown-item"
-							href={ actual_article.url() }
-							target="_blank" rel="noopener noreferrer"
-						>
-							{ "External Link" }
-						</a>
-						{ dropdown_buttons }
-						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::LogData))}>{"Log Data"}</a>
-						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::LogJsonData))}>{"Log Json Data"}</a>
-						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::FetchData))}>{"Fetch Data"}</a>
-					</Dropdown>
+					{ if !quote {
+						html! {
+							<Dropdown current_label={DropdownLabel::Icon(yew::props! { FAProps {icon: "ellipsis-h".to_owned()}})} trigger_classes={classes!("level-item")} label_classes={classes!("articleButton")}>
+								<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleMarkAsRead))}> {"Mark as read"} </a>
+								<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleHide))}> {"Hide"} </a>
+								<a class="dropdown-item" onclick={&ontoggle_compact}> { if self.is_compact(ctx) { "Show expanded" } else { "Show compact" } } </a>
+								<a
+									class="dropdown-item"
+									href={ actual_article.url() }
+									target="_blank" rel="noopener noreferrer"
+								>
+									{ "External Link" }
+								</a>
+								{ dropdown_buttons }
+								<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::LogData))}>{"Log Data"}</a>
+								<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::LogJsonData))}>{"Log Json Data"}</a>
+								<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::FetchData))}>{"Fetch Data"}</a>
+							</Dropdown>
+						}
+					}else {
+						html! {}
+					} }
 				</div>
 			</nav>
 		}
@@ -330,7 +352,7 @@ impl SocialArticle {
 		}
 	}
 
-	fn view_quoted_post(&self, ctx: &Context<Self>, quoted: &ArticleBox) -> Html {
+	fn view_quoted_post(&self, ctx: &Context<Self>, quoted: &ArticleBox, weak_quoted: ArticleWeak) -> Html {
 		html! {
 			<div class="quotedPost">
 				<div class="articleHeader">
@@ -352,6 +374,7 @@ impl SocialArticle {
 					},
 					true => html! {},
 				} }
+				{ self.view_nav(ctx, quoted, weak_quoted, true) }
 			</div>
 		}
 	}

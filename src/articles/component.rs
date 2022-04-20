@@ -6,7 +6,7 @@ use wasm_bindgen::JsValue;
 use std::convert::identity;
 
 use super::{ArticleView, SocialArticle, GalleryArticle};
-use crate::articles::{MediaQueueInfo, ArticleMedia, weak_actual_article};
+use crate::articles::{MediaQueueInfo, ArticleMedia, weak_actual_article, ArticleWeak};
 use crate::articles::media_load_queue::{MediaLoadAgent, Request as MediaLoadRequest, Response as MediaLoadResponse, MediaLoadState};
 use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest};
 use crate::modals::Modal;
@@ -43,8 +43,8 @@ pub enum Msg {
 	LogData,
 	LogJsonData,
 	FetchData,
-	Like,
-	Repost,
+	Like(ArticleWeak),
+	Repost(ArticleWeak),
 	ToggleMarkAsRead,
 	ToggleHide,
 	ToggleInModal,
@@ -143,12 +143,13 @@ impl Component for ArticleComponent {
 
 	fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
 		match msg {
+			//TODO Get which article's media was clicked for like/repost
 			Msg::OnMediaClick => {
 				match ctx.props().app_settings.on_media_click {
 					OnMediaClick::Like =>
-						ctx.link().send_message(Msg::Like),
+						ctx.link().send_message(Msg::Like(ctx.props().article_struct.weak.clone())),
 					OnMediaClick::Repost =>
-						ctx.link().send_message(Msg::Repost),
+						ctx.link().send_message(Msg::Repost(ctx.props().article_struct.weak.clone())),
 					OnMediaClick::Expand =>
 						ctx.link().send_message(Msg::ToggleInModal),
 					OnMediaClick::MarkAsRead =>
@@ -180,12 +181,12 @@ impl Component for ArticleComponent {
 				self.article_actions.send(ArticleActionsRequest::FetchData(weak_actual_article(&ctx.props().article_struct.weak)));
 				false
 			}
-			Msg::Like => {
-				self.article_actions.send(ArticleActionsRequest::Like(weak_actual_article(&ctx.props().article_struct.weak)));
+			Msg::Like(actual_article) => {
+				self.article_actions.send(ArticleActionsRequest::Like(weak_actual_article(&actual_article)));
 				false
 			}
-			Msg::Repost => {
-				self.article_actions.send(ArticleActionsRequest::Repost(weak_actual_article(&ctx.props().article_struct.weak)));
+			Msg::Repost(actual_article) => {
+				self.article_actions.send(ArticleActionsRequest::Repost(weak_actual_article(&actual_article)));
 				false
 			}
 			Msg::ToggleMarkAsRead => {
