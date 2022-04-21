@@ -15,6 +15,8 @@ use crate::notifications::{NotificationAgent, Request as NotificationRequest, No
 
 pub type EndpointId = i32;
 
+//TODO Split agent stuff in separate module
+
 #[derive(Clone, PartialEq)]
 pub struct TimelineEndpointWrapper {
 	pub id: EndpointId,
@@ -38,6 +40,7 @@ impl TimelineEndpointWrapper {
 	}
 }
 
+//TODO Replace with per_timeline boolean?
 #[derive(Clone, Copy, PartialEq)]
 pub enum RefreshTime {
 	Start,
@@ -61,10 +64,12 @@ impl EndpointConstructor {
 	}
 }
 
+/// The constructors for a service's endpoints
 #[derive(Clone)]
-pub struct EndpointConstructors {
-	pub endpoint_types: Vec<EndpointConstructor>,
-	pub user_endpoint: Option<usize>,
+pub struct EndpointConstructorCollection {
+	pub constructors: Vec<EndpointConstructor>,
+	/// Index of the endpoint used to query a user's articles
+	pub user_endpoint_index: Option<usize>,
 }
 
 #[derive(Clone)]
@@ -76,6 +81,7 @@ pub struct EndpointView {
 	pub autorefresh_interval: u32,
 }
 
+/// Additional data common to all endpoints
 pub struct EndpointInfo {
 	endpoint: Box<dyn Endpoint>,
 	interval_id: Option<Interval>,
@@ -102,7 +108,7 @@ pub struct EndpointAgent {
 	endpoint_counter: EndpointId,
 	pub endpoints: HashMap<EndpointId, EndpointInfo>,
 	pub timelines: HashMap<TimelineId, (Weak<RefCell<Vec<TimelineEndpointWrapper>>>, Callback<Vec<ArticleWeak>>)>,
-	pub services: HashMap<&'static str, EndpointConstructors>,
+	pub services: HashMap<&'static str, EndpointConstructorCollection>,
 	subscribers: HashSet<HandlerId>,
 	timeline_container: Option<HandlerId>,
 	notification_agent: Dispatcher<NotificationAgent>,
@@ -127,7 +133,7 @@ pub enum Request {
 	AddArticles(RefreshTime, EndpointId, Vec<ArticleRc>),
 	AddEndpoint(Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>),
 	BatchAddEndpoints(Vec<(Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>, bool, bool)>, TimelineCreationRequest),
-	InitService(&'static str, EndpointConstructors),
+	InitService(&'static str, EndpointConstructorCollection),
 	UpdateRateLimit(EndpointId, RateLimit),
 	BatchNewEndpoints(Vec<(Vec<EndpointSerialized>, TimelinePropsEndpointsClosure)>),
 	RegisterTimelineContainer,
@@ -138,7 +144,7 @@ pub enum Request {
 }
 
 pub enum Response {
-	UpdatedState(HashMap<&'static str, EndpointConstructors>, Vec<EndpointView>),
+	UpdatedState(HashMap<&'static str, EndpointConstructorCollection>, Vec<EndpointView>),
 	BatchRequestResponse(Vec<(Vec<TimelineEndpointWrapper>, TimelinePropsEndpointsClosure)>),
 	AddTimeline(TimelineCreationMode, bool),
 }
@@ -421,7 +427,7 @@ impl EndpointAgent {
 				match self.services.get(&serialized.service.as_str()) {
 					None => Err(format!("{} isn't registered as a service. Available: {:?}", &serialized.service, self.services.keys()).into()),
 					Some(service) => {
-						let constructor = service.endpoint_types[serialized.endpoint_type].clone();
+						let constructor = service.constructors[serialized.endpoint_type].clone();
 						let params = serialized.params.clone();
 
 						let id = self.endpoint_counter;

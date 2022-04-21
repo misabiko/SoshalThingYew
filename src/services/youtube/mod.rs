@@ -16,7 +16,7 @@ use crate::services::{
 	RefreshTime,
 	endpoint_agent::{EndpointAgent, EndpointConstructor, EndpointId, Request as EndpointRequest},
 	article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest},
-	endpoint_agent::EndpointConstructors,
+	endpoint_agent::EndpointConstructorCollection,
 	storages::get_service_storage,
 	youtube::endpoints::{fetch_videos, PlaylistEndpoint},
 };
@@ -63,8 +63,8 @@ impl Agent for YouTubeAgent {
 		let mut endpoint_agent = EndpointAgent::dispatcher();
 		endpoint_agent.send(EndpointRequest::InitService(
 			SERVICE_INFO.name,
-			EndpointConstructors {
-				endpoint_types: vec![
+			EndpointConstructorCollection {
+				constructors: vec![
 					EndpointConstructor {
 						name: "Playlist",
 						param_template: vec![
@@ -73,7 +73,7 @@ impl Agent for YouTubeAgent {
 						callback: Rc::new(|id, params| Box::new(PlaylistEndpoint::from_json(id, params))),
 					},
 				],
-				user_endpoint: None,
+				user_endpoint_index: None,
 			}));
 
 		let mut _actions_agent = ArticleActionsAgent::dispatcher();

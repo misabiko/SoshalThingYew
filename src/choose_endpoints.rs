@@ -8,7 +8,7 @@ use wasm_bindgen::JsCast;
 use web_sys::HtmlInputElement;
 use serde_json::Value;
 
-use crate::services::endpoint_agent::{Request as EndpointRequest, EndpointAgent, EndpointId, RefreshTime, EndpointConstructors, Response as EndpointResponse, EndpointView, TimelineEndpointWrapper};
+use crate::services::endpoint_agent::{Request as EndpointRequest, EndpointAgent, EndpointId, RefreshTime, EndpointConstructorCollection, Response as EndpointResponse, EndpointView, TimelineEndpointWrapper};
 use crate::components::{Dropdown, DropdownLabel};
 use crate::timeline::{
 	filters::{FiltersOptions, FilterCollection, FilterMsg},
@@ -30,7 +30,7 @@ pub struct ChooseEndpoints {
 	show_refresh_endpoint_dropdown: bool,
 	endpoint_views: HashMap<EndpointId, EndpointView>,
 	endpoint_form: Option<EndpointForm>,
-	services: HashMap<&'static str, EndpointConstructors>,
+	services: HashMap<&'static str, EndpointConstructorCollection>,
 }
 
 pub enum Msg {
@@ -110,7 +110,7 @@ impl Component for ChooseEndpoints {
 				}
 				TimelineAgentResponse::AddUserTimeline(service, username) => {
 					//TODO Default user timeline filters in options
-					if let Some(endpoint_type) = self.services[&service].user_endpoint {
+					if let Some(endpoint_type) = self.services[&service].user_endpoint_index {
 						self.endpoint_form = Some(EndpointForm {
 							refresh_time: RefreshTime::Start,
 							service,
@@ -141,7 +141,7 @@ impl Component for ChooseEndpoints {
 					refresh_time,
 					service: "Twitter",
 					endpoint_type: 0,
-					params: self.services["Twitter"].endpoint_types[0].default_params(),
+					params: self.services["Twitter"].constructors[0].default_params(),
 					filters: FilterCollection::new(),
 				});
 				true
@@ -149,7 +149,7 @@ impl Component for ChooseEndpoints {
 			Msg::SetFormService(name) => {
 				if let Some(form) = &mut self.endpoint_form {
 					if form.service != name {
-						form.params = self.services[&name].endpoint_types[0].default_params();
+						form.params = self.services[&name].constructors[0].default_params();
 						form.service = name;
 						form.endpoint_type = 0;
 						true
@@ -164,7 +164,7 @@ impl Component for ChooseEndpoints {
 				if let Some(form) = &mut self.endpoint_form {
 					if form.endpoint_type != endpoint_type {
 						form.endpoint_type = endpoint_type;
-						form.params = self.services[&form.service].endpoint_types[endpoint_type].default_params();
+						form.params = self.services[&form.service].constructors[endpoint_type].default_params();
 						true
 					}else {
 						false
@@ -196,7 +196,7 @@ impl Component for ChooseEndpoints {
 			Msg::CreateEndpoint(both) => {
 				let mut created = false;
 				if let Some(EndpointForm { service, endpoint_type, refresh_time, params, filters }) = std::mem::take(&mut self.endpoint_form) {
-					let constructor = self.services[&service].endpoint_types[endpoint_type].clone();
+					let constructor = self.services[&service].constructors[endpoint_type].clone();
 					let refresh_time_c = refresh_time;
 					let callback = if both {
 						ctx.link().callback(move |(id, filters)| Msg::AddTimelineEndpointBoth(id, filters))
@@ -327,15 +327,15 @@ impl ChooseEndpoints {
 							}}) }
 						</Dropdown>
 						<label class="label">{ "Type" }</label>
-						<Dropdown current_label={DropdownLabel::Text(services[&form.service].endpoint_types[form.endpoint_type].name.clone().to_string())}>
-							{ for services[&form.service].endpoint_types.iter().enumerate().map(|(i, endpoint_con)| {
+						<Dropdown current_label={DropdownLabel::Text(services[&form.service].constructors[form.endpoint_type].name.clone().to_string())}>
+							{ for services[&form.service].constructors.iter().enumerate().map(|(i, endpoint_con)| {
 								html! {
 									<a class="dropdown-item" onclick={ctx.link().callback(move |_| Msg::SetFormType(i))}>
 										{ endpoint_con.name.clone() }
 									</a>
 							}}) }
 						</Dropdown>
-						{ for services[&form.service].endpoint_types[form.endpoint_type].param_template.iter().map(move |(param, param_type)| {
+						{ for services[&form.service].constructors[form.endpoint_type].param_template.iter().map(move |(param, param_type)| {
 							let param_c = param.clone();
 							let param_type_c = param_type.clone();
 							let oninput = ctx.link().batch_callback(move |e: InputEvent|

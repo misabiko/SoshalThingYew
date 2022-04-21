@@ -13,7 +13,7 @@ use crate::error::RatelimitedResult;
 use crate::services::{
 	service,
 	article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest},
-	endpoint_agent::{EndpointAgent, Request as EndpointRequest, EndpointId, RefreshTime, EndpointConstructors, EndpointConstructor},
+	endpoint_agent::{EndpointAgent, Request as EndpointRequest, EndpointId, RefreshTime, EndpointConstructorCollection, EndpointConstructor},
 	pixiv::endpoints::{APIPayload, FollowAPIEndpoint, FollowAPIResponse, FullPostAPI},
 	storages::{ServiceStorage, get_service_storage, cache_articles},
 };
@@ -48,8 +48,8 @@ impl Agent for PixivAgent {
 		let mut endpoint_agent = EndpointAgent::dispatcher();
 		endpoint_agent.send(EndpointRequest::InitService(
 			SERVICE_INFO.name,
-			EndpointConstructors {
-				endpoint_types: vec![
+			EndpointConstructorCollection {
+				constructors: vec![
 					EndpointConstructor {
 						name: "Follow API",
 						param_template: vec![
@@ -59,7 +59,7 @@ impl Agent for PixivAgent {
 						callback: Rc::new(|id, params| Box::new(FollowAPIEndpoint::from_json(id, params))),
 					},
 				],
-				user_endpoint: None,
+				user_endpoint_index: None,
 			}));
 
 		let mut actions_agent = ArticleActionsAgent::dispatcher();

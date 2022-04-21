@@ -10,7 +10,7 @@ use crate::services::{
 	service,
 	EndpointSerialized,
 	RefreshTime,
-	endpoint_agent::{EndpointAgent, EndpointConstructor, EndpointConstructors},
+	endpoint_agent::{EndpointAgent, EndpointConstructor, EndpointConstructorCollection},
 	article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest},
 };
 
@@ -60,8 +60,8 @@ impl Agent for DummyServiceAgent {
 		let mut _endpoint_agent = EndpointAgent::dispatcher();
 		_endpoint_agent.send(EndpointRequest::InitService(
 			SERVICE_INFO.name,
-			EndpointConstructors {
-				endpoint_types: vec![
+			EndpointConstructorCollection {
+				constructors: vec![
 					EndpointConstructor {
 						name: "Endpoint",
 						param_template: vec![],
@@ -71,7 +71,7 @@ impl Agent for DummyServiceAgent {
 						))),
 					}
 				],
-				user_endpoint: None,
+				user_endpoint_index: None,
 			},
 		));
 

@@ -15,7 +15,7 @@ use crate::notifications::{Notification, NotificationAgent, Request as Notificat
 use crate::services::{
 	service,
 	RateLimit,
-	endpoint_agent::{EndpointAgent, Request as EndpointRequest, EndpointId, EndpointConstructor, EndpointConstructors, RefreshTime},
+	endpoint_agent::{EndpointAgent, Request as EndpointRequest, EndpointId, EndpointConstructor, EndpointConstructorCollection, RefreshTime},
 	article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest},
 	twitter::endpoints::*,
 };
@@ -102,9 +102,9 @@ impl Agent for TwitterAgent {
 		let mut endpoint_agent = EndpointAgent::dispatcher();
 		endpoint_agent.send(EndpointRequest::InitService(
 			SERVICE_INFO.name,
-			 EndpointConstructors {
+			EndpointConstructorCollection {
 				 //TODO Needs to sync other eq_storage when modifying this
-				endpoint_types: vec![
+				constructors: vec![
 					EndpointConstructor {
 						name: "Home Timeline",
 						param_template: vec![],
@@ -149,7 +149,7 @@ impl Agent for TwitterAgent {
 						callback: Rc::new(|id, params| Box::new(SearchEndpoint::from_json(id, params))),
 					},
 				],
-				user_endpoint: Some(1)
+				user_endpoint_index: Some(1)
 			}
 		));
 
