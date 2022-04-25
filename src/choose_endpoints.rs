@@ -21,6 +21,7 @@ struct EndpointForm {
 	endpoint_type: usize,
 	params: Value,
 	filters: FilterCollection,
+	shared: bool,
 }
 
 pub struct ChooseEndpoints {
@@ -48,6 +49,7 @@ pub enum Msg {
 	RemoveTimelineEndpoint(RefreshTime, EndpointId),
 	FormFilterMsg(FilterMsg),
 	ExistingFilterMsg(usize, FilterMsg),
+	ToggleFormShared,
 }
 
 #[derive(Properties, Clone)]
@@ -73,7 +75,7 @@ impl Component for ChooseEndpoints {
 				let mut agent = TimelineAgent::bridge(ctx.link().callback(Msg::TimelineAgentResponse));
 				agent.send(TimelineAgentRequest::RegisterChooseEndpoints);
 				Some(agent)
-			},
+			}
 			false => None,
 		};
 
@@ -121,9 +123,10 @@ impl Component for ChooseEndpoints {
 								"include_replies": true,
 							}),
 							filters: FilterCollection::new(),
+							shared: false,
 						});
 						true
-					}else { false }
+					} else { false }
 				}
 				_ => false
 			}
@@ -143,6 +146,7 @@ impl Component for ChooseEndpoints {
 					endpoint_type: 0,
 					params: self.services["Twitter"].constructors[0].default_params(),
 					filters: FilterCollection::new(),
+					shared: false,
 				});
 				true
 			}
@@ -153,10 +157,10 @@ impl Component for ChooseEndpoints {
 						form.service = name;
 						form.endpoint_type = 0;
 						true
-					}else {
+					} else {
 						false
 					}
-				}else {
+				} else {
 					false
 				}
 			}
@@ -166,10 +170,10 @@ impl Component for ChooseEndpoints {
 						form.endpoint_type = endpoint_type;
 						form.params = self.services[&form.service].constructors[endpoint_type].default_params();
 						true
-					}else {
+					} else {
 						false
 					}
-				}else {
+				} else {
 					false
 				}
 			}
@@ -179,35 +183,40 @@ impl Component for ChooseEndpoints {
 						if let Value::Bool(_) = param_type {
 							if let Value::Bool(prev) = form.params[&param] {
 								form.params[&param] = Value::Bool(!prev);
-							}else {
+							} else {
 								form.params[&param] = Value::Bool(value != "on" && value != "true");
 							}
-						}else {
+						} else {
 							form.params[&param] = Value::String(value);
 						}
 						true
-					}else {
+					} else {
 						false
 					}
-				}else {
+				} else {
 					false
 				}
 			}
 			Msg::CreateEndpoint(both) => {
 				let mut created = false;
-				if let Some(EndpointForm { service, endpoint_type, refresh_time, params, filters }) = std::mem::take(&mut self.endpoint_form) {
+				if let Some(EndpointForm { service, endpoint_type, refresh_time, params, mut filters, shared }) = std::mem::take(&mut self.endpoint_form) {
 					let constructor = self.services[&service].constructors[endpoint_type].clone();
 					let refresh_time_c = refresh_time;
+					let filters = std::mem::replace(&mut filters, FilterCollection::new());
+
 					let callback = if both {
-						ctx.link().callback(move |(id, filters)| Msg::AddTimelineEndpointBoth(id, filters))
-					}else {
-						ctx.link().callback(move |(id, filters)| Msg::AddTimelineEndpoint(refresh_time_c, id, filters))
+						ctx.link().callback_once(move |id| Msg::AddTimelineEndpointBoth(id, filters))
+					} else {
+						ctx.link().callback_once(move |id| Msg::AddTimelineEndpoint(refresh_time_c, id, filters))
 					};
 					let params = params.clone();
-					self.endpoint_agent.send(EndpointRequest::AddEndpoint(Box::new(move |id| {
-						callback.emit((id, filters));
-						(constructor.callback)(id, params.clone())
-					})));
+					self.endpoint_agent.send(EndpointRequest::AddEndpoint {
+						id_to_endpoint: Box::new(move |id| {
+							callback.emit(id);
+							(constructor.callback)(id, params.clone())
+						}),
+						shared,
+					});
 
 					created = true;
 				}
@@ -252,23 +261,31 @@ impl Component for ChooseEndpoints {
 						RefreshTime::Start => {
 							if borrow[index].on_refresh {
 								borrow[index].on_start = false;
-							}else {
+							} else {
 								borrow.remove(index);
 							}
-						},
+						}
 						RefreshTime::OnRefresh => {
 							if borrow[index].on_start {
 								borrow[index].on_refresh = false;
-							}else {
+							} else {
 								borrow.remove(index);
 							}
-						},
+						}
 					};
 				}
 				true
 			}
 			Msg::FormFilterMsg(msg) => self.endpoint_form.as_mut().unwrap().filters.update(msg),
 			Msg::ExistingFilterMsg(endpoint_index, msg) => ctx.props().timeline_endpoints.upgrade().unwrap().borrow_mut()[endpoint_index].filters.update(msg),
+			Msg::ToggleFormShared => {
+				if let Some(form) = &mut self.endpoint_form {
+					form.shared = !form.shared;
+					true
+				} else {
+					false
+				}
+			}
 		}
 	}
 
@@ -305,14 +322,34 @@ impl ChooseEndpoints {
 					}}) }
 				</Dropdown>
 			}
-		}else {
+		} else {
 			html! {}
 		};
 
+		//TODO Move to separate method
 		let new_endpoint = match &self.endpoint_form {
 			Some(form) => if form.refresh_time == refresh_time {
 				let services = self.services.clone();
 				let params = form.params.clone();
+
+				let shared_button = {
+					let (label, class) = if form.shared {
+						("Shared", Some("is-success"))
+					} else {
+						("Just this timeline", None)
+					};
+
+					let onclick = ctx.link().callback(move |_| Msg::ToggleFormShared);
+
+					html! {
+						<div class="control">
+							<button class={classes!("button", class)} {onclick}>
+								{label}
+							</button>
+						</div>
+					}
+				};
+
 				html! {
 					<div class="control">
 						<label class="label">{ "Service" }</label>
@@ -403,6 +440,7 @@ impl ChooseEndpoints {
 								}
 							}
 						})}
+						{ shared_button }
 						{ self.view_form_filters(ctx) }
 						<div class="field has-addons">
 							<div class="control">
@@ -414,7 +452,7 @@ impl ChooseEndpoints {
 						</div>
 					</div>
 				}
-			}else { html! {} },
+			} else { html! {} },
 			None => {
 				let on_new_endpoint_callback = match refresh_time {
 					RefreshTime::Start => ctx.link().callback(move |_| Msg::CreateNewEndpointForm(RefreshTime::Start)),
@@ -441,15 +479,26 @@ impl ChooseEndpoints {
 	}
 
 	fn view_endpoint(&self, ctx: &Context<Self>, refresh_time: RefreshTime, endpoint_id: EndpointId, index: usize) -> Html {
-		html! {
-			<div class="block">
-				{ self.endpoint_views.get(&endpoint_id).map(|e| e.name.clone()).unwrap_or_default() }
-				{ self.view_existing_filters(ctx, index) }
-				<button
-					class="button"
-					onclick={ctx.link().callback(move |_| Msg::RemoveTimelineEndpoint(refresh_time.clone(), endpoint_id.clone()))}
-				>{"Remove"}</button>
-			</div>
+		//TODO endpoint_views shouldn't be empty
+		if let Some(endpoint_view) = self.endpoint_views.get(&endpoint_id) {
+			let name = endpoint_view.name.clone();
+
+			html! {
+				<div class="block">
+					{ name }
+					{ self.view_existing_filters(ctx, index) }
+					<div class="control">
+						<button
+							class="button"
+							onclick={ctx.link().callback(move |_| Msg::RemoveTimelineEndpoint(refresh_time.clone(), endpoint_id.clone()))}
+						>
+							{"Remove"}
+						</button>
+					</div>
+				</div>
+			}
+		} else {
+			html! {}
 		}
 	}
 

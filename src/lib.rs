@@ -24,7 +24,7 @@ use settings::{AppSettings, ArticleFilteredMode, OnMediaClick, SettingsModal, Se
 use notifications::{NotificationAgent, Request as NotificationRequest, Response as NotificationResponse};
 use services::{
 	Endpoint,
-	endpoint_agent::{EndpointId, EndpointAgent, TimelineEndpointWrapper, Request as EndpointRequest, Response as EndpointResponse, TimelineCreationRequest},
+	endpoint_agent::{EndpointId, EndpointAgent, TimelineEndpointWrapper, Request as EndpointRequest, Response as EndpointResponse},
 	pixiv::PixivAgent,
 	dummy_service::DummyServiceAgent,
 	twitter::{endpoints::*, TwitterAgent, Request as TwitterRequest, Response as TwitterResponse, SERVICE_INFO as TwitterServiceInfo},
@@ -88,8 +88,7 @@ pub struct Model {
 }
 
 pub enum Msg {
-	AddEndpoint(Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>),
-	BatchAddEndpoints(Vec<(Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>, bool, bool)>, TimelineCreationRequest),
+	EndpointAgentRequest(EndpointRequest),
 	AddTimeline(TimelineCreationMode, bool),
 	ToggleFavViewer,
 	ToggleDisplayMode,
@@ -224,12 +223,8 @@ impl Component for Model {
 
 	fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
 		match msg {
-			Msg::AddEndpoint(e) => {
-				self.endpoint_agent.send(EndpointRequest::AddEndpoint(e));
-				false
-			}
-			Msg::BatchAddEndpoints(endpoints, creation_request) => {
-				self.endpoint_agent.send(EndpointRequest::BatchAddEndpoints(endpoints, creation_request));
+			Msg::EndpointAgentRequest(request) => {
+				self.endpoint_agent.send(request);
 				false
 			}
 			Msg::AddTimeline(creation_mode, set_as_main_timeline) => {
@@ -490,11 +485,15 @@ pub fn parse_pathname(ctx: &Context<Model>, pathname: &str, search_opt: &Option<
 			false,
 		));
 
+		//TODO self.endpoint_agent.request?
 		ctx.link().send_message(
-			Msg::AddEndpoint(Box::new(move |id| {
-				callback.emit(id);
-				Box::new(SingleTweetEndpoint::new(id, tweet_id))
-			}))
+			Msg::EndpointAgentRequest(EndpointRequest::AddEndpoint {
+				id_to_endpoint: Box::new(move |id| {
+					callback.emit(id);
+					Box::new(SingleTweetEndpoint::new(id, tweet_id))
+				}),
+				shared: false,
+			})
 		);
 	} else if let Some(username) = pathname.strip_prefix("/twitter/user/").map(str::to_owned) {
 		let (retweets, replies) = match search_opt {
@@ -514,10 +513,13 @@ pub fn parse_pathname(ctx: &Context<Model>, pathname: &str, search_opt: &Option<
 		));
 
 		ctx.link().send_message(
-			Msg::AddEndpoint(Box::new(move |id| {
-				callback.emit(id);
-				Box::new(UserTimelineEndpoint::new(id, username.clone(), retweets, replies))
-			}))
+			Msg::EndpointAgentRequest(EndpointRequest::AddEndpoint {
+				id_to_endpoint: Box::new(move |id| {
+					callback.emit(id);
+					Box::new(UserTimelineEndpoint::new(id, username.clone(), retweets, replies))
+				}),
+				shared: false,
+			})
 		);
 	} else if pathname.starts_with("/twitter/home") {
 		let callback = ctx.link().callback(|id| Msg::AddTimeline(
@@ -525,10 +527,13 @@ pub fn parse_pathname(ctx: &Context<Model>, pathname: &str, search_opt: &Option<
 			false,
 		));
 		ctx.link().send_message(
-			Msg::AddEndpoint(Box::new(move |id| {
-				callback.emit(id);
-				Box::new(HomeTimelineEndpoint::new(id))
-			}))
+			Msg::EndpointAgentRequest(EndpointRequest::AddEndpoint {
+				id_to_endpoint: Box::new(move |id| {
+					callback.emit(id);
+					Box::new(HomeTimelineEndpoint::new(id))
+				}),
+				shared: false,
+			})
 		);
 	} else if let Some(list_params) = pathname.strip_prefix("/twitter/list/").map(|s| s.split("/").collect::<Vec<&str>>()) {
 		if let [username, slug] = list_params[..] {
@@ -540,10 +545,13 @@ pub fn parse_pathname(ctx: &Context<Model>, pathname: &str, search_opt: &Option<
 			let slug = slug.to_owned();
 
 			ctx.link().send_message(
-				Msg::AddEndpoint(Box::new(move |id| {
-					callback.emit(id);
-					Box::new(ListEndpoint::new(id, username, slug))
-				}) /*as Box<dyn FnOnce(EndpointId) -> Box<ListEndpoint>>*/)
+				Msg::EndpointAgentRequest(EndpointRequest::AddEndpoint {
+					id_to_endpoint: Box::new(move |id| {
+						callback.emit(id);
+						Box::new(ListEndpoint::new(id, username, slug))
+					}),
+					shared: false,
+				})
 			);
 		}
 	}

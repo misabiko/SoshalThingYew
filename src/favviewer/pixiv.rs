@@ -12,6 +12,7 @@ use crate::services::{
 	pixiv::endpoints::*,
 	storages::get_or_init_favviewer_settings,
 };
+use crate::services::endpoint_agent::BatchEndpointAddClosure;
 
 fn make_follow_activator(onclick: Callback<MouseEvent>) -> Html {
 	let favviewer_button_mount = gloo_utils::document()
@@ -38,16 +39,25 @@ fn add_follow_timelines() {
 
 	let mut endpoint_agent = EndpointAgent::dispatcher();
 	endpoint_agent.send(EndpointRequest::BatchAddEndpoints(
-		vec![(
-			Box::new(move |id| {
-				Box::new(FollowPageEndpoint::new(id))
-			}), true, false
-		), (
-			Box::new(move |id| {
-				Box::new(FollowAPIEndpoint::new(id, r18, current_page - 1))
-			}), false, true
-		)],
-		TimelineCreationRequest::NameEndpoints("Pixiv".to_owned())
+		vec![
+			BatchEndpointAddClosure {
+				closure: Box::new(move |id| {
+					Box::new(FollowPageEndpoint::new(id))
+				}),
+				on_start: true,
+				on_refresh: false,
+				shared: false,
+			},
+			BatchEndpointAddClosure {
+				closure: Box::new(move |id| {
+					Box::new(FollowAPIEndpoint::new(id, r18, current_page - 1))
+				}),
+				on_start: false,
+				on_refresh: true,
+				shared: false,
+			},
+		],
+		TimelineCreationRequest::NameEndpoints("Pixiv".to_owned()),
 	));
 }
 
@@ -67,9 +77,7 @@ fn make_user_activator(onclick: Callback<MouseEvent>) -> Html {
 	}, favviewer_button_mount.into())
 }
 
-fn add_user_timeline() {
-
-}
+fn add_user_timeline() {}
 
 pub fn setup(href: &str) -> bool {
 	if href.contains("pixiv.net/bookmark_new_illust") {
@@ -87,11 +95,11 @@ pub fn setup(href: &str) -> bool {
 		let mut style_html = HashMap::new();
 		style_html.insert(FavViewerStyle::Normal, create_portal(html! {
                 <style>{"#root {width: 100%} #root > :nth-child(2), .sc-1nr368f-2.bGUtlw { height: 100%; } .sc-jgyytr-1 {display: none}"}</style>
-			}, document_head.clone().into()
+			}, document_head.clone().into(),
 		));
 		style_html.insert(FavViewerStyle::Hidden, create_portal(html! {
                 <style>{format!("{} #root {{width: 100%}}", default_hidden_style())}</style>
-			}, document_head.into()
+			}, document_head.into(),
 		));
 
 		let display_mode = get_or_init_favviewer_settings(DisplayMode::Single {
@@ -113,7 +121,7 @@ pub fn setup(href: &str) -> bool {
 		}});
 
 		true
-	}else if href.contains("pixiv.net/en/users") {
+	} else if href.contains("pixiv.net/en/users") {
 		Timeout::new(3_000, || {
 			let mount_point = gloo_utils::document().create_element("div").expect("to create empty div");
 			mount_point.class_list().add_1("favviewer").expect("adding favviewer class");
@@ -128,11 +136,11 @@ pub fn setup(href: &str) -> bool {
 			let mut style_html = HashMap::new();
 			style_html.insert(FavViewerStyle::Normal, create_portal(html! {
                 <style>{".favviewer {width: 100%; height: 50%}#root {width: 100%} #root > :nth-child(2), .sc-1nr368f-2.bGUtlw { height: 100%; } .sc-jgyytr-1 {display: none}"}</style>
-			}, document_head.clone().into()
+			}, document_head.clone().into(),
 			));
 			style_html.insert(FavViewerStyle::Hidden, create_portal(html! {
                 <style>{".favviewer {display: none;} #root {width: 100%} "}</style>
-			}, document_head.into()
+			}, document_head.into(),
 			));
 
 			yew::start_app_with_props_in_element::<Model>(mount_point, yew::props! { ModelProps {
@@ -151,7 +159,7 @@ pub fn setup(href: &str) -> bool {
 		}).forget();
 
 		true
-	}else {
+	} else {
 		false
 	}
 }

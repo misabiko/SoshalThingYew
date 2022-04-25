@@ -79,21 +79,24 @@ pub struct EndpointView {
 	pub ratelimit: Option<RateLimit>,
 	pub is_autorefreshing: bool,
 	pub autorefresh_interval: u32,
+	pub shared: bool,
 }
 
 /// Additional data common to all endpoints
 pub struct EndpointInfo {
 	endpoint: Box<dyn Endpoint>,
+	shared: bool,
 	interval_id: Option<Interval>,
 	interval: u32,
 }
 
 impl EndpointInfo {
-	fn new(endpoint: Box<dyn Endpoint>) -> Self {
+	fn new(endpoint: Box<dyn Endpoint>, shared: bool) -> Self {
 		Self {
 			interval: endpoint.default_interval(),
 			interval_id: None,
 			endpoint,
+			shared,
 		}
 	}
 }
@@ -101,6 +104,13 @@ impl EndpointInfo {
 pub enum TimelineCreationRequest {
 	NameEndpoints(String),
 	Props(TimelinePropsEndpointsClosure)
+}
+
+pub struct BatchEndpointAddClosure {
+	pub closure: Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>,
+	pub on_start: bool,
+	pub on_refresh: bool,
+	pub shared: bool,
 }
 
 pub struct EndpointAgent {
@@ -131,8 +141,11 @@ pub enum Request {
 	RefreshEndpoint(EndpointId, RefreshTime),
 	EndpointFetchResponse(RefreshTime, EndpointId, RatelimitedResult<Vec<ArticleRc>>),
 	AddArticles(RefreshTime, EndpointId, Vec<ArticleRc>),
-	AddEndpoint(Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>),
-	BatchAddEndpoints(Vec<(Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>, bool, bool)>, TimelineCreationRequest),
+	AddEndpoint {
+		id_to_endpoint: Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>,
+		shared: bool,
+	},
+	BatchAddEndpoints(Vec<BatchEndpointAddClosure>, TimelineCreationRequest),
 	InitService(&'static str, EndpointConstructorCollection),
 	UpdateRateLimit(EndpointId, RateLimit),
 	BatchNewEndpoints(Vec<(Vec<EndpointSerialized>, TimelinePropsEndpointsClosure)>),
@@ -260,7 +273,23 @@ impl Agent for EndpointAgent {
 				}
 			},
 			Request::RemoveTimeline(id) => {
+				let endpoints = self.timelines.get(&id).unwrap().0.upgrade().unwrap();
+				let endpoints = endpoints.borrow();
+				let mut should_update_state = false;
+
+				for wrapper in endpoints.iter() {
+					let shared = self.endpoints[&wrapper.id].shared;
+					if shared {
+						self.endpoints.remove(&wrapper.id);
+						should_update_state = true;
+					}
+				}
+
 				self.timelines.remove(&id);
+
+				if should_update_state {
+					self.link.send_message(Msg::UpdatedState);
+				}
 			}
 			Request::Refresh(endpoints_weak) => {
 				let endpoints = endpoints_weak.upgrade().unwrap();
@@ -315,17 +344,17 @@ impl Agent for EndpointAgent {
 			}
 			Request::AddArticles(refresh_time, endpoint_id, articles) =>
 				self.link.send_message(Msg::Refreshed(refresh_time, endpoint_id, (articles, None))),
-			Request::AddEndpoint(endpoint_closure) => {
-				self.endpoints.insert(self.endpoint_counter, EndpointInfo::new(endpoint_closure(self.endpoint_counter)));
+			Request::AddEndpoint { id_to_endpoint, shared } => {
+				self.endpoints.insert(self.endpoint_counter, EndpointInfo::new(id_to_endpoint(self.endpoint_counter), shared));
 				self.endpoint_counter += 1;
 
 				self.link.send_message(Msg::UpdatedState);
-			},
+			}
 			Request::BatchAddEndpoints(closures, timeline_creation_request) => {
 				if let Some(timeline_container) = self.timeline_container {
-					let endpoints = closures.into_iter().map(|(closure, on_start, on_refresh)| {
+					let endpoints = closures.into_iter().map(|BatchEndpointAddClosure {closure, on_start, on_refresh, shared}| {
 						let id = self.endpoint_counter;
-						self.endpoints.insert(id, EndpointInfo::new((closure)(self.endpoint_counter)));
+						self.endpoints.insert(id, EndpointInfo::new((closure)(id), shared));
 						self.endpoint_counter += 1;
 						TimelineEndpointWrapper::new(id, on_start, on_refresh)
 					}).collect();
@@ -431,7 +460,7 @@ impl EndpointAgent {
 						let params = serialized.params.clone();
 
 						let id = self.endpoint_counter;
-						self.endpoints.insert(self.endpoint_counter, EndpointInfo::new((constructor.callback)(id, params.clone())));
+						self.endpoints.insert(self.endpoint_counter, EndpointInfo::new((constructor.callback)(id, params.clone()), true));
 						self.endpoint_counter += 1;
 
 						Ok(id)
@@ -455,6 +484,7 @@ impl EndpointAgent {
 			ratelimit: e.endpoint.ratelimit().cloned(),
 			is_autorefreshing: e.interval_id.is_some(),
 			autorefresh_interval: e.interval,
+			shared: e.shared,
 		}).collect()));
 	}
 }
