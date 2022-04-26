@@ -26,12 +26,18 @@ impl UserTimelineEndpoint {
 			include_replies,
 			articles: Vec::new(),
 			agent: TwitterAgent::dispatcher(),
-			ratelimit: RateLimit::default()
+			ratelimit: RateLimit::default(),
 		}
 	}
 
 	pub fn from_json(id: EndpointId, value: serde_json::Value) -> Self {
-		Self::new(id, value["username"].as_str().unwrap().to_owned(), value["include_retweets"].as_bool().unwrap().to_owned(), value["include_replies"].as_bool().unwrap().to_owned())
+		Self::new(
+			id,
+			value["username"].as_str().unwrap().to_owned(),
+			//TODO Remove default once default user endpoint
+			value["include_retweets"].as_bool().unwrap_or(false).to_owned(),
+			value["include_replies"].as_bool().unwrap_or(false).to_owned(),
+		)
 	}
 }
 
@@ -64,7 +70,7 @@ impl Endpoint for UserTimelineEndpoint {
 		self.agent.send(TwitterRequest::FetchTweets(
 			refresh_time,
 			self.id,
-			Url::parse(&format!("{}/proxy/twitter/user/{}?replies={}&rts={}&count=20", base_url(), self.username, &self.include_replies, &self.include_retweets)).unwrap()
+			Url::parse(&format!("{}/proxy/twitter/user/{}?replies={}&rts={}&count=20", base_url(), self.username, &self.include_replies, &self.include_retweets)).unwrap(),
 		))
 	}
 
@@ -74,7 +80,7 @@ impl Endpoint for UserTimelineEndpoint {
 				self.agent.send(TwitterRequest::FetchTweets(
 					refresh_time,
 					self.id,
-					Url::parse(&format!("{}/proxy/twitter/user/{}?replies={}&rts={}&max_id={}", base_url(), &self.username, &self.include_replies, &self.include_retweets, &last_id.upgrade().unwrap().borrow().id())).unwrap()
+					Url::parse(&format!("{}/proxy/twitter/user/{}?replies={}&rts={}&max_id={}", base_url(), &self.username, &self.include_replies, &self.include_retweets, &last_id.upgrade().unwrap().borrow().id())).unwrap(),
 				))
 			}
 			None => self.refresh(refresh_time)
@@ -83,11 +89,11 @@ impl Endpoint for UserTimelineEndpoint {
 
 	fn eq_storage(&self, storage: &EndpointSerialized) -> bool {
 		storage.service == SERVICE_INFO.name &&
-		storage.endpoint_type == 1 &&
-		storage.params["username"]
-			.as_str()
-			.map(|u| u == self.username)
-			.unwrap_or_default()
+			storage.endpoint_type == 1 &&
+			storage.params["username"]
+				.as_str()
+				.map(|u| u == self.username)
+				.unwrap_or_default()
 	}
 }
 
@@ -104,7 +110,7 @@ impl HomeTimelineEndpoint {
 			id,
 			articles: Vec::new(),
 			agent: TwitterAgent::dispatcher(),
-			ratelimit: RateLimit::default()
+			ratelimit: RateLimit::default(),
 		}
 	}
 }
@@ -148,7 +154,7 @@ impl Endpoint for HomeTimelineEndpoint {
 				self.agent.send(TwitterRequest::FetchTweets(
 					refresh_time,
 					self.id,
-					Url::parse(&format!("{}/proxy/twitter/home?max_id={}", base_url(), &last_id.upgrade().unwrap().borrow().id())).unwrap()
+					Url::parse(&format!("{}/proxy/twitter/home?max_id={}", base_url(), &last_id.upgrade().unwrap().borrow().id())).unwrap(),
 				))
 			}
 			None => self.refresh(refresh_time)
@@ -157,7 +163,7 @@ impl Endpoint for HomeTimelineEndpoint {
 
 	fn eq_storage(&self, storage: &EndpointSerialized) -> bool {
 		storage.service == SERVICE_INFO.name &&
-		storage.endpoint_type == 0
+			storage.endpoint_type == 0
 	}
 }
 
@@ -178,7 +184,7 @@ impl ListEndpoint {
 			slug,
 			articles: Vec::new(),
 			agent: TwitterAgent::dispatcher(),
-			ratelimit: RateLimit::default()
+			ratelimit: RateLimit::default(),
 		}
 	}
 
@@ -220,7 +226,7 @@ impl Endpoint for ListEndpoint {
 		self.agent.send(TwitterRequest::FetchTweets(
 			refresh_time,
 			self.id,
-			Url::parse(&format!("{}/proxy/twitter/list/{}/{}", base_url(), &self.username, &self.slug)).unwrap()
+			Url::parse(&format!("{}/proxy/twitter/list/{}/{}", base_url(), &self.username, &self.slug)).unwrap(),
 		))
 	}
 
@@ -230,7 +236,7 @@ impl Endpoint for ListEndpoint {
 				self.agent.send(TwitterRequest::FetchTweets(
 					refresh_time,
 					self.id,
-					Url::parse(&format!("{}/proxy/twitter/list/{}/{}?max_id={}", base_url(), &self.username, &self.slug, &last_id.upgrade().unwrap().borrow().id())).unwrap()
+					Url::parse(&format!("{}/proxy/twitter/list/{}/{}?max_id={}", base_url(), &self.username, &self.slug, &last_id.upgrade().unwrap().borrow().id())).unwrap(),
 				))
 			}
 			None => self.refresh(refresh_time)
@@ -239,15 +245,15 @@ impl Endpoint for ListEndpoint {
 
 	fn eq_storage(&self, storage: &EndpointSerialized) -> bool {
 		storage.service == SERVICE_INFO.name &&
-		storage.endpoint_type == 2 &&
-		storage.params["username"]
-			.as_str()
-			.map(|u| u == self.username)
-			.unwrap_or_default() &&
-		storage.params["slug"]
-			.as_str()
-			.map(|s| s == self.slug)
-			.unwrap_or_default()
+			storage.endpoint_type == 2 &&
+			storage.params["username"]
+				.as_str()
+				.map(|u| u == self.username)
+				.unwrap_or_default() &&
+			storage.params["slug"]
+				.as_str()
+				.map(|s| s == self.slug)
+				.unwrap_or_default()
 	}
 }
 
@@ -266,7 +272,7 @@ impl LikesEndpoint {
 			username,
 			articles: Vec::new(),
 			agent: TwitterAgent::dispatcher(),
-			ratelimit: RateLimit::default()
+			ratelimit: RateLimit::default(),
 		}
 	}
 
@@ -307,7 +313,7 @@ impl Endpoint for LikesEndpoint {
 		self.agent.send(TwitterRequest::FetchTweets(
 			refresh_time,
 			self.id,
-			Url::parse(&format!("{}/proxy/twitter/likes/{}?count=20", base_url(), &self.username)).unwrap()
+			Url::parse(&format!("{}/proxy/twitter/likes/{}?count=20", base_url(), &self.username)).unwrap(),
 		))
 	}
 
@@ -317,7 +323,7 @@ impl Endpoint for LikesEndpoint {
 				self.agent.send(TwitterRequest::FetchTweets(
 					refresh_time,
 					self.id,
-					Url::parse(&format!("{}/proxy/twitter/likes/{}?max_id={}", base_url(), &self.username, &last_id.upgrade().unwrap().borrow().id())).unwrap()
+					Url::parse(&format!("{}/proxy/twitter/likes/{}?max_id={}", base_url(), &self.username, &last_id.upgrade().unwrap().borrow().id())).unwrap(),
 				))
 			}
 			None => self.refresh(refresh_time)
@@ -390,17 +396,17 @@ impl Endpoint for SingleTweetEndpoint {
 		self.agent.send(TwitterRequest::FetchTweet(
 			refresh_time,
 			self.id,
-			Url::parse(&format!("{}/proxy/twitter/status/{}", base_url(), &self.tweet_id)).unwrap()
+			Url::parse(&format!("{}/proxy/twitter/status/{}", base_url(), &self.tweet_id)).unwrap(),
 		))
 	}
 
 	fn eq_storage(&self, storage: &EndpointSerialized) -> bool {
 		storage.service == SERVICE_INFO.name &&
-		storage.endpoint_type == 4 &&
-		storage.params["id"]
-			.as_u64()
-			.map(|id| id == self.tweet_id)
-			.unwrap_or_default()
+			storage.endpoint_type == 4 &&
+			storage.params["id"]
+				.as_u64()
+				.map(|id| id == self.tweet_id)
+				.unwrap_or_default()
 	}
 }
 
@@ -419,7 +425,7 @@ impl SearchEndpoint {
 			query,
 			articles: Vec::new(),
 			agent: TwitterAgent::dispatcher(),
-			ratelimit: RateLimit::default()
+			ratelimit: RateLimit::default(),
 		}
 	}
 

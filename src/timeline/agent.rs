@@ -30,6 +30,7 @@ pub enum Request {
 	RegisterDisplayMode,
 	AddTimeline,
 	AddUserTimeline(&'static str, String),
+	AddQuickUserTimeline(&'static str, String),
 	SetMainTimeline(TimelineId),
 	SetMainContainer(Container),
 	SetMainColumnCount(u8),
@@ -42,6 +43,7 @@ pub enum Response {
 	AddTimeline,
 	AddBlankTimeline,
 	AddUserTimeline(&'static str, String),
+	AddQuickUserTimeline(&'static str, String),
 	SetMainTimeline(TimelineId),
 	SetMainContainer(Container),
 	SetMainColumnCount(u8),
@@ -112,6 +114,12 @@ impl Agent for TimelineAgent {
 				}
 				if let Some(modal) = self.modal {
 					self.link.respond(modal, Response::AddUserTimeline(service, username))
+				}
+			}
+			//TODO Temporary
+			Request::AddQuickUserTimeline(service, username) => {
+				if let Some(timeline_container) = self.timeline_container {
+					self.link.respond(timeline_container, Response::AddQuickUserTimeline(service, username))
 				}
 			}
 			Request::SetMainTimeline(id) => {

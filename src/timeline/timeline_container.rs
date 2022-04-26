@@ -1,5 +1,5 @@
 use yew::prelude::*;
-use yew_agent::{Bridge, Bridged, Dispatched, Dispatcher};
+use yew_agent::{Bridge, Bridged};
 use serde::{Serialize, Deserialize};
 
 use super::{
@@ -8,14 +8,19 @@ use super::{
 };
 use crate::{AppSettings, TimelineContainerCallback};
 use crate::services::{
-	endpoint_agent::{EndpointId, EndpointAgent, TimelineEndpointWrapper, Request as EndpointRequest, Response as EndpointResponse},
-	twitter::endpoints::*,
+	endpoint_agent::{EndpointAgent, TimelineEndpointWrapper, Request as EndpointRequest, Response as EndpointResponse},
+	twitter::endpoints::*
 };
 use crate::components::{FA, IconSize};
-use crate::modals::add_timeline::AddTimelineModal;
+use crate::modals::{
+	add_timeline::AddTimelineModal,
+	ModalCard,
+};
+use crate::timeline::filters::FilterCollection;
 
 pub struct TimelineContainer {
 	timelines: Vec<TimelineProps>,
+	modal_timeline: Option<TimelineProps>,
 	timeline_counter: TimelineId,
 	main_timeline: TimelineId,
 	_timeline_agent: Box<dyn Bridge<TimelineAgent>>,
@@ -24,6 +29,8 @@ pub struct TimelineContainer {
 
 pub enum TimelineContainerMsg {
 	AddTimeline(TimelineCreationMode, bool),
+	AddModalTimeline(TimelineCreationMode),
+	RemoveModalTimeline,
 	TimelineAgentResponse(TimelineAgentResponse),
 	EndpointResponse(EndpointResponse),
 }
@@ -52,6 +59,7 @@ impl Component for TimelineContainer {
 
 		Self {
 			timelines: Vec::new(),
+			modal_timeline: None,
 			timeline_counter: TimelineId::MIN,
 			main_timeline: TimelineId::MIN,
 			_timeline_agent,
@@ -85,6 +93,37 @@ impl Component for TimelineContainer {
 				self.timeline_counter += 1;
 				true
 			}
+			Msg::AddModalTimeline(creation_mode) => {
+				if let Some(modal_timeline) = &self.modal_timeline {
+					self.endpoint_agent.send(EndpointRequest::RemoveTimeline(modal_timeline.id));
+				}
+				let id = self.timeline_counter;
+
+				match creation_mode {
+					TimelineCreationMode::NameEndpoints(name, endpoints) => {
+						self.modal_timeline = Some(yew::props! { TimelineProps {
+							name,
+							id,
+							endpoints,
+						}});
+					}
+					TimelineCreationMode::Props(props) => {
+						self.modal_timeline = Some((props)(id));
+					}
+				}
+
+				self.timeline_counter += 1;
+				true
+			}
+			Msg::RemoveModalTimeline => {
+				if let Some(modal_timeline) = std::mem::take(&mut self.modal_timeline) {
+					self.endpoint_agent.send(EndpointRequest::RemoveTimeline(modal_timeline.id));
+
+					true
+				}else {
+					false
+				}
+			}
 			Msg::TimelineAgentResponse(response) => match response {
 				TimelineAgentResponse::SetMainTimeline(id) => {
 					self.main_timeline = id;
@@ -115,6 +154,35 @@ impl Component for TimelineContainer {
 					}
 					true
 				}
+				TimelineAgentResponse::AddQuickUserTimeline(service, username) => {
+					let callback = {
+						let username = username.clone();
+						let /*mut*/ filters = FilterCollection::default();
+						//filters.update(FilterMsg::AddFilter((Filter::Media, false)));
+						//filters.update(FilterMsg::AddFilter((Filter::PlainTweet, false)));
+
+						ctx.link().callback_once(|endpoint_id| Msg::AddModalTimeline(
+							TimelineCreationMode::NameEndpoints(
+								username,
+								vec![TimelineEndpointWrapper {
+									id: endpoint_id,
+									on_start: true,
+									on_refresh: true,
+									filters,
+								}],
+							)
+						))
+					};
+
+					self.endpoint_agent.send(EndpointRequest::AddUserEndpoint {
+						service,
+						username,
+						shared: false,
+						callback,
+					});
+
+					false
+				}
 				_ => false
 			}
 			Msg::EndpointResponse(response) => match response {
@@ -140,7 +208,10 @@ impl Component for TimelineContainer {
 		html! {
 			<>
 				<AddTimelineModal add_timeline_callback={ctx.link().callback(|(props, set_as_main_timeline)| Msg::AddTimeline(TimelineCreationMode::Props(props), set_as_main_timeline))}/>
-				{ self.view_timelines(ctx) }
+				<div id="timelineContainer">
+					{ self.view_modal_timeline(ctx) }
+					{ self.view_timelines(ctx) }
+				</div>
 			</>
 		}
 	}
@@ -152,14 +223,14 @@ impl TimelineContainer {
 
 		match &ctx.props().display_mode {
 			DisplayMode::Default => html! {
-				<div id="timelineContainer">
+				<>
 					{for self.timelines.iter().map(|props| html! {
 						<Timeline key={props.id} app_settings={app_settings.clone()} ..props.clone()/>
 					})}
-				</div>
+				</>
 			},
 			DisplayMode::Single { container, column_count } => html! {
-				<div id="timelineContainer">
+				<>
 					{for self.timelines.iter().map(|props|
 						if props.id == self.main_timeline {
 							self.view_main_timeline(ctx, props, *container, *column_count)
@@ -169,16 +240,16 @@ impl TimelineContainer {
 							}
 						}
 					)}
-				</div>
+				</>
 			}
 		}
 	}
 
 	fn view_main_timeline(&self, ctx: &Context<Self>, props: &TimelineProps, container: Container, column_count: u8) -> Html {
 		let toggle_favviewer_onclick = ctx.props().parent_callback
-			.reform(|e: MouseEvent| TimelineContainerCallback::ToggleFavViewer);
+			.reform(|_: MouseEvent| TimelineContainerCallback::ToggleFavViewer);
 		let toggle_sidebar_onclick = ctx.props().parent_callback
-			.reform(|e: MouseEvent| TimelineContainerCallback::ToggleSidebarFavViewer);
+			.reform(|_: MouseEvent| TimelineContainerCallback::ToggleSidebarFavViewer);
 
 		html! {
 			<Timeline key={props.id} app_settings={ctx.props().app_settings} main_timeline=true {container} {column_count} ..props.clone()>
@@ -199,17 +270,32 @@ impl TimelineContainer {
 		}
 	}
 
+	fn view_modal_timeline(&self, ctx: &Context<Self>) -> Html {
+		if let Some(modal_timeline) = &self.modal_timeline {
+			html! {
+				<ModalCard modal_title={modal_timeline.name.clone()} close_modal_callback={ctx.link().callback(|_| Msg::RemoveModalTimeline)}>
+					<Timeline
+						app_settings={ctx.props().app_settings.clone()}
+						..modal_timeline.clone()
+					/>
+				</ModalCard>
+			}
+		}else {
+			html! {}
+		}
+	}
+
 	fn parse_pathname(&mut self, ctx: &Context<Self>) {
 		let location = web_sys::window().unwrap().location();
 		let pathname = location.pathname().unwrap();
 		let search = web_sys::UrlSearchParams::new_with_str(&location.search().unwrap()).unwrap();
-	
+
 		if let Some(tweet_id) = pathname.strip_prefix("/twitter/status/").and_then(|s| s.parse::<u64>().ok()) {
 			let callback = ctx.link().callback(|id| Msg::AddTimeline(
 				TimelineCreationMode::NameEndpoints("Tweet".to_owned(), vec![TimelineEndpointWrapper::new_both(id)]),
 				false,
 			));
-	
+
 			self.endpoint_agent.send(EndpointRequest::AddEndpoint {
 				id_to_endpoint: Box::new(move |id| {
 					callback.emit(id);
@@ -224,12 +310,12 @@ impl TimelineContainer {
 			let replies = search.get("replies")
 				.and_then(|s| s.parse().ok())
 				.unwrap_or_default();
-	
+
 			let callback = ctx.link().callback(|id| Msg::AddTimeline(
 				TimelineCreationMode::NameEndpoints("User".to_owned(), vec![TimelineEndpointWrapper::new_both(id)]),
 				false,
 			));
-	
+
 			self.endpoint_agent.send(EndpointRequest::AddEndpoint {
 				id_to_endpoint: Box::new(move |id| {
 					callback.emit(id);
@@ -242,7 +328,7 @@ impl TimelineContainer {
 				TimelineCreationMode::NameEndpoints("Home".to_owned(), vec![TimelineEndpointWrapper::new_both(id)]),
 				false,
 			));
-	
+
 			self.endpoint_agent.send(EndpointRequest::AddEndpoint {
 				id_to_endpoint: Box::new(move |id| {
 					callback.emit(id);
@@ -258,7 +344,7 @@ impl TimelineContainer {
 				));
 				let username = username.to_owned();
 				let slug = slug.to_owned();
-	
+
 				self.endpoint_agent.send(EndpointRequest::AddEndpoint {
 					id_to_endpoint: Box::new(move |id| {
 						callback.emit(id);

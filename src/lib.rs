@@ -2,7 +2,6 @@ use yew::prelude::*;
 use yew_agent::{Bridge, Bridged, Dispatched, Dispatcher};
 use std::collections::HashMap;
 use gloo_storage::Storage;
-use serde::{Serialize, Deserialize};
 
 pub mod articles;
 pub mod choose_endpoints;
@@ -23,7 +22,7 @@ use settings::{AppSettings, ArticleFilteredMode, OnMediaClick, SettingsModal, Se
 use notifications::{NotificationAgent, Request as NotificationRequest, Response as NotificationResponse};
 use services::{
 	Endpoint,
-	endpoint_agent::{EndpointId, EndpointAgent, TimelineEndpointWrapper, Request as EndpointRequest, Response as EndpointResponse},
+	endpoint_agent::{EndpointId, EndpointAgent, TimelineEndpointWrapper, Request as EndpointRequest},
 	pixiv::PixivAgent,
 	dummy_service::DummyServiceAgent,
 	twitter::{endpoints::*, TwitterAgent, Request as TwitterRequest, Response as TwitterResponse, SERVICE_INFO as TwitterServiceInfo},
@@ -32,9 +31,9 @@ use services::{
 };
 use sidebar::Sidebar;
 use timeline::{
-	Props as TimelineProps, Timeline, TimelineId, Container,
-	timeline_container::{TimelineContainer, DisplayMode, TimelineCreationMode},
-	agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse}
+	Container,
+	timeline_container::{TimelineContainer, DisplayMode},
+	agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse},
 };
 use crate::settings::ChangeSettingMsg;
 
@@ -98,16 +97,14 @@ impl Component for Model {
 		let _dummy_service = DummyServiceAgent::dispatcher();
 		let mut youtube = YouTubeAgent::bridge(ctx.link().callback(Msg::YouTubeResponse));
 		youtube.send(YouTubeRequest::Sidebar);
-		
+
 		let mut _timeline_agent = TimelineAgent::bridge(ctx.link().callback(Msg::TimelineAgentResponse));
 		_timeline_agent.send(TimelineAgentRequest::RegisterDisplayMode);
-
-		let mut endpoint_agent = EndpointAgent::dispatcher();
 
 		let mut _settings_agent = SettingsAgent::bridge(ctx.link().callback(Msg::SettingsResponse));
 		_settings_agent.send(SettingsRequest::RegisterModel);
 
-		let (pathname_opt, search_opt) = parse_url();
+		let (_, search_opt) = parse_url();
 
 		//TODO use memreplace Some(Setup) → None
 		let page_info = match &ctx.props().page_info {
@@ -163,7 +160,7 @@ impl Component for Model {
 			},
 			display_mode,
 			_timeline_agent,
-			endpoint_agent,
+			endpoint_agent: EndpointAgent::dispatcher(),
 			page_info,
 			twitter,
 			_pixiv,
@@ -183,7 +180,7 @@ impl Component for Model {
 		}
 	}
 
-	fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
+	fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
 		match msg {
 			Msg::TimelineContainerCallback(callback) => match callback {
 				TimelineContainerCallback::ToggleFavViewer => {

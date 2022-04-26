@@ -9,6 +9,7 @@ use gloo_timers::callback::Interval;
 use super::{Endpoint, EndpointSerialized, RateLimit};
 use crate::error::{Result, Error, RatelimitedResult};
 use crate::articles::{ArticleRc, ArticleWeak};
+use crate::choose_endpoints::EndpointForm;
 use crate::timeline::{
 	TimelineId,
 	timeline_container::{TimelineCreationMode, TimelinePropsEndpointsClosure},
@@ -148,6 +149,13 @@ pub enum Request {
 		id_to_endpoint: Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>,
 		shared: bool,
 	},
+	AddUserEndpoint {
+		service: &'static str,
+		username: String,
+		shared: bool,
+		callback: Callback<EndpointId>,
+	},
+	AddEndpointFromForm(EndpointForm, Callback<EndpointId>),
 	BatchAddEndpoints(Vec<BatchEndpointAddClosure>, TimelineCreationRequest),
 	InitService(&'static str, EndpointConstructorCollection),
 	UpdateRateLimit(EndpointId, RateLimit),
@@ -282,7 +290,7 @@ impl Agent for EndpointAgent {
 
 				for wrapper in endpoints.iter() {
 					let shared = self.endpoints[&wrapper.id].shared;
-					if shared {
+					if !shared {
 						self.endpoints.remove(&wrapper.id);
 						should_update_state = true;
 					}
@@ -352,6 +360,44 @@ impl Agent for EndpointAgent {
 				self.endpoint_counter += 1;
 
 				self.link.send_message(Msg::UpdatedState);
+			}
+			Request::AddUserEndpoint { service, username, shared, callback } => {
+				if let Some(endpoint_type) = self.services[&service].user_endpoint_index {
+					//let EndpointForm { service, endpoint_type, refresh_time: _, params, mut filters, shared } = form;
+
+					let constructor = self.services[&service].constructors[endpoint_type].clone();
+
+					let params = json!({
+						"username": username,
+					});
+					//"include_retweets": true,
+					//"include_replies": true,
+
+					self.link.send_input(Request::AddEndpoint {
+						id_to_endpoint: Box::new(move |id| {
+							callback.emit(id);
+							(constructor.callback)(id, params.clone())
+						}),
+						shared,
+					});
+				} else {
+					log::warn!("{} doesn't have a user endpoint.", service)
+				}
+			}
+			//TODO Batch by default
+			Request::AddEndpointFromForm(form, callback) => {
+				let EndpointForm { service, endpoint_type, params, shared, .. } = form;
+
+				let constructor = self.services[&service].constructors[endpoint_type].clone();
+
+				let params = params.clone();
+				self.link.send_input(Request::AddEndpoint {
+					id_to_endpoint: Box::new(move |id| {
+						callback.emit(id);
+						(constructor.callback)(id, params.clone())
+					}),
+					shared,
+				});
 			}
 			Request::BatchAddEndpoints(closures, timeline_creation_request) => {
 				if let Some(timeline_container) = self.timeline_container {

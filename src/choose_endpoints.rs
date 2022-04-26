@@ -15,13 +15,13 @@ use crate::timeline::{
 	agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse},
 };
 
-struct EndpointForm {
-	refresh_time: RefreshTime,
-	service: &'static str,
-	endpoint_type: usize,
-	params: Value,
-	filters: FilterCollection,
-	shared: bool,
+pub struct EndpointForm {
+	pub refresh_time: RefreshTime,
+	pub service: &'static str,
+	pub endpoint_type: usize,
+	pub params: Value,
+	pub filters: FilterCollection,
+	pub shared: bool,
 }
 
 pub struct ChooseEndpoints {
@@ -126,7 +126,10 @@ impl Component for ChooseEndpoints {
 							shared: false,
 						});
 						true
-					} else { false }
+					}else {
+						log::warn!("{} doesn't have a user endpoint.", service);
+						false
+					}
 				}
 				_ => false
 			}
@@ -244,8 +247,7 @@ impl Component for ChooseEndpoints {
 			}
 			Msg::AddTimelineEndpointBoth(id, filters) => {
 				let timeline_endpoints = ctx.props().timeline_endpoints.upgrade().unwrap();
-				let mut borrow = timeline_endpoints.borrow_mut();
-				borrow.push(TimelineEndpointWrapper {
+				timeline_endpoints.borrow_mut().push(TimelineEndpointWrapper {
 					id,
 					on_start: true,
 					on_refresh: true,
@@ -277,7 +279,12 @@ impl Component for ChooseEndpoints {
 				true
 			}
 			Msg::FormFilterMsg(msg) => self.endpoint_form.as_mut().unwrap().filters.update(msg),
-			Msg::ExistingFilterMsg(endpoint_index, msg) => ctx.props().timeline_endpoints.upgrade().unwrap().borrow_mut()[endpoint_index].filters.update(msg),
+			Msg::ExistingFilterMsg(endpoint_index, msg) => {
+				let timeline_endpoints = ctx.props().timeline_endpoints.upgrade().unwrap();
+				let mut timeline_endpoints = timeline_endpoints.borrow_mut();
+				timeline_endpoints[endpoint_index]
+					.filters.update(msg)
+			}
 			Msg::ToggleFormShared => {
 				if let Some(form) = &mut self.endpoint_form {
 					form.shared = !form.shared;

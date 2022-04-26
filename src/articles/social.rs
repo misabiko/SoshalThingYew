@@ -47,7 +47,8 @@ impl Component for SocialArticle {
 				true
 			}
 			Msg::AddUserTimeline(service, username) => {
-				self.add_timeline_agent.send(TimelineAgentRequest::AddUserTimeline(service, username));
+				//self.add_timeline_agent.send(TimelineAgentRequest::AddUserTimeline(service, username));
+				self.add_timeline_agent.send(TimelineAgentRequest::AddQuickUserTimeline(service, username));
 				false
 			}
 		}
