@@ -195,6 +195,8 @@ pub struct Props {
 	pub hide_text: bool,
 	#[prop_or_default]
 	pub rtl: bool,
+	#[prop_or(false)]
+	pub modal: bool,
 }
 
 impl PartialEq for Props {
@@ -835,13 +837,15 @@ impl Timeline {
 					<button class="button" onclick={ctx.link().callback(|_| Msg::SetChooseEndpointModal(true))}>{"Change Endpoints"}</button>
 				</div>
 				{
-					match ctx.props().main_timeline {
-						false => html! {
+					//TODO Add modal to timeline list
+					if !ctx.props().main_timeline && !ctx.props().modal {
+						html! {
 							<div class="block control">
 								<button class="button" onclick={ctx.link().callback(|_| Msg::SetMainTimeline)}>{"Set as main timeline"}</button>
 							</div>
-						},
-						true => html! {}
+						}
+					}else {
+						html! {}
 					}
 				}
 				<div class="block control">

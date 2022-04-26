@@ -14,7 +14,7 @@ use crate::services::{
 use crate::components::{FA, IconSize};
 use crate::modals::{
 	add_timeline::AddTimelineModal,
-	ModalCard,
+	Modal,
 };
 use crate::timeline::filters::FilterCollection;
 
@@ -272,13 +272,17 @@ impl TimelineContainer {
 
 	fn view_modal_timeline(&self, ctx: &Context<Self>) -> Html {
 		if let Some(modal_timeline) = &self.modal_timeline {
+			let close_modal_callback = ctx.link().callback(|_| Msg::RemoveModalTimeline);
+			let content_style = "width: unset".to_owned();
+
 			html! {
-				<ModalCard modal_title={modal_timeline.name.clone()} close_modal_callback={ctx.link().callback(|_| Msg::RemoveModalTimeline)}>
+				<Modal {content_style} {close_modal_callback}>
 					<Timeline
 						app_settings={ctx.props().app_settings.clone()}
+						modal=true
 						..modal_timeline.clone()
 					/>
-				</ModalCard>
+				</Modal>
 			}
 		}else {
 			html! {}
