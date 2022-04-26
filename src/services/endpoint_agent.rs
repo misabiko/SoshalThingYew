@@ -9,8 +9,11 @@ use gloo_timers::callback::Interval;
 use super::{Endpoint, EndpointSerialized, RateLimit};
 use crate::error::{Result, Error, RatelimitedResult};
 use crate::articles::{ArticleRc, ArticleWeak};
-use crate::timeline::filters::FilterCollection;
-use crate::{TimelineCreationMode, TimelineId, TimelinePropsEndpointsClosure};
+use crate::timeline::{
+	TimelineId,
+	timeline_container::{TimelineCreationMode, TimelinePropsEndpointsClosure},
+	filters::FilterCollection
+};
 use crate::notifications::{NotificationAgent, Request as NotificationRequest, Notification};
 
 pub type EndpointId = i32;

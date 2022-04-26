@@ -13,7 +13,7 @@ pub enum Notification {
 pub struct NotificationAgent {
 	link: AgentLink<Self>,
 	notifications: HashMap<String, Notification>,
-	timeline_container: Option<HandlerId>,
+	model: Option<HandlerId>,
 }
 
 pub enum Msg {
@@ -39,7 +39,7 @@ impl Agent for NotificationAgent {
 		Self {
 			link,
 			notifications: HashMap::new(),
-			timeline_container: None,
+			model: None,
 		}
 	}
 
@@ -55,7 +55,7 @@ impl Agent for NotificationAgent {
 	fn handle_input(&mut self, msg: Self::Input, id: HandlerId) {
 		match msg {
 			//TODO use portal and Rc?
-			Request::RegisterTimelineContainer => self.timeline_container = Some(id),
+			Request::RegisterTimelineContainer => self.model = Some(id),
 			Request::Notify(id, notif) => {
 				let id = id.unwrap_or_else(|| {
 					let i = 0;
@@ -109,7 +109,7 @@ impl NotificationAgent {
 	}
 
 	fn draw_notifications(&self) {
-		if let Some(handler) = self.timeline_container {
+		if let Some(handler) = self.model {
 			self.link.respond(handler, Response::DrawNotifications(self.notifications.iter().map(|(id, n)| self.view_notification(id.to_string(), n)).collect()))
 		}
 	}

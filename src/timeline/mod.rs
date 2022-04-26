@@ -10,6 +10,7 @@ use wasm_bindgen::closure::Closure;
 pub mod sort_methods;
 pub mod agent;
 pub mod filters;
+pub mod timeline_container;
 mod containers;
 
 pub use containers::Container;

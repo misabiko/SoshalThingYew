@@ -5,13 +5,14 @@ use std::cell::RefCell;
 use yew_agent::{Bridge, Bridged};
 
 use super::ModalCard;
+use crate::TimelineEndpointWrapper;
 use crate::timeline::{
 	Props as TimelineProps,
+	timeline_container::TimelinePropsClosure,
 	agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse},
 	filters::{FilterMsg, FilterCollection, FiltersOptions},
 };
 use crate::choose_endpoints::ChooseEndpoints;
-use crate::{TimelineEndpointWrapper, TimelinePropsClosure};
 
 pub struct AddTimelineModal {
 	enabled: bool,

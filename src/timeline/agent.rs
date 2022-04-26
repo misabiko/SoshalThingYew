@@ -3,10 +3,13 @@ use yew_agent::{Agent, AgentLink, HandlerId, Context as AgentContext, Dispatcher
 use gloo_storage::Storage;
 use serde::{Serialize, Deserialize};
 
-use super::{TimelineId, Props as TimelineProps, Container};
+use super::{
+	TimelineId, Props as TimelineProps, Container,
+	timeline_container::{TimelinePropsClosure, TimelinePropsEndpointsClosure},
+};
 use crate::services::EndpointSerialized;
 use crate::services::endpoint_agent::{Request as EndpointRequest, EndpointAgent};
-use crate::{TimelineEndpointWrapper, TimelinePropsClosure, TimelinePropsEndpointsClosure};
+use crate::TimelineEndpointWrapper;
 use crate::log_warn;
 use crate::timeline::filters::FilterCollection;
 use crate::timeline::sort_methods::SortMethod;
@@ -16,6 +19,7 @@ pub struct TimelineAgent {
 	modal: Option<HandlerId>,
 	choose_endpoints: Option<HandlerId>,
 	timeline_container: Option<HandlerId>,
+	display_mode: Option<HandlerId>,
 	endpoint_agent: Dispatcher<EndpointAgent>,
 }
 
@@ -23,6 +27,7 @@ pub enum Request {
 	RegisterModal,
 	RegisterChooseEndpoints,
 	RegisterTimelineContainer,
+	RegisterDisplayMode,
 	AddTimeline,
 	AddUserTimeline(&'static str, String),
 	SetMainTimeline(TimelineId),
@@ -78,6 +83,7 @@ impl Agent for TimelineAgent {
 			modal: None,
 			choose_endpoints: None,
 			timeline_container: None,
+			display_mode: None,
 			endpoint_agent: EndpointAgent::dispatcher(),
 			link,
 		}
@@ -90,6 +96,7 @@ impl Agent for TimelineAgent {
 			Request::RegisterModal => self.modal = Some(id),
 			Request::RegisterChooseEndpoints => self.choose_endpoints = Some(id),
 			Request::RegisterTimelineContainer => self.timeline_container = Some(id),
+			Request::RegisterDisplayMode => self.display_mode = Some(id),
 			//TODO Less confusing name AddTimeline
 			Request::AddTimeline => {
 				if let Some(choose_endpoints) = self.choose_endpoints {
@@ -113,13 +120,13 @@ impl Agent for TimelineAgent {
 				}
 			}
 			Request::SetMainContainer(container) => {
-				if let Some(timeline_container) = self.timeline_container {
-					self.link.respond(timeline_container, Response::SetMainContainer(container));
+				if let Some(display_mode) = self.display_mode {
+					self.link.respond(display_mode, Response::SetMainContainer(container));
 				}
 			}
 			Request::SetMainColumnCount(count) => {
-				if let Some(timeline_container) = self.timeline_container {
-					self.link.respond(timeline_container, Response::SetMainColumnCount(count));
+				if let Some(display_mode) = self.display_mode {
+					self.link.respond(display_mode, Response::SetMainColumnCount(count));
 				}
 			}
 			Request::RemoveTimeline(id) => {
@@ -187,6 +194,8 @@ impl Agent for TimelineAgent {
 			self.choose_endpoints = None
 		}else if self.timeline_container == Some(id) {
 			self.timeline_container = None
+		}else if self.display_mode == Some(id) {
+			self.display_mode = None
 		}
 	}
 }

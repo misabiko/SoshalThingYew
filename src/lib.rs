@@ -19,7 +19,6 @@ mod sidebar;
 use components::{FA, IconSize};
 use error::Result;
 use favviewer::PageInfo;
-use modals::add_timeline::AddTimelineModal;
 use settings::{AppSettings, ArticleFilteredMode, OnMediaClick, SettingsModal, SettingsAgent, SettingsRequest, SettingsResponse};
 use notifications::{NotificationAgent, Request as NotificationRequest, Response as NotificationResponse};
 use services::{
@@ -32,33 +31,12 @@ use services::{
 	storages::SoshalLocalStorage,
 };
 use sidebar::Sidebar;
-use timeline::{Props as TimelineProps, Timeline, TimelineId, Container};
-use timeline::agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse};
+use timeline::{
+	Props as TimelineProps, Timeline, TimelineId, Container,
+	timeline_container::{TimelineContainer, DisplayMode, TimelineCreationMode},
+	agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse}
+};
 use crate::settings::ChangeSettingMsg;
-
-#[derive(PartialEq, Clone, Copy, Serialize, Deserialize)]
-#[serde(tag = "type")]
-pub enum DisplayMode {
-	Single {
-		container: Container,
-		column_count: u8,
-	},
-	Default,
-}
-
-impl Default for DisplayMode {
-	fn default() -> Self {
-		DisplayMode::Default
-	}
-}
-
-pub type TimelinePropsClosure = Box<dyn FnOnce(TimelineId) -> TimelineProps>;
-pub type TimelinePropsEndpointsClosure = Box<dyn FnOnce(TimelineId, Vec<TimelineEndpointWrapper>) -> TimelineProps>;
-
-pub enum TimelineCreationMode {
-	NameEndpoints(String, Vec<TimelineEndpointWrapper>),
-	Props(TimelinePropsClosure),
-}
 
 #[derive(serde::Deserialize)]
 pub struct AuthInfo {
@@ -67,18 +45,15 @@ pub struct AuthInfo {
 }
 
 pub struct Model {
-	endpoint_agent: Box<dyn Bridge<EndpointAgent>>,
+	endpoint_agent: Dispatcher<EndpointAgent>,
 	_timeline_agent: Box<dyn Bridge<TimelineAgent>>,
 	display_mode: DisplayMode,
-	timelines: Vec<TimelineProps>,
+	last_display_single: DisplayMode,
 	page_info: Option<PageInfo>,
 	twitter: Box<dyn Bridge<TwitterAgent>>,
 	_pixiv: Dispatcher<PixivAgent>,
 	_dummy_service: Dispatcher<DummyServiceAgent>,
 	youtube: Box<dyn Bridge<YouTubeAgent>>,
-	timeline_counter: TimelineId,
-	main_timeline: TimelineId,
-	last_display_single: DisplayMode,
 	services_sidebar: HashMap<String, Html>,
 	_notification_agent: Box<dyn Bridge<NotificationAgent>>,
 	notifications: Vec<Html>,
@@ -89,17 +64,13 @@ pub struct Model {
 
 pub enum Msg {
 	EndpointAgentRequest(EndpointRequest),
-	AddTimeline(TimelineCreationMode, bool),
-	ToggleFavViewer,
-	ToggleDisplayMode,
 	TimelineAgentResponse(TimelineAgentResponse),
-	EndpointResponse(EndpointResponse),
 	TwitterResponse(TwitterResponse),
 	YouTubeResponse(YouTubeResponse),
 	FetchedAuthInfo(Result<AuthInfo>),
 	NotificationResponse(NotificationResponse),
-	ToggleSidebarFavViewer,
 	SettingsResponse(SettingsResponse),
+	TimelineContainerCallback(TimelineContainerCallback),
 }
 
 #[derive(Properties, PartialEq, Default)]
@@ -127,13 +98,11 @@ impl Component for Model {
 		let _dummy_service = DummyServiceAgent::dispatcher();
 		let mut youtube = YouTubeAgent::bridge(ctx.link().callback(Msg::YouTubeResponse));
 		youtube.send(YouTubeRequest::Sidebar);
-
+		
 		let mut _timeline_agent = TimelineAgent::bridge(ctx.link().callback(Msg::TimelineAgentResponse));
-		_timeline_agent.send(TimelineAgentRequest::RegisterTimelineContainer);
-		_timeline_agent.send(TimelineAgentRequest::LoadStorageTimelines);
+		_timeline_agent.send(TimelineAgentRequest::RegisterDisplayMode);
 
-		let mut endpoint_agent = EndpointAgent::bridge(ctx.link().callback(Msg::EndpointResponse));
-		endpoint_agent.send(EndpointRequest::RegisterTimelineContainer);
+		let mut endpoint_agent = EndpointAgent::dispatcher();
 
 		let mut _settings_agent = SettingsAgent::bridge(ctx.link().callback(Msg::SettingsResponse));
 		_settings_agent.send(SettingsRequest::RegisterModel);
@@ -148,15 +117,11 @@ impl Component for Model {
 				Some(PageInfo::Ready {
 					style_html: style_html.clone(),
 					style: initial_style.clone(),
-					favviewer_button: (make_activator)(ctx.link().callback(|_| Msg::ToggleFavViewer)),
+					favviewer_button: (make_activator)(ctx.link().callback(|_| Msg::TimelineContainerCallback(TimelineContainerCallback::ToggleFavViewer))),
 				})
 			}
 			_ => None,
 		};
-
-		if let Some(pathname) = pathname_opt {
-			parse_pathname(ctx, &pathname, &search_opt);
-		}
 
 		let single_timeline_bool = search_opt.as_ref()
 			.and_then(|s| s.get("single_timeline"))
@@ -189,7 +154,6 @@ impl Component for Model {
 		}
 
 		Self {
-			_timeline_agent,
 			last_display_single: match display_mode {
 				DisplayMode::Single { .. } => display_mode,
 				_ => DisplayMode::Single {
@@ -198,15 +162,13 @@ impl Component for Model {
 				},
 			},
 			display_mode,
-			timelines: Vec::new(),
+			_timeline_agent,
 			endpoint_agent,
 			page_info,
 			twitter,
 			_pixiv,
 			_dummy_service,
 			youtube,
-			timeline_counter: TimelineId::MIN,
-			main_timeline: TimelineId::MIN,
 			services_sidebar: ctx.props().services_sidebar.clone(),
 			_notification_agent,
 			notifications: Vec::new(),
@@ -223,57 +185,28 @@ impl Component for Model {
 
 	fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
 		match msg {
-			Msg::EndpointAgentRequest(request) => {
-				self.endpoint_agent.send(request);
-				false
-			}
-			Msg::AddTimeline(creation_mode, set_as_main_timeline) => {
-				let timeline_id = self.timeline_counter;
-				match creation_mode {
-					TimelineCreationMode::NameEndpoints(name, endpoints) => {
-						self.timelines.push(yew::props! { TimelineProps {
-							name,
-							id: timeline_id,
-							endpoints,
-						}});
-					}
-					TimelineCreationMode::Props(props) => {
-						self.timelines.push((props)(timeline_id));
+			Msg::TimelineContainerCallback(callback) => match callback {
+				TimelineContainerCallback::ToggleFavViewer => {
+					if let Some(page_info) = &mut self.page_info {
+						page_info.toggle_hidden();
+						true
+					} else {
+						false
 					}
 				}
-				if set_as_main_timeline {
-					self.main_timeline = timeline_id;
-					if let DisplayMode::Default = self.display_mode {
-						self.display_mode = self.last_display_single;
-					};
-				}
-
-				self.timeline_counter += 1;
-				true
-			}
-			Msg::ToggleFavViewer => {
-				if let Some(page_info) = &mut self.page_info {
-					page_info.toggle_hidden();
+				TimelineContainerCallback::ToggleSidebarFavViewer => {
+					self.sidebar_favviewer = !self.sidebar_favviewer;
 					true
-				} else {
-					false
 				}
-			}
-			Msg::ToggleDisplayMode => {
-				self.display_mode = match self.display_mode {
-					DisplayMode::Default => self.last_display_single,
-					DisplayMode::Single { .. } => DisplayMode::Default,
-				};
-				true
+				TimelineContainerCallback::ToggleDisplayMode => {
+					self.display_mode = match self.display_mode {
+						DisplayMode::Default => self.last_display_single,
+						DisplayMode::Single { .. } => DisplayMode::Default,
+					};
+					true
+				}
 			}
 			Msg::TimelineAgentResponse(response) => match response {
-				TimelineAgentResponse::SetMainTimeline(id) => {
-					self.main_timeline = id;
-					if let DisplayMode::Default = self.display_mode {
-						self.display_mode = self.last_display_single;
-					};
-					true
-				}
 				TimelineAgentResponse::SetMainContainer(new_container) => {
 					if let DisplayMode::Single { container, .. } = &mut self.display_mode {
 						*container = new_container;
@@ -292,45 +225,11 @@ impl Component for Model {
 						false
 					}
 				}
-				TimelineAgentResponse::RemoveTimeline(id) => {
-					let index = self.timelines.iter().position(|t| t.id == id);
-					if let Some(index) = index {
-						let id = self.timelines[index].id;
-						self.timelines.remove(index);
-
-						if id == self.main_timeline {
-							self.main_timeline = match self.timelines.first() {
-								Some(t) => t.id,
-								None => self.timeline_counter,
-							}
-						}
-					}
-					true
-				}
-				TimelineAgentResponse::CreateTimelines(timelines) => {
-					for props in timelines {
-						self.timelines.push((props)(self.timeline_counter));
-						self.timeline_counter += 1;
-					}
-					true
-				}
-				_ => false
+				_ => false,
 			}
-			Msg::EndpointResponse(response) => match response {
-				EndpointResponse::BatchRequestResponse(timelines) => {
-					for (endpoints, closure) in timelines {
-						let id = self.timeline_counter;
-						self.timelines.push((closure)(id, endpoints));
-						self.timeline_counter += 1;
-					}
-
-					true
-				}
-				EndpointResponse::AddTimeline(creation_mode, set_as_main_timeline) => {
-					ctx.link().send_message(Msg::AddTimeline(creation_mode, set_as_main_timeline));
-					false
-				}
-				_ => false
+			Msg::EndpointAgentRequest(request) => {
+				self.endpoint_agent.send(request);
+				false
 			}
 			Msg::TwitterResponse(response) => {
 				match response {
@@ -360,10 +259,6 @@ impl Component for Model {
 				};
 				true
 			}
-			Msg::ToggleSidebarFavViewer => {
-				self.sidebar_favviewer = !self.sidebar_favviewer;
-				true
-			}
 			Msg::SettingsResponse(response) => match response {
 				SettingsResponse::ChangeSetting(change_msg) => {
 					match change_msg {
@@ -380,19 +275,21 @@ impl Component for Model {
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
-		let (dm_title, dm_icon) = match self.display_mode {
-			DisplayMode::Default => ("Single Timeline", "expand-alt"),
-			DisplayMode::Single { .. } => ("Multiple Timelines", "columns"),
-		};
-		let display_mode_toggle = html! {
-			<button onclick={ctx.link().callback(|_| Msg::ToggleDisplayMode)} title={dm_title}>
-				<FA icon={dm_icon} size={IconSize::X2}/>
-			</button>
+		let display_mode_toggle = {
+			let (dm_title, dm_icon) = match self.display_mode {
+				DisplayMode::Default => ("Single Timeline", "expand-alt"),
+				DisplayMode::Single { .. } => ("Multiple Timelines", "columns"),
+			};
+
+			html! {
+				<button onclick={ctx.link().callback(|_| Msg::TimelineContainerCallback(TimelineContainerCallback::ToggleDisplayMode))} title={dm_title}>
+					<FA icon={dm_icon} size={IconSize::X2}/>
+				</button>
+			}
 		};
 
 		html! {
 			<>
-				<AddTimelineModal add_timeline_callback={ctx.link().callback(|(props, set_as_main_timeline)| Msg::AddTimeline(TimelineCreationMode::Props(props), set_as_main_timeline))}/>
 				<SettingsModal app_settings={self.app_settings}/>
 				<div id="soshal-notifications">
 					{ for self.notifications.iter().cloned() }
@@ -408,55 +305,21 @@ impl Component for Model {
 						false => html! {},
 					}
 				}
-				{ self.view_timelines(ctx) }
+				<TimelineContainer
+					parent_callback={ctx.link().callback(Msg::TimelineContainerCallback)}
+					app_settings={self.app_settings}
+					favviewer={ctx.props().favviewer}
+					display_mode={self.display_mode}
+				/>
 			</>
 		}
 	}
 }
 
-impl Model {
-	fn view_timelines(&self, ctx: &Context<Self>) -> Html {
-		match &self.display_mode {
-			DisplayMode::Default => html! {
-				<div id="timelineContainer">
-					{for self.timelines.iter().map(|props| html! {
-						<Timeline key={props.id} app_settings={self.app_settings} ..props.clone()/>
-					})}
-				</div>
-			},
-			DisplayMode::Single { container, column_count } => html! {
-				<div id="timelineContainer">
-					{for self.timelines.iter().map(|props|
-						if props.id == self.main_timeline {
-							html! {
-								<Timeline key={props.id} app_settings={self.app_settings} main_timeline=true container={container.clone()} column_count={column_count.clone()} ..props.clone()>
-									{
-										match ctx.props().favviewer {
-											true => html! {
-												<>
-													<button title="Toggle FavViewer" onclick={ctx.link().callback(|_| Msg::ToggleFavViewer)}>
-														<FA icon="eye-slash" size={IconSize::Large}/>
-													</button>
-													<button title="Show Sidebar" onclick={ctx.link().callback(|_| Msg::ToggleSidebarFavViewer)}>
-														<FA icon="ellipsis-v" size={IconSize::Large}/>
-													</button>
-												</>
-											},
-											false => html! {}
-										}
-									}
-								</Timeline>
-							}
-						}else  {
-							html! {
-								<Timeline hide=true key={props.id} app_settings={self.app_settings} ..props.clone()/>
-							}
-						}
-					)}
-				</div>
-			}
-		}
-	}
+pub enum TimelineContainerCallback {
+	ToggleFavViewer,
+	ToggleSidebarFavViewer,
+	ToggleDisplayMode,
 }
 
 pub fn parse_url() -> (Option<String>, Option<web_sys::UrlSearchParams>) {
@@ -475,85 +338,6 @@ pub fn parse_url() -> (Option<String>, Option<web_sys::UrlSearchParams>) {
 			}
 		}),
 		None => (None, None),
-	}
-}
-
-pub fn parse_pathname(ctx: &Context<Model>, pathname: &str, search_opt: &Option<web_sys::UrlSearchParams>) {
-	if let Some(tweet_id) = pathname.strip_prefix("/twitter/status/").and_then(|s| s.parse::<u64>().ok()) {
-		let callback = ctx.link().callback(|id| Msg::AddTimeline(
-			TimelineCreationMode::NameEndpoints("Tweet".to_owned(), vec![TimelineEndpointWrapper::new_both(id)]),
-			false,
-		));
-
-		//TODO self.endpoint_agent.request?
-		ctx.link().send_message(
-			Msg::EndpointAgentRequest(EndpointRequest::AddEndpoint {
-				id_to_endpoint: Box::new(move |id| {
-					callback.emit(id);
-					Box::new(SingleTweetEndpoint::new(id, tweet_id))
-				}),
-				shared: false,
-			})
-		);
-	} else if let Some(username) = pathname.strip_prefix("/twitter/user/").map(str::to_owned) {
-		let (retweets, replies) = match search_opt {
-			Some(search) => (
-				search.get("rts")
-					.and_then(|s| s.parse().ok())
-					.unwrap_or_default(),
-				search.get("replies")
-					.and_then(|s| s.parse().ok())
-					.unwrap_or_default()
-			),
-			None => (false, false)
-		};
-		let callback = ctx.link().callback(|id| Msg::AddTimeline(
-			TimelineCreationMode::NameEndpoints("User".to_owned(), vec![TimelineEndpointWrapper::new_both(id)]),
-			false,
-		));
-
-		ctx.link().send_message(
-			Msg::EndpointAgentRequest(EndpointRequest::AddEndpoint {
-				id_to_endpoint: Box::new(move |id| {
-					callback.emit(id);
-					Box::new(UserTimelineEndpoint::new(id, username.clone(), retweets, replies))
-				}),
-				shared: false,
-			})
-		);
-	} else if pathname.starts_with("/twitter/home") {
-		let callback = ctx.link().callback(|id| Msg::AddTimeline(
-			TimelineCreationMode::NameEndpoints("Home".to_owned(), vec![TimelineEndpointWrapper::new_both(id)]),
-			false,
-		));
-		ctx.link().send_message(
-			Msg::EndpointAgentRequest(EndpointRequest::AddEndpoint {
-				id_to_endpoint: Box::new(move |id| {
-					callback.emit(id);
-					Box::new(HomeTimelineEndpoint::new(id))
-				}),
-				shared: false,
-			})
-		);
-	} else if let Some(list_params) = pathname.strip_prefix("/twitter/list/").map(|s| s.split("/").collect::<Vec<&str>>()) {
-		if let [username, slug] = list_params[..] {
-			let callback = ctx.link().callback(|id| Msg::AddTimeline(
-				TimelineCreationMode::NameEndpoints("List".to_owned(), vec![TimelineEndpointWrapper::new_both(id)]),
-				false,
-			));
-			let username = username.to_owned();
-			let slug = slug.to_owned();
-
-			ctx.link().send_message(
-				Msg::EndpointAgentRequest(EndpointRequest::AddEndpoint {
-					id_to_endpoint: Box::new(move |id| {
-						callback.emit(id);
-						Box::new(ListEndpoint::new(id, username, slug))
-					}),
-					shared: false,
-				})
-			);
-		}
 	}
 }
 
