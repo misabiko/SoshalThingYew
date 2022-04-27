@@ -5,15 +5,16 @@ use yew_agent::{Bridge, Bridged, Dispatched, Dispatcher};
 use wasm_bindgen::JsCast;
 use web_sys::{Element, HtmlInputElement};
 use rand::{seq::SliceRandom, thread_rng};
-use wasm_bindgen::closure::Closure;
 
 pub mod sort_methods;
 pub mod agent;
 pub mod filters;
 pub mod timeline_container;
 mod containers;
+mod autoscroll;
 
 pub use containers::Container;
+use autoscroll::{AutoScroll, start_autoscroll, scroll_to_top};
 use containers::{view_container, Props as ContainerProps, ContainerMsg};
 use filters::{FilterCollection, FilterMsg, FiltersOptions};
 use sort_methods::SortMethod;
@@ -29,24 +30,6 @@ use crate::settings::{AppSettings, AppSettingsOverride, ArticleFilteredMode, vie
 use crate::TimelineEndpointWrapper;
 
 pub type TimelineId = i8;
-
-#[derive(Clone, Copy)]
-enum ScrollDirection {
-	Up,
-	Down,
-}
-
-struct AutoscrollAnim {
-	request_id: i32,
-	scroll_step: Closure<dyn FnMut()>,
-	scroll_stop: Closure<dyn FnMut()>,
-}
-
-struct Autoscroll {
-	direction: ScrollDirection,
-	speed: f64,
-	anim: Option<AutoscrollAnim>,
-}
 
 pub struct ArticleStruct {
 	pub weak: ArticleWeak,
@@ -109,7 +92,7 @@ pub struct Timeline {
 	article_view: ArticleView,
 	show_choose_endpoint: bool,
 	container_ref: NodeRef,
-	autoscroll: Rc<RefCell<Autoscroll>>,
+	autoscroll: Rc<RefCell<AutoScroll>>,
 	article_actions: Box<dyn Bridge<ArticleActionsAgent>>,
 	timeline_agent: Dispatcher<TimelineAgent>,
 	use_section: bool,
@@ -139,11 +122,11 @@ pub enum Msg {
 	Shuffle,
 	SetChooseEndpointModal(bool),
 	Autoscroll,
+	ScrollTop,
 	FilterMsg(FilterMsg),
 	SetSortMethod(Option<&'static SortMethod>),
 	ToggleSortReversed,
 	SortOnce(&'static SortMethod),
-	ScrollTop,
 	ActionsCallback(ArticleActionsResponse),
 	SetMainTimeline,
 	RemoveTimeline,
@@ -248,11 +231,7 @@ impl Component for Timeline {
 			article_view: ctx.props().article_view,
 			show_choose_endpoint: false,
 			container_ref: NodeRef::default(),
-			autoscroll: Rc::new(RefCell::new(Autoscroll {
-				direction: ScrollDirection::Up,
-				speed: 3.0,
-				anim: None,
-			})),
+			autoscroll: Rc::new(RefCell::new(AutoScroll::default())),
 			article_actions: ArticleActionsAgent::bridge(ctx.link().callback(Msg::ActionsCallback)),
 			timeline_agent: TimelineAgent::dispatcher(),
 			use_section: false,
@@ -353,70 +332,7 @@ impl Component for Timeline {
 				true
 			}
 			Msg::Autoscroll => {
-				let old_direction = self.autoscroll.borrow().direction;
-				self.autoscroll.borrow_mut().direction = match old_direction {
-					ScrollDirection::Up => ScrollDirection::Down,
-					ScrollDirection::Down => ScrollDirection::Up,
-				};
-
-				let anim_autoscroll = self.autoscroll.clone();
-				let event_autoscroll = self.autoscroll.clone();
-				let container_ref_c = self.container_ref.clone();
-
-				let mut outer_borrow_mut = self.autoscroll.borrow_mut();
-
-				let window = web_sys::window().expect("no global window");
-				outer_borrow_mut.anim = {
-					let anim = AutoscrollAnim {
-						scroll_step: Closure::wrap(Box::new(move || {
-							let mut borrow = anim_autoscroll.borrow_mut();
-							if let Some(container) = container_ref_c.cast::<Element>() {
-								let should_keep_scrolling = match borrow.direction {
-									ScrollDirection::Up => container.scroll_top() > 0,
-									ScrollDirection::Down => container.scroll_top() < container.scroll_height() - container.client_height(),
-								};
-
-								if should_keep_scrolling {
-									container.scroll_by_with_x_and_y(0.0, match borrow.direction {
-										ScrollDirection::Up => -borrow.speed,
-										ScrollDirection::Down => borrow.speed,
-									});
-								} else {
-									borrow.direction = match borrow.direction {
-										ScrollDirection::Up => ScrollDirection::Down,
-										ScrollDirection::Down => ScrollDirection::Up,
-									};
-								}
-							}
-
-							let mut anim = borrow.anim.as_mut().unwrap();
-							anim.request_id = web_sys::window().expect("no global window")
-								.request_animation_frame(anim.scroll_step.as_ref().unchecked_ref())
-								.unwrap();
-						}) as Box<dyn FnMut()>),
-						request_id: 0,
-						scroll_stop: Closure::once(Box::new(move || {
-							let mut borrow = event_autoscroll.borrow_mut();
-							if let Some(anim) = &borrow.anim {
-								web_sys::window().expect("no global window")
-									.cancel_animation_frame(anim.request_id)
-									.unwrap();
-							}
-
-							borrow.anim = None;
-						}) as Box<dyn FnOnce()>),
-					};
-					let mut options = web_sys::AddEventListenerOptions::new();
-					window.add_event_listener_with_callback_and_add_event_listener_options(
-						"mousedown",
-						anim.scroll_stop.as_ref().unchecked_ref(),
-						options.once(true),
-					).unwrap();
-
-					window.request_animation_frame(anim.scroll_step.as_ref().unchecked_ref()).unwrap();
-					Some(anim)
-				};
-
+				start_autoscroll(&mut self.autoscroll, self.container_ref.clone());
 
 				false
 			}
@@ -439,12 +355,8 @@ impl Component for Timeline {
 				true
 			}
 			Msg::ScrollTop => {
-				if let Some(container) = self.container_ref.cast::<Element>() {
-					let mut options = web_sys::ScrollToOptions::new();
-					options.top(0.0);
-					options.behavior(web_sys::ScrollBehavior::Smooth);
-					container.scroll_to_with_scroll_to_options(&options);
-				}
+				scroll_to_top(self.container_ref.cast::<Element>().unwrap());
+
 				false
 			}
 			Msg::ActionsCallback(response) => {
