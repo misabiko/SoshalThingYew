@@ -15,6 +15,7 @@ use crate::components::{FA, IconSize};
 use crate::modals::{
 	add_timeline::AddTimelineModal,
 	Modal,
+	batch_action::BatchActionModal,
 };
 use crate::timeline::filters::FilterCollection;
 
@@ -210,10 +211,13 @@ impl Component for TimelineContainer {
 		let add_timeline_callback = ctx.link().callback(|(props, set_as_main_timeline)|
 			Msg::AddTimeline(TimelineCreationMode::Props(props), set_as_main_timeline)
 		);
+		let timeline_ids: Vec<(TimelineId, String)> = self.timelines.iter().map(|props| (props.id, props.name.clone())).collect();
 
 		html! {
 			<>
 				<AddTimelineModal {add_timeline_callback}/>
+				<BatchActionModal {timeline_ids}/>
+
 				<div id="timelineContainer">
 					{ self.view_modal_timeline(ctx) }
 					{ self.view_timelines(ctx) }

@@ -1,5 +1,5 @@
-use std::collections::{HashMap, HashSet};
-use yew_agent::{Agent, Context as AgentContext, AgentLink, HandlerId, Dispatcher, Dispatched};
+use std::collections::HashMap;
+use yew_agent::{Agent, Context as AgentContext, AgentLink, HandlerId};
 
 pub struct ModalAgent {
 	link: AgentLink<Self>,

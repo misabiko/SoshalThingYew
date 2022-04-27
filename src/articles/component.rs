@@ -8,7 +8,7 @@ use std::convert::identity;
 use super::{ArticleView, SocialArticle, GalleryArticle};
 use crate::articles::{MediaQueueInfo, ArticleMedia, weak_actual_article, ArticleWeak};
 use crate::articles::media_load_queue::{MediaLoadAgent, Request as MediaLoadRequest, Response as MediaLoadResponse, MediaLoadState};
-use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest};
+use crate::services::article_actions::{Action, ArticleActionsAgent, Request as ArticleActionsRequest};
 use crate::modals::Modal;
 use crate::log_warn;
 use crate::services::storages::{hide_article, mark_article_as_read};
@@ -178,15 +178,15 @@ impl Component for ArticleComponent {
 				false
 			}
 			Msg::FetchData => {
-				self.article_actions.send(ArticleActionsRequest::FetchData(weak_actual_article(&ctx.props().article_struct.weak)));
+				self.article_actions.send(ArticleActionsRequest::Action(Action::FetchData, vec![weak_actual_article(&ctx.props().article_struct.weak)]));
 				false
 			}
 			Msg::Like(actual_article) => {
-				self.article_actions.send(ArticleActionsRequest::Like(weak_actual_article(&actual_article)));
+				self.article_actions.send(ArticleActionsRequest::Action(Action::Like, vec![weak_actual_article(&actual_article)]));
 				false
 			}
 			Msg::Repost(actual_article) => {
-				self.article_actions.send(ArticleActionsRequest::Repost(weak_actual_article(&actual_article)));
+				self.article_actions.send(ArticleActionsRequest::Action(Action::Repost, vec![weak_actual_article(&actual_article)]));
 				false
 			}
 			Msg::ToggleMarkAsRead => {

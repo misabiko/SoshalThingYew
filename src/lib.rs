@@ -35,7 +35,6 @@ use timeline::{
 	timeline_container::{TimelineContainer, DisplayMode},
 	agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse},
 };
-use crate::modals::batch_action::BatchActionModal;
 use crate::settings::ChangeSettingMsg;
 
 #[derive(serde::Deserialize)]
@@ -281,8 +280,6 @@ impl Component for Model {
 				</div>
 				{ self.page_info.as_ref().map(|p| p.view()).unwrap_or_default() }
 				{ self.view_sidebar(ctx) }
-
-				<BatchActionModal/>
 
 				<TimelineContainer
 					parent_callback={ctx.link().callback(Msg::TimelineContainerCallback)}

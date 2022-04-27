@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use gloo_storage::errors::StorageError;
 use yew_agent::{Agent, AgentLink, HandlerId, Context as AgentContext, Dispatcher, Dispatched};
 use gloo_storage::Storage;
@@ -13,6 +14,7 @@ use crate::TimelineEndpointWrapper;
 use crate::log_warn;
 use crate::timeline::filters::FilterCollection;
 use crate::timeline::sort_methods::SortMethod;
+use crate::services::article_actions::Action;
 
 pub struct TimelineAgent {
 	link: AgentLink<Self>,
@@ -21,6 +23,7 @@ pub struct TimelineAgent {
 	timeline_container: Option<HandlerId>,
 	display_mode: Option<HandlerId>,
 	endpoint_agent: Dispatcher<EndpointAgent>,
+	timelines: HashMap<TimelineId, HandlerId>,
 }
 
 pub enum Request {
@@ -28,6 +31,7 @@ pub enum Request {
 	RegisterChooseEndpoints,
 	RegisterTimelineContainer,
 	RegisterDisplayMode,
+	RegisterTimeline(TimelineId),
 	AddTimeline,
 	AddUserTimeline(&'static str, String),
 	AddQuickUserTimeline(&'static str, String),
@@ -37,6 +41,7 @@ pub enum Request {
 	RemoveTimeline(TimelineId),
 	LoadStorageTimelines,
 	LoadedStorageTimelines(Vec<Vec<TimelineEndpointWrapper>>),
+	BatchAction(Action, Vec<TimelineId>, FilterCollection),
 }
 
 pub enum Response {
@@ -49,6 +54,7 @@ pub enum Response {
 	SetMainColumnCount(u8),
 	RemoveTimeline(TimelineId),
 	CreateTimelines(Vec<TimelinePropsClosure>),
+	BatchAction(Action, FilterCollection),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -88,6 +94,7 @@ impl Agent for TimelineAgent {
 			display_mode: None,
 			endpoint_agent: EndpointAgent::dispatcher(),
 			link,
+			timelines: HashMap::new(),
 		}
 	}
 
@@ -99,7 +106,11 @@ impl Agent for TimelineAgent {
 			Request::RegisterChooseEndpoints => self.choose_endpoints = Some(id),
 			Request::RegisterTimelineContainer => self.timeline_container = Some(id),
 			Request::RegisterDisplayMode => self.display_mode = Some(id),
-			//TODO Less confusing name AddTimeline
+			Request::RegisterTimeline(timeline_id) => {
+				self.timelines.insert(timeline_id, id);
+			}
+			//TODO Less confusing name AddTimeline → EnableAddTimelineModal
+			// Or move to ModalAgent
 			Request::AddTimeline => {
 				if let Some(choose_endpoints) = self.choose_endpoints {
 					self.link.respond(choose_endpoints, Response::AddBlankTimeline)
@@ -191,6 +202,18 @@ impl Agent for TimelineAgent {
 			}
 			Request::LoadedStorageTimelines(timelines) => {
 				log::debug!("Received endpoints for {} timelines", timelines.len());
+			}
+			Request::BatchAction(action, timelines, filters) => {
+				//TODO timelines: Iterator<Item = HandlerId>?
+				let timelines: Vec<HandlerId> = if timelines.is_empty() {
+					self.timelines.values().cloned().collect()
+				}else {
+					timelines.into_iter().map(|timeline_id| self.timelines[&timeline_id]).collect()
+				};
+
+				for timeline in timelines {
+					self.link.respond(timeline, Response::BatchAction(action, filters.clone()));
+				}
 			}
 		}
 	}

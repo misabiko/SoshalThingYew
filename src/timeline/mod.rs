@@ -27,7 +27,7 @@ use crate::components::{Dropdown, DropdownLabel, FA, IconSize};
 use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest, Response as ArticleActionsResponse};
 use crate::services::storages::{hide_article, mark_article_as_read};
 use crate::settings::{AppSettings, AppSettingsOverride, ArticleFilteredMode, view_on_media_click_setting, view_article_filtered_mode_setting, view_keep_column_count_setting, view_masonry_independent_columns_setting, ChangeSettingMsg};
-use crate::TimelineEndpointWrapper;
+use crate::{TimelineAgentResponse, TimelineEndpointWrapper};
 
 pub type TimelineId = i8;
 
@@ -94,7 +94,7 @@ pub struct Timeline {
 	container_ref: NodeRef,
 	autoscroll: Rc<RefCell<AutoScroll>>,
 	article_actions: Box<dyn Bridge<ArticleActionsAgent>>,
-	timeline_agent: Dispatcher<TimelineAgent>,
+	timeline_agent: Box<dyn Bridge<TimelineAgent>>,
 	use_section: bool,
 	section: (usize, usize),
 	rtl: bool,
@@ -139,6 +139,7 @@ pub enum Msg {
 	ChangeSetting(ChangeSettingMsg),
 	BalanceContainer,
 	ContainerCallback(ContainerMsg),
+	TimelineAgentResponse(TimelineAgentResponse),
 }
 
 #[derive(Properties, Clone)]
@@ -212,6 +213,9 @@ impl Component for Timeline {
 		let mut endpoint_agent = EndpointAgent::dispatcher();
 		endpoint_agent.send(EndpointRequest::InitTimeline(ctx.props().id.clone(), endpoints.clone(), ctx.link().callback(Msg::NewArticles)));
 
+		let mut timeline_agent = TimelineAgent::bridge(ctx.link().callback(Msg::TimelineAgentResponse));
+		timeline_agent.send(TimelineAgentRequest::RegisterTimeline(ctx.props().id));
+
 		Self {
 			endpoints,
 			articles: ctx.props().articles.clone(),
@@ -233,7 +237,7 @@ impl Component for Timeline {
 			container_ref: NodeRef::default(),
 			autoscroll: Rc::new(RefCell::new(AutoScroll::default())),
 			article_actions: ArticleActionsAgent::bridge(ctx.link().callback(Msg::ActionsCallback)),
-			timeline_agent: TimelineAgent::dispatcher(),
+			timeline_agent,
 			use_section: false,
 			section: (0, 50),
 			rtl: ctx.props().rtl,
@@ -392,7 +396,8 @@ impl Component for Timeline {
 			}
 			Msg::Redraw => true,
 			Msg::MarkAllAsRead => {
-				for article in self.filtered_sectioned_articles(ctx) {
+				let articles = self.filtered_sectioned_articles(ctx, None);
+				for article in &articles {
 					let strong = weak_actual_article(&article).upgrade().unwrap();
 					let mut borrow = strong.borrow_mut();
 
@@ -402,11 +407,12 @@ impl Component for Timeline {
 					mark_article_as_read(borrow.service(), borrow.id(), new_marked_as_read);
 				}
 
-				self.article_actions.send(ArticleActionsRequest::RedrawTimelines(self.filtered_sectioned_articles(ctx)));
+				self.article_actions.send(ArticleActionsRequest::RedrawTimelines(articles));
 				false
 			}
 			Msg::HideAll => {
-				for article in self.filtered_sectioned_articles(ctx) {
+				let articles = self.filtered_sectioned_articles(ctx, None);
+				for article in &articles {
 					let strong = weak_actual_article(&article).upgrade().unwrap();
 					let mut borrow = strong.borrow_mut();
 
@@ -416,7 +422,7 @@ impl Component for Timeline {
 					hide_article(borrow.service(), borrow.id(), new_hidden);
 				}
 
-				self.article_actions.send(ArticleActionsRequest::RedrawTimelines(self.filtered_sectioned_articles(ctx)));
+				self.article_actions.send(ArticleActionsRequest::RedrawTimelines(articles));
 				false
 			}
 			Msg::ChangeSetting(change_msg) => {
@@ -438,11 +444,18 @@ impl Component for Timeline {
 					false
 				}
 			}
+			Msg::TimelineAgentResponse(response) => match response {
+				TimelineAgentResponse::BatchAction(action, filters) => {
+					self.article_actions.send(ArticleActionsRequest::Action(action, self.filtered_sectioned_articles(ctx, Some(filters))));
+					false
+				}
+				_ => false,
+			}
 		}
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
-		let articles = self.sectioned_articles(ctx);
+		let articles = self.sectioned_articles(ctx, None);
 
 		let articles: Vec<ArticleStruct> = articles.into_iter()
 			.map(|(a, included)| {
@@ -837,9 +850,15 @@ impl Timeline {
 		}
 	}
 
-	fn sectioned_articles(&self, ctx: &Context<Self>) -> Vec<(ArticleWeak, bool)> {
+	fn sectioned_articles(&self, ctx: &Context<Self>, extra_filters: Option<FilterCollection>) -> Vec<(ArticleWeak, bool)> {
 		let mut articles: Vec<(ArticleWeak, bool)> = self.articles.iter().cloned().map(|a| (a, true)).collect();
-		for instance in &self.filters {
+
+		let mut filters = self.filters.clone();
+		if let Some(extra_filters) = extra_filters {
+			filters.extend(extra_filters);
+		}
+
+		for instance in filters {
 			if instance.enabled {
 				articles = articles.into_iter().map(|(a, included)| {
 					let strong = a.upgrade();
@@ -875,8 +894,8 @@ impl Timeline {
 		articles
 	}
 
-	fn filtered_sectioned_articles(&self, ctx: &Context<Self>) -> Vec<ArticleWeak> {
-		self.sectioned_articles(ctx).into_iter().filter_map(|(a, included)| if included {
+	fn filtered_sectioned_articles(&self, ctx: &Context<Self>, extra_filters: Option<FilterCollection>) -> Vec<ArticleWeak> {
+		self.sectioned_articles(ctx, extra_filters).into_iter().filter_map(|(a, included)| if included {
 			Some(a)
 		} else {
 			None

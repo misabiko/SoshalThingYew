@@ -1,22 +1,25 @@
-use std::fmt::{Display, Formatter};
 use yew::prelude::*;
-use yew_agent::{Bridge, Bridged};
+use yew_agent::{Bridge, Bridged, Dispatcher, Dispatched};
 
 use super::ModalCard;
-use crate::components::{Dropdown, DropdownLabel, FA, IconSize};
+use crate::components::{Dropdown, DropdownLabel};
 use crate::modals::modal_agent::{ModalAgent, ModalRequest, ModalType};
-use crate::timeline::filters::{FilterCollection, FilterMsg, FiltersOptions};
+use crate::services::article_actions::Action;
+use crate::timeline::{agent::{TimelineAgent, Request as TimelineRequest}, filters::{FilterCollection, FilterMsg, FiltersOptions}, TimelineId};
 
 pub struct BatchActionModal {
 	enabled: bool,
 	action: Action,
+	timeline_idx: Option<usize>,
 	filters: FilterCollection,
-	modal_agent: Box<dyn Bridge<ModalAgent>>,
+	_modal_agent: Box<dyn Bridge<ModalAgent>>,
+	timeline_agent: Dispatcher<TimelineAgent>,
 }
 
 pub enum BatchActionMsg {
 	SetEnabled(bool),
 	SetAction(Action),
+	SetTimeline(Option<usize>),
 	Apply,
 	FilterMsg(FilterMsg),
 }
@@ -25,7 +28,7 @@ type Msg = BatchActionMsg;
 
 #[derive(Properties, PartialEq)]
 pub struct BatchActionProps {
-
+	pub timeline_ids: Vec<(TimelineId, String)>,
 }
 
 impl Component for BatchActionModal {
@@ -33,18 +36,20 @@ impl Component for BatchActionModal {
 	type Properties = BatchActionProps;
 
 	fn create(ctx: &Context<Self>) -> Self {
-		let mut modal_agent = ModalAgent::bridge(ctx.link().callback(|_| Msg::SetEnabled(true)));
-		modal_agent.send(ModalRequest::Register(ModalType::BatchAction));
+		let mut _modal_agent = ModalAgent::bridge(ctx.link().callback(|_| Msg::SetEnabled(true)));
+		_modal_agent.send(ModalRequest::Register(ModalType::BatchAction));
 
 		Self {
 			enabled: false,
 			action: Action::MarkAsRead,
-			filters: FilterCollection::default(),
-			modal_agent,
+			timeline_idx: None,
+			filters: FilterCollection::new(),
+			_modal_agent,
+			timeline_agent: TimelineAgent::dispatcher(),
 		}
 	}
 
-	fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
+	fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
 		match msg {
 			Msg::SetEnabled(enabled) => {
 				self.enabled = enabled;
@@ -54,7 +59,15 @@ impl Component for BatchActionModal {
 				self.action = action;
 				true
 			}
+			Msg::SetTimeline(index) => {
+				self.timeline_idx = index;
+				true
+			}
 			Msg::Apply => {
+				let timeline_ids = &ctx.props().timeline_ids;
+				let timelines = self.timeline_idx.map(|index| vec![timeline_ids[index].0]).unwrap_or_else(|| Vec::new());
+				self.timeline_agent.send(TimelineRequest::BatchAction(self.action, timelines, self.filters.clone()));
+
 				self.enabled = false;
 				true
 			}
@@ -92,6 +105,8 @@ impl Component for BatchActionModal {
 					</div>
 				</div>
 
+				{ self.view_timelines(ctx) }
+
 				<FiltersOptions
 					filters={self.filters.clone()}
 					callback={ctx.link().callback(Msg::FilterMsg)}
@@ -101,18 +116,31 @@ impl Component for BatchActionModal {
 	}
 }
 
-//TODO Use from article_actions
-#[derive(Copy, Clone, PartialEq, Eq)]
-pub enum Action {
-	MarkAsRead,
-	Hide,
-}
+impl BatchActionModal {
+	fn view_timelines(&self, ctx: &Context<Self>) -> Html {
+		let timeline_ids = &ctx.props().timeline_ids;
+		let current_label = self.timeline_idx
+			.map(|index| timeline_ids[index].1.clone())
+			.unwrap_or_else(|| "None".to_owned());
+		let current_label = DropdownLabel::Text(current_label);
 
-impl Display for Action {
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		match self {
-			Action::MarkAsRead => write!(f, "Mark As Read"),
-			Action::Hide => write!(f, "Hide"),
+		html! {
+			<div class="field">
+				<label class="label">{"Timeline"}</label>
+				<div class="control">
+					<Dropdown {current_label}>
+						<a key={-1} class="dropdown-item" onclick={ctx.link().callback(|_| Msg::SetTimeline(None))}>
+							{ "None" }
+						</a>
+						{ for timeline_ids.iter().enumerate().map(|(i, (_, name))| html! {
+
+							<a key={i} class="dropdown-item" onclick={ctx.link().callback(move |_| Msg::SetTimeline(Some(i)))}>
+								{ name.clone() }
+							</a>
+						}) }
+					</Dropdown>
+				</div>
+			</div>
 		}
 	}
 }

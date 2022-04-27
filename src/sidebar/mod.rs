@@ -115,7 +115,3 @@ impl Component for Sidebar {
 		}
 	}
 }
-
-pub enum SidebarCallback {
-	BatchAction,
-}
