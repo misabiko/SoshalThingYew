@@ -57,6 +57,8 @@ impl Component for TimelineContainer {
 		let mut endpoint_agent = EndpointAgent::bridge(ctx.link().callback(Msg::EndpointResponse));
 		endpoint_agent.send(EndpointRequest::RegisterTimelineContainer);
 
+		parse_pathname(ctx, &mut endpoint_agent);
+
 		Self {
 			timelines: Vec::new(),
 			modal_timeline: None,
@@ -288,77 +290,6 @@ impl TimelineContainer {
 			html! {}
 		}
 	}
-
-	fn parse_pathname(&mut self, ctx: &Context<Self>) {
-		let location = web_sys::window().unwrap().location();
-		let pathname = location.pathname().unwrap();
-		let search = web_sys::UrlSearchParams::new_with_str(&location.search().unwrap()).unwrap();
-
-		if let Some(tweet_id) = pathname.strip_prefix("/twitter/status/").and_then(|s| s.parse::<u64>().ok()) {
-			let callback = ctx.link().callback(|id| Msg::AddTimeline(
-				TimelineCreationMode::NameEndpoints("Tweet".to_owned(), vec![TimelineEndpointWrapper::new_both(id)]),
-				false,
-			));
-
-			self.endpoint_agent.send(EndpointRequest::AddEndpoint {
-				id_to_endpoint: Box::new(move |id| {
-					callback.emit(id);
-					Box::new(SingleTweetEndpoint::new(id, tweet_id))
-				}),
-				shared: false,
-			});
-		} else if let Some(username) = pathname.strip_prefix("/twitter/user/").map(str::to_owned) {
-			let retweets = search.get("rts")
-				.and_then(|s| s.parse().ok())
-				.unwrap_or_default();
-			let replies = search.get("replies")
-				.and_then(|s| s.parse().ok())
-				.unwrap_or_default();
-
-			let callback = ctx.link().callback(|id| Msg::AddTimeline(
-				TimelineCreationMode::NameEndpoints("User".to_owned(), vec![TimelineEndpointWrapper::new_both(id)]),
-				false,
-			));
-
-			self.endpoint_agent.send(EndpointRequest::AddEndpoint {
-				id_to_endpoint: Box::new(move |id| {
-					callback.emit(id);
-					Box::new(UserTimelineEndpoint::new(id, username.clone(), retweets, replies))
-				}),
-				shared: false,
-			});
-		} else if pathname.starts_with("/twitter/home") {
-			let callback = ctx.link().callback(|id| Msg::AddTimeline(
-				TimelineCreationMode::NameEndpoints("Home".to_owned(), vec![TimelineEndpointWrapper::new_both(id)]),
-				false,
-			));
-
-			self.endpoint_agent.send(EndpointRequest::AddEndpoint {
-				id_to_endpoint: Box::new(move |id| {
-					callback.emit(id);
-					Box::new(HomeTimelineEndpoint::new(id))
-				}),
-				shared: false,
-			});
-		} else if let Some(list_params) = pathname.strip_prefix("/twitter/list/").map(|s| s.split("/").collect::<Vec<&str>>()) {
-			if let [username, slug] = list_params[..] {
-				let callback = ctx.link().callback(|id| Msg::AddTimeline(
-					TimelineCreationMode::NameEndpoints("List".to_owned(), vec![TimelineEndpointWrapper::new_both(id)]),
-					false,
-				));
-				let username = username.to_owned();
-				let slug = slug.to_owned();
-
-				self.endpoint_agent.send(EndpointRequest::AddEndpoint {
-					id_to_endpoint: Box::new(move |id| {
-						callback.emit(id);
-						Box::new(ListEndpoint::new(id, username, slug))
-					}),
-					shared: false,
-				});
-			}
-		}
-	}
 }
 
 #[derive(PartialEq, Clone, Copy, Serialize, Deserialize)]
@@ -383,4 +314,75 @@ pub type TimelinePropsEndpointsClosure = Box<dyn FnOnce(TimelineId, Vec<Timeline
 pub enum TimelineCreationMode {
 	NameEndpoints(String, Vec<TimelineEndpointWrapper>),
 	Props(TimelinePropsClosure),
+}
+
+fn parse_pathname(ctx: &Context<TimelineContainer>, endpoint_agent: &mut Box<dyn Bridge<EndpointAgent>>) {
+	let location = web_sys::window().unwrap().location();
+	let pathname = location.pathname().unwrap();
+	let search = web_sys::UrlSearchParams::new_with_str(&location.search().unwrap()).unwrap();
+
+	if let Some(tweet_id) = pathname.strip_prefix("/twitter/status/").and_then(|s| s.parse::<u64>().ok()) {
+		let callback = ctx.link().callback(|id| Msg::AddTimeline(
+			TimelineCreationMode::NameEndpoints("Tweet".to_owned(), vec![TimelineEndpointWrapper::new_both(id)]),
+			false,
+		));
+
+		endpoint_agent.send(EndpointRequest::AddEndpoint {
+			id_to_endpoint: Box::new(move |id| {
+				callback.emit(id);
+				Box::new(SingleTweetEndpoint::new(id, tweet_id))
+			}),
+			shared: false,
+		});
+	} else if let Some(username) = pathname.strip_prefix("/twitter/user/").map(str::to_owned) {
+		let retweets = search.get("rts")
+			.and_then(|s| s.parse().ok())
+			.unwrap_or_default();
+		let replies = search.get("replies")
+			.and_then(|s| s.parse().ok())
+			.unwrap_or_default();
+
+		let callback = ctx.link().callback(|id| Msg::AddTimeline(
+			TimelineCreationMode::NameEndpoints("User".to_owned(), vec![TimelineEndpointWrapper::new_both(id)]),
+			false,
+		));
+
+		endpoint_agent.send(EndpointRequest::AddEndpoint {
+			id_to_endpoint: Box::new(move |id| {
+				callback.emit(id);
+				Box::new(UserTimelineEndpoint::new(id, username.clone(), retweets, replies))
+			}),
+			shared: false,
+		});
+	} else if pathname.starts_with("/twitter/home") {
+		let callback = ctx.link().callback(|id| Msg::AddTimeline(
+			TimelineCreationMode::NameEndpoints("Home".to_owned(), vec![TimelineEndpointWrapper::new_both(id)]),
+			false,
+		));
+
+		endpoint_agent.send(EndpointRequest::AddEndpoint {
+			id_to_endpoint: Box::new(move |id| {
+				callback.emit(id);
+				Box::new(HomeTimelineEndpoint::new(id))
+			}),
+			shared: false,
+		});
+	} else if let Some(list_params) = pathname.strip_prefix("/twitter/list/").map(|s| s.split("/").collect::<Vec<&str>>()) {
+		if let [username, slug] = list_params[..] {
+			let callback = ctx.link().callback(|id| Msg::AddTimeline(
+				TimelineCreationMode::NameEndpoints("List".to_owned(), vec![TimelineEndpointWrapper::new_both(id)]),
+				false,
+			));
+			let username = username.to_owned();
+			let slug = slug.to_owned();
+
+			endpoint_agent.send(EndpointRequest::AddEndpoint {
+				id_to_endpoint: Box::new(move |id| {
+					callback.emit(id);
+					Box::new(ListEndpoint::new(id, username, slug))
+				}),
+				shared: false,
+			});
+		}
+	}
 }

@@ -44,32 +44,32 @@ pub struct AuthInfo {
 }
 
 pub struct Model {
-	endpoint_agent: Dispatcher<EndpointAgent>,
-	_timeline_agent: Box<dyn Bridge<TimelineAgent>>,
+	page_info: Option<PageInfo>,
+	app_settings: AppSettings,
 	display_mode: DisplayMode,
 	last_display_single: DisplayMode,
-	page_info: Option<PageInfo>,
+	services_sidebar: HashMap<String, Html>,
+	sidebar_favviewer: bool,
+	notifications: Vec<Html>,
+	endpoint_agent: Dispatcher<EndpointAgent>,
+	_timeline_agent: Box<dyn Bridge<TimelineAgent>>,
+	_notification_agent: Box<dyn Bridge<NotificationAgent>>,
+	_settings_agent: Box<dyn Bridge<SettingsAgent>>,
 	twitter: Box<dyn Bridge<TwitterAgent>>,
 	_pixiv: Dispatcher<PixivAgent>,
 	_dummy_service: Dispatcher<DummyServiceAgent>,
 	youtube: Box<dyn Bridge<YouTubeAgent>>,
-	services_sidebar: HashMap<String, Html>,
-	_notification_agent: Box<dyn Bridge<NotificationAgent>>,
-	notifications: Vec<Html>,
-	sidebar_favviewer: bool,
-	app_settings: AppSettings,
-	_settings_agent: Box<dyn Bridge<SettingsAgent>>,
 }
 
 pub enum Msg {
-	EndpointAgentRequest(EndpointRequest),
 	TimelineAgentResponse(TimelineAgentResponse),
+	TimelineContainerCallback(TimelineContainerCallback),
+	EndpointAgentRequest(EndpointRequest),
+	NotificationResponse(NotificationResponse),
+	SettingsResponse(SettingsResponse),
 	TwitterResponse(TwitterResponse),
 	YouTubeResponse(YouTubeResponse),
 	FetchedAuthInfo(Result<AuthInfo>),
-	NotificationResponse(NotificationResponse),
-	SettingsResponse(SettingsResponse),
-	TimelineContainerCallback(TimelineContainerCallback),
 }
 
 #[derive(Properties, PartialEq, Default)]
@@ -104,7 +104,7 @@ impl Component for Model {
 		let mut _settings_agent = SettingsAgent::bridge(ctx.link().callback(Msg::SettingsResponse));
 		_settings_agent.send(SettingsRequest::RegisterModel);
 
-		let (_, search_opt) = parse_url();
+		let search = web_sys::UrlSearchParams::new_with_str(&web_sys::window().unwrap().location().search().unwrap()).unwrap();
 
 		//TODO use memreplace Some(Setup) → None
 		let page_info = match &ctx.props().page_info {
@@ -120,8 +120,8 @@ impl Component for Model {
 			_ => None,
 		};
 
-		let single_timeline_bool = search_opt.as_ref()
-			.and_then(|s| s.get("single_timeline"))
+		let single_timeline_bool = search
+			.get("single_timeline")
 			.and_then(|s| s.parse().ok())
 			.unwrap_or_default();
 
@@ -131,12 +131,12 @@ impl Component for Model {
 			*display_mode
 		} else if single_timeline_bool {
 			DisplayMode::Single {
-				container: search_opt.as_ref()
-					.and_then(|s| s.get("container"))
+				container: search
+					.get("container")
 					.as_ref().and_then(|s| Container::from(s).ok())
 					.unwrap_or(Container::Masonry),
-				column_count: search_opt.as_ref()
-					.and_then(|s| s.get("column_count"))
+				column_count: search
+					.get("column_count")
 					.and_then(|s| s.parse().ok())
 					.unwrap_or(4),
 			}
@@ -317,25 +317,6 @@ pub enum TimelineContainerCallback {
 	ToggleFavViewer,
 	ToggleSidebarFavViewer,
 	ToggleDisplayMode,
-}
-
-pub fn parse_url() -> (Option<String>, Option<web_sys::UrlSearchParams>) {
-	match web_sys::window().map(|w| w.location()) {
-		Some(location) => (match location.pathname() {
-			Ok(pathname_opt) => Some(pathname_opt),
-			Err(err) => {
-				log_error!("Failed to get location.pathname", err);
-				None
-			}
-		}, match location.search().and_then(|s| web_sys::UrlSearchParams::new_with_str(&s)) {
-			Ok(search_opt) => Some(search_opt),
-			Err(err) => {
-				log_error!("Failed to get location.search", err);
-				None
-			}
-		}),
-		None => (None, None),
-	}
 }
 
 //Maybe move to a generic util module?
