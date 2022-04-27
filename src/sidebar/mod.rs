@@ -7,23 +7,27 @@ use endpoint_options::EndpointOptions;
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest};
 use crate::settings::{SettingsAgent, SettingsRequest};
 use crate::components::{FA, IconSize, IconType};
+use crate::modals::modal_agent::{ModalAgent, ModalRequest, ModalType};
 
 pub struct Sidebar {
 	expanded: bool,
 	add_timeline_agent: Dispatcher<TimelineAgent>,
 	settings_agent: Dispatcher<SettingsAgent>,
+	modal_agent: Dispatcher<ModalAgent>,
 }
 
 pub enum Msg {
 	ToggleExpanded,
 	AddTimeline,
 	ShowSettings,
+	BatchAction,
 }
 
 #[derive(Properties, PartialEq, Clone)]
 pub struct Props {
 	pub services: Vec<Html>,
 	pub children: Children,
+	//pub parent_callback: Callback<SidebarCallback>,
 }
 
 impl Component for Sidebar {
@@ -38,6 +42,7 @@ impl Component for Sidebar {
 			expanded: false,
 			add_timeline_agent: TimelineAgent::dispatcher(),
 			settings_agent,
+			modal_agent: ModalAgent::dispatcher(),
 		}
 	}
 
@@ -55,11 +60,25 @@ impl Component for Sidebar {
 				self.settings_agent.send(SettingsRequest::ShowModal);
 				false
 			}
+			Msg::BatchAction => {
+				self.modal_agent.send(ModalRequest::ActivateModal(ModalType::BatchAction));
+				false
+			}
 		}
 	}
 
 	//TODO Fix top button click moving bottom ones
 	fn view(&self, ctx: &Context<Self>) -> Html {
+		let batch_callback = {
+			let onclick = ctx.link().callback(|_| Msg::BatchAction);
+
+			html! {
+				<button {onclick} title="Batch action">
+					<FA icon="a" size={IconSize::X2}/>
+				</button>
+			}
+		};
+
 		html! {
 			<nav id="sidebar">
 				{if self.expanded { html! {
@@ -78,6 +97,7 @@ impl Component for Sidebar {
 						<button onclick={ctx.link().callback(|_| Msg::AddTimeline)} title="Add new timeline">
 							<FA icon="plus" size={IconSize::X2}/>
 						</button>
+						{ batch_callback }
 						{ for ctx.props().children.iter() }
 					</div>
 					<div>
@@ -94,4 +114,8 @@ impl Component for Sidebar {
 			</nav>
 		}
 	}
+}
+
+pub enum SidebarCallback {
+	BatchAction,
 }

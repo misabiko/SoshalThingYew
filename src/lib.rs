@@ -35,6 +35,7 @@ use timeline::{
 	timeline_container::{TimelineContainer, DisplayMode},
 	agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse},
 };
+use crate::modals::batch_action::BatchActionModal;
 use crate::settings::ChangeSettingMsg;
 
 #[derive(serde::Deserialize)]
@@ -272,6 +273,30 @@ impl Component for Model {
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
+		html! {
+			<>
+				<SettingsModal app_settings={self.app_settings}/>
+				<div id="soshal-notifications">
+					{ for self.notifications.iter().cloned() }
+				</div>
+				{ self.page_info.as_ref().map(|p| p.view()).unwrap_or_default() }
+				{ self.view_sidebar(ctx) }
+
+				<BatchActionModal/>
+
+				<TimelineContainer
+					parent_callback={ctx.link().callback(Msg::TimelineContainerCallback)}
+					app_settings={self.app_settings}
+					favviewer={ctx.props().favviewer}
+					display_mode={self.display_mode}
+				/>
+			</>
+		}
+	}
+}
+
+impl Model {
+	fn view_sidebar(&self, ctx: &Context<Self>) -> Html {
 		let display_mode_toggle = {
 			let (dm_title, dm_icon) = match self.display_mode {
 				DisplayMode::Default => ("Single Timeline", "expand-alt"),
@@ -285,30 +310,16 @@ impl Component for Model {
 			}
 		};
 
-		html! {
-			<>
-				<SettingsModal app_settings={self.app_settings}/>
-				<div id="soshal-notifications">
-					{ for self.notifications.iter().cloned() }
-				</div>
-				{ self.page_info.as_ref().map(|p| p.view()).unwrap_or_default() }
-				{
-					match self.sidebar_favviewer || !ctx.props().favviewer {
-						true => html! {
-							<Sidebar services={self.services_sidebar.values().cloned().collect::<Vec<Html>>()}>
-								{ display_mode_toggle }
-							</Sidebar>
-						},
-						false => html! {},
-					}
-				}
-				<TimelineContainer
-					parent_callback={ctx.link().callback(Msg::TimelineContainerCallback)}
-					app_settings={self.app_settings}
-					favviewer={ctx.props().favviewer}
-					display_mode={self.display_mode}
-				/>
-			</>
+		if self.sidebar_favviewer || !ctx.props().favviewer {
+			let services = self.services_sidebar.values().cloned().collect::<Vec<Html>>();
+
+			html! {
+				<Sidebar {services}>
+					{ display_mode_toggle }
+				</Sidebar>
+			}
+		}else {
+			html! {}
 		}
 	}
 }

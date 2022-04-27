@@ -17,106 +17,6 @@ use crate::timeline::{
 };
 use crate::notifications::{NotificationAgent, Request as NotificationRequest, Notification};
 
-pub type EndpointId = i32;
-
-//TODO Split agent stuff in separate module
-
-#[derive(Clone, PartialEq)]
-pub struct TimelineEndpointWrapper {
-	pub id: EndpointId,
-	pub on_start: bool,
-	pub on_refresh: bool,
-	pub filters: FilterCollection,
-}
-
-impl TimelineEndpointWrapper {
-	pub fn new(id: EndpointId, on_start: bool, on_refresh: bool) -> Self {
-		Self { id, on_start, on_refresh, filters: FilterCollection::default() }
-	}
-
-	pub fn new_both(id: EndpointId) -> Self {
-		Self {
-			id,
-			on_start: true,
-			on_refresh: true,
-			filters: FilterCollection::default()
-		}
-	}
-}
-
-//TODO Replace with per_timeline boolean?
-#[derive(Clone, Copy, PartialEq)]
-pub enum RefreshTime {
-	Start,
-	OnRefresh,
-}
-
-#[derive(Clone)]
-pub struct EndpointConstructor {
-	pub name: &'static str,
-	pub param_template: Vec<(&'static str, serde_json::Value)>,
-	pub callback: Rc<dyn Fn(EndpointId, serde_json::Value) -> Box<dyn Endpoint>>
-}
-
-impl EndpointConstructor {
-	pub fn default_params(&self) -> serde_json::Value {
-		let mut params = json!({});
-		for (name, value) in &self.param_template {
-			params[name] = value.clone();
-		}
-		params
-	}
-}
-
-/// The constructors for a service's endpoints
-#[derive(Clone)]
-pub struct EndpointConstructorCollection {
-	pub constructors: Vec<EndpointConstructor>,
-	/// Index of the endpoint used to query a user's articles
-	pub user_endpoint_index: Option<usize>,
-}
-
-#[derive(Clone)]
-pub struct EndpointView {
-	pub id: EndpointId,
-	pub name: String,
-	pub ratelimit: Option<RateLimit>,
-	pub is_autorefreshing: bool,
-	pub autorefresh_interval: u32,
-	pub shared: bool,
-}
-
-/// Additional data common to all endpoints
-pub struct EndpointInfo {
-	endpoint: Box<dyn Endpoint>,
-	shared: bool,
-	interval_id: Option<Interval>,
-	interval: u32,
-}
-
-impl EndpointInfo {
-	fn new(endpoint: Box<dyn Endpoint>, shared: bool) -> Self {
-		Self {
-			interval: endpoint.default_interval(),
-			interval_id: None,
-			endpoint,
-			shared,
-		}
-	}
-}
-
-pub enum TimelineCreationRequest {
-	NameEndpoints(String),
-	Props(TimelinePropsEndpointsClosure)
-}
-
-pub struct BatchEndpointAddClosure {
-	pub closure: Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>,
-	pub on_start: bool,
-	pub on_refresh: bool,
-	pub shared: bool,
-}
-
 pub struct EndpointAgent {
 	link: AgentLink<Self>,
 	endpoint_counter: EndpointId,
@@ -536,4 +436,104 @@ impl EndpointAgent {
 			shared: e.shared,
 		}).collect()));
 	}
+}
+
+pub type EndpointId = i32;
+
+//TODO Split agent stuff in separate module
+
+#[derive(Clone, PartialEq)]
+pub struct TimelineEndpointWrapper {
+	pub id: EndpointId,
+	pub on_start: bool,
+	pub on_refresh: bool,
+	pub filters: FilterCollection,
+}
+
+impl TimelineEndpointWrapper {
+	pub fn new(id: EndpointId, on_start: bool, on_refresh: bool) -> Self {
+		Self { id, on_start, on_refresh, filters: FilterCollection::default() }
+	}
+
+	pub fn new_both(id: EndpointId) -> Self {
+		Self {
+			id,
+			on_start: true,
+			on_refresh: true,
+			filters: FilterCollection::default()
+		}
+	}
+}
+
+//TODO Replace with per_timeline boolean?
+#[derive(Clone, Copy, PartialEq)]
+pub enum RefreshTime {
+	Start,
+	OnRefresh,
+}
+
+#[derive(Clone)]
+pub struct EndpointConstructor {
+	pub name: &'static str,
+	pub param_template: Vec<(&'static str, serde_json::Value)>,
+	pub callback: Rc<dyn Fn(EndpointId, serde_json::Value) -> Box<dyn Endpoint>>
+}
+
+impl EndpointConstructor {
+	pub fn default_params(&self) -> serde_json::Value {
+		let mut params = json!({});
+		for (name, value) in &self.param_template {
+			params[name] = value.clone();
+		}
+		params
+	}
+}
+
+/// The constructors for a service's endpoints
+#[derive(Clone)]
+pub struct EndpointConstructorCollection {
+	pub constructors: Vec<EndpointConstructor>,
+	/// Index of the endpoint used to query a user's articles
+	pub user_endpoint_index: Option<usize>,
+}
+
+#[derive(Clone)]
+pub struct EndpointView {
+	pub id: EndpointId,
+	pub name: String,
+	pub ratelimit: Option<RateLimit>,
+	pub is_autorefreshing: bool,
+	pub autorefresh_interval: u32,
+	pub shared: bool,
+}
+
+/// Additional data common to all endpoints
+pub struct EndpointInfo {
+	endpoint: Box<dyn Endpoint>,
+	shared: bool,
+	interval_id: Option<Interval>,
+	interval: u32,
+}
+
+impl EndpointInfo {
+	fn new(endpoint: Box<dyn Endpoint>, shared: bool) -> Self {
+		Self {
+			interval: endpoint.default_interval(),
+			interval_id: None,
+			endpoint,
+			shared,
+		}
+	}
+}
+
+pub enum TimelineCreationRequest {
+	NameEndpoints(String),
+	Props(TimelinePropsEndpointsClosure)
+}
+
+pub struct BatchEndpointAddClosure {
+	pub closure: Box<dyn FnOnce(EndpointId) -> Box<dyn Endpoint>>,
+	pub on_start: bool,
+	pub on_refresh: bool,
+	pub shared: bool,
 }

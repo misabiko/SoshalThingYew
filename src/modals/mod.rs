@@ -1,6 +1,8 @@
 use yew::prelude::*;
 
+pub mod modal_agent;
 pub mod add_timeline;
+pub mod batch_action;
 
 pub use add_timeline::AddTimelineModal;
 use crate::components::FA;

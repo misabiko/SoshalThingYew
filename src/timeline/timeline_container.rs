@@ -207,9 +207,13 @@ impl Component for TimelineContainer {
 	}
 
 	fn view(&self, ctx: &Context<Self>) -> Html {
+		let add_timeline_callback = ctx.link().callback(|(props, set_as_main_timeline)|
+			Msg::AddTimeline(TimelineCreationMode::Props(props), set_as_main_timeline)
+		);
+
 		html! {
 			<>
-				<AddTimelineModal add_timeline_callback={ctx.link().callback(|(props, set_as_main_timeline)| Msg::AddTimeline(TimelineCreationMode::Props(props), set_as_main_timeline))}/>
+				<AddTimelineModal {add_timeline_callback}/>
 				<div id="timelineContainer">
 					{ self.view_modal_timeline(ctx) }
 					{ self.view_timelines(ctx) }
