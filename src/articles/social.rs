@@ -9,6 +9,7 @@ use crate::articles::component::{ViewProps, Msg as ParentMsg};
 use crate::components::{Dropdown, DropdownLabel, FA, IconType, font_awesome::Props as FAProps};
 use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest};
 use crate::log_warn;
+use crate::services::article_actions::Action;
 use crate::settings::ArticleFilteredMode;
 
 pub struct SocialArticle {
@@ -171,8 +172,12 @@ impl SocialArticle {
 	}
 
 	fn view_nav(&self, ctx: &Context<Self>, actual_article: &ArticleBox, actual_weak: ArticleWeak, quote: bool) -> Html {
+		let actual_weak_c = actual_weak.clone();
+		let actual_weak_c_c = actual_weak.clone();
+		let actual_weak_c_c_c = actual_weak.clone();
 		let ontoggle_compact = ctx.link().callback(|_| Msg::ToggleCompact);
-		let ontoggle_markasread = ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleMarkAsRead));
+		//TODO Add weak_actual_article to ArticleStruct?
+		let ontoggle_markasread = ctx.link().callback(move |_| Msg::ParentCallback(ParentMsg::Action(Action::MarkAsRead, Some(actual_weak_c_c_c.clone()))));
 		let dropdown_buttons = match &ctx.props().article_struct.boxed_refs.iter().find(|ref_article| matches!(ref_article, ArticleRefType::Reposted(_) | ArticleRefType::RepostedQuote(_, _))) {
 			Some(_) => html! {
 				<a
@@ -185,7 +190,6 @@ impl SocialArticle {
 			},
 			None => html! {},
 		};
-		let actual_weak_c = actual_weak.clone();
 
 		html! {
 			<nav class="level is-mobile">
@@ -195,7 +199,7 @@ impl SocialArticle {
 							<>
 								<a
 									class={classes!("level-item", "articleButton", "repostButton", if actual_article.reposted() { Some("repostedPostButton") } else { None })}
-									onclick={ctx.link().callback(move |_| Msg::ParentCallback(ParentMsg::Repost(actual_weak.clone())))}
+									onclick={ctx.link().callback(move |_| Msg::ParentCallback(ParentMsg::Action(Action::Repost, Some(actual_weak_c.clone()))))}
 								>
 									<FA icon="retweet"/>
 									{match actual_article.repost_count() {
@@ -207,7 +211,7 @@ impl SocialArticle {
 								</a>
 								<a
 									class={classes!("level-item", "articleButton", "likeButton", if actual_article.liked() { Some("likedPostButton") } else { None })}
-									onclick={ctx.link().callback(move |_| Msg::ParentCallback(ParentMsg::Like(actual_weak_c.clone())))}
+									onclick={ctx.link().callback(move |_| Msg::ParentCallback(ParentMsg::Action(Action::Like, Some(actual_weak_c_c.clone()))))}
 								>
 									<FA icon="heart" icon_type={if actual_article.liked() { IconType::Solid } else { IconType::Regular }}/>
 									{match actual_article.like_count() {
@@ -252,10 +256,15 @@ impl SocialArticle {
 						true => html! {},
 					} }
 					{ if !quote {
+						let actual_weak_markasred = actual_weak.clone();
+						let actual_weak_hide = actual_weak.clone();
+						let actual_weak_logdata = actual_weak.clone();
+						let actual_weak_logjsondata = actual_weak.clone();
+						let actual_weak_fetchdata = actual_weak.clone();
 						html! {
 							<Dropdown current_label={DropdownLabel::Icon(yew::props! { FAProps {icon: "ellipsis-h".to_owned()}})} trigger_classes={classes!("level-item")} label_classes={classes!("articleButton")}>
-								<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleMarkAsRead))}> {"Mark as read"} </a>
-								<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleHide))}> {"Hide"} </a>
+								<a class="dropdown-item" onclick={ctx.link().callback(move |_| Msg::ParentCallback(ParentMsg::Action(Action::MarkAsRead, Some(actual_weak_markasred.clone()))))}> {"Mark as read"} </a>
+								<a class="dropdown-item" onclick={ctx.link().callback(move |_| Msg::ParentCallback(ParentMsg::Action(Action::Hide, Some(actual_weak_hide.clone()))))}> {"Hide"} </a>
 								<a class="dropdown-item" onclick={&ontoggle_compact}> { if self.is_compact(ctx) { "Show expanded" } else { "Show compact" } } </a>
 								<a
 									class="dropdown-item"
@@ -265,9 +274,9 @@ impl SocialArticle {
 									{ "External Link" }
 								</a>
 								{ dropdown_buttons }
-								<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::LogData))}>{"Log Data"}</a>
-								<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::LogJsonData))}>{"Log Json Data"}</a>
-								<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::FetchData))}>{"Fetch Data"}</a>
+								<a class="dropdown-item" onclick={ctx.link().callback(move |_| Msg::ParentCallback(ParentMsg::Action(Action::LogData, Some(actual_weak_logdata.clone()))))}>{"Log Data"}</a>
+								<a class="dropdown-item" onclick={ctx.link().callback(move |_| Msg::ParentCallback(ParentMsg::Action(Action::LogJsonData, Some(actual_weak_logjsondata.clone()))))}>{"Log Json Data"}</a>
+								<a class="dropdown-item" onclick={ctx.link().callback(move |_| Msg::ParentCallback(ParentMsg::Action(Action::FetchData, Some(actual_weak_fetchdata.clone()))))}>{"Fetch Data"}</a>
 							</Dropdown>
 						}
 					}else {

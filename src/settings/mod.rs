@@ -10,6 +10,7 @@ pub use component::{
 	view_masonry_independent_columns_setting
 };
 pub use agent::{SettingsAgent, Request as SettingsRequest, Response as SettingsResponse};
+use crate::services::article_actions::Action;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct AppSettings {
@@ -46,23 +47,23 @@ pub enum ChangeSettingMsg {
 	MasonryIndependentColumns(bool),
 }
 
-//TODO Have a ArticleAction enum
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum OnMediaClick {
-	Like,
-	Repost,
+	Action(Action),
 	Expand,
-	MarkAsRead,
-	Hide,
 	Nothing,
 }
 
-const ALL_ONMEDIACLICK: [OnMediaClick; 6] = [
-	OnMediaClick::Like,
-	OnMediaClick::Repost,
+//TODO enum iter macro
+const ALL_ONMEDIACLICK: [OnMediaClick; 9] = [
+	OnMediaClick::Action(Action::Like),
+	OnMediaClick::Action(Action::Repost),
+	OnMediaClick::Action(Action::MarkAsRead),
+	OnMediaClick::Action(Action::Hide),
+	OnMediaClick::Action(Action::FetchData),
+	OnMediaClick::Action(Action::LogData),
+	OnMediaClick::Action(Action::LogJsonData),
 	OnMediaClick::Expand,
-	OnMediaClick::MarkAsRead,
-	OnMediaClick::Hide,
 	OnMediaClick::Nothing,
 ];
 
@@ -74,7 +75,7 @@ impl OnMediaClick {
 impl Display for OnMediaClick {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		match self {
-			OnMediaClick::MarkAsRead => f.write_str("Mark As Read"),
+			OnMediaClick::Action(action) => f.write_fmt(format_args!("{}", action)),
 			_ => f.write_fmt(format_args!("{:?}", self)),
 		}
 	}

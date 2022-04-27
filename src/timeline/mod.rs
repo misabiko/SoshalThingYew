@@ -19,13 +19,12 @@ use containers::{view_container, Props as ContainerProps, ContainerMsg};
 use filters::{FilterCollection, FilterMsg, FiltersOptions};
 use sort_methods::SortMethod;
 use agent::{TimelineAgent, Request as TimelineAgentRequest};
-use crate::articles::{ArticleView, ArticleRefType, ArticleWeak, ArticleBox, weak_actual_article};
+use crate::articles::{ArticleView, ArticleRefType, ArticleWeak, ArticleBox};
 use crate::services::endpoint_agent::{EndpointAgent, Request as EndpointRequest};
 use crate::modals::ModalCard;
 use crate::choose_endpoints::ChooseEndpoints;
 use crate::components::{Dropdown, DropdownLabel, FA, IconSize};
-use crate::services::article_actions::{ArticleActionsAgent, Request as ArticleActionsRequest, Response as ArticleActionsResponse};
-use crate::services::storages::{hide_article, mark_article_as_read};
+use crate::services::article_actions::{Action, ArticleActionsAgent, Request as ArticleActionsRequest, Response as ArticleActionsResponse};
 use crate::settings::{AppSettings, AppSettingsOverride, ArticleFilteredMode, view_on_media_click_setting, view_article_filtered_mode_setting, view_keep_column_count_setting, view_masonry_independent_columns_setting, ChangeSettingMsg};
 use crate::{TimelineAgentResponse, TimelineEndpointWrapper};
 
@@ -396,33 +395,11 @@ impl Component for Timeline {
 			}
 			Msg::Redraw => true,
 			Msg::MarkAllAsRead => {
-				let articles = self.filtered_sectioned_articles(ctx, None);
-				for article in &articles {
-					let strong = weak_actual_article(&article).upgrade().unwrap();
-					let mut borrow = strong.borrow_mut();
-
-					let new_marked_as_read = !borrow.marked_as_read();
-					borrow.set_marked_as_read(new_marked_as_read);
-
-					mark_article_as_read(borrow.service(), borrow.id(), new_marked_as_read);
-				}
-
-				self.article_actions.send(ArticleActionsRequest::RedrawTimelines(articles));
+				self.article_actions.send(ArticleActionsRequest::Action(Action::MarkAsRead, self.filtered_sectioned_articles(ctx, None)));
 				false
 			}
 			Msg::HideAll => {
-				let articles = self.filtered_sectioned_articles(ctx, None);
-				for article in &articles {
-					let strong = weak_actual_article(&article).upgrade().unwrap();
-					let mut borrow = strong.borrow_mut();
-
-					let new_hidden = !borrow.hidden();
-					borrow.set_hidden(new_hidden);
-
-					hide_article(borrow.service(), borrow.id(), new_hidden);
-				}
-
-				self.article_actions.send(ArticleActionsRequest::RedrawTimelines(articles));
+				self.article_actions.send(ArticleActionsRequest::Action(Action::Hide, self.filtered_sectioned_articles(ctx, None)));
 				false
 			}
 			Msg::ChangeSetting(change_msg) => {

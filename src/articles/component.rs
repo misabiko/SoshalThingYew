@@ -1,8 +1,6 @@
 use yew::prelude::*;
 use yew_agent::{Dispatcher, Dispatched, Bridge, Bridged};
-use web_sys::console;
 use wasm_bindgen::prelude::wasm_bindgen;
-use wasm_bindgen::JsValue;
 use std::convert::identity;
 
 use super::{ArticleView, SocialArticle, GalleryArticle};
@@ -11,7 +9,6 @@ use crate::articles::media_load_queue::{MediaLoadAgent, Request as MediaLoadRequ
 use crate::services::article_actions::{Action, ArticleActionsAgent, Request as ArticleActionsRequest};
 use crate::modals::Modal;
 use crate::log_warn;
-use crate::services::storages::{hide_article, mark_article_as_read};
 use crate::settings::{AppSettings, OnMediaClick, ArticleFilteredMode};
 use crate::timeline::ArticleStruct;
 
@@ -40,13 +37,8 @@ pub struct ArticleComponent {
 
 pub enum Msg {
 	OnMediaClick,
-	LogData,
-	LogJsonData,
-	FetchData,
-	Like(ArticleWeak),
-	Repost(ArticleWeak),
-	ToggleMarkAsRead,
-	ToggleHide,
+	//TODO Add to Action
+	Action(Action, Option<ArticleWeak>),
 	ToggleInModal,
 	LoadMedia(usize),
 	MediaLoaded(usize),
@@ -146,87 +138,23 @@ impl Component for ArticleComponent {
 			//TODO Get which article's media was clicked for like/repost
 			Msg::OnMediaClick => {
 				match ctx.props().app_settings.on_media_click {
-					OnMediaClick::Like =>
-						ctx.link().send_message(Msg::Like(ctx.props().article_struct.weak.clone())),
-					OnMediaClick::Repost =>
-						ctx.link().send_message(Msg::Repost(ctx.props().article_struct.weak.clone())),
+					OnMediaClick::Action(action) =>
+						ctx.link().send_message(Msg::Action(action, None)),
 					OnMediaClick::Expand =>
 						ctx.link().send_message(Msg::ToggleInModal),
-					OnMediaClick::MarkAsRead =>
-						ctx.link().send_message(Msg::ToggleMarkAsRead),
-					OnMediaClick::Hide =>
-						ctx.link().send_message(Msg::ToggleHide),
 					OnMediaClick::Nothing => {}
 				}
 				false
 			}
-			Msg::LogJsonData => {
-				let json = &ctx.props().article_struct.boxed.json();
-				let is_mobile = web_sys::window().expect("couldn't get global window")
-					.navigator().user_agent()
-					.map(|n| n.contains("Mobile"))
-					.unwrap_or(false);
-				if is_mobile {
-					log::info!("{}", serde_json::to_string_pretty(json).unwrap_or("Couldn't parse json data.".to_owned()));
-				}else {
-					console::dir_1(&JsValue::from_serde(&json).unwrap_or_default());
-				}
-				false
-			}
-			Msg::LogData => {
-				log::info!("{:#?}", &ctx.props().article_struct.boxed);
-				false
-			}
-			Msg::FetchData => {
-				self.article_actions.send(ArticleActionsRequest::Action(Action::FetchData, vec![weak_actual_article(&ctx.props().article_struct.weak)]));
-				false
-			}
-			Msg::Like(actual_article) => {
-				self.article_actions.send(ArticleActionsRequest::Action(Action::Like, vec![weak_actual_article(&actual_article)]));
-				false
-			}
-			Msg::Repost(actual_article) => {
-				self.article_actions.send(ArticleActionsRequest::Action(Action::Repost, vec![weak_actual_article(&actual_article)]));
-				false
-			}
-			Msg::ToggleMarkAsRead => {
-				if let Some(video) = self.video_ref.cast::<web_sys::HtmlVideoElement>() {
-					video.set_muted(true);
-					match video.pause() {
-						Err(err) => log_warn!("Failed to try and pause the video", err),
-						Ok(_) => {}
-					}
+			Msg::Action(action, actual_article) => {
+				if let Action::MarkAsRead | Action::Hide = action {
+					pause_video(&self.video_ref);
 				}
 
-				let actual_article = &ctx.props().article_struct.boxed_actual_article();
-				let weak_actual_article = weak_actual_article(&ctx.props().article_struct.weak);
-
-				let new_marked_as_read = !actual_article.marked_as_read();
-				weak_actual_article.upgrade().unwrap().borrow_mut().set_marked_as_read(new_marked_as_read);
-				mark_article_as_read(actual_article.service(), actual_article.id(), new_marked_as_read);
-
-				self.article_actions.send(ArticleActionsRequest::RedrawTimelines(vec![weak_actual_article.clone()]));
-
-				true
-			}
-			Msg::ToggleHide => {
-				if let Some(video) = self.video_ref.cast::<web_sys::HtmlVideoElement>() {
-					video.set_muted(true);
-					match video.pause() {
-						Err(err) => log_warn!("Failed to try and pause the video", err),
-						Ok(_) => {}
-					}
-				}
-
-				let actual_article = &ctx.props().article_struct.boxed_actual_article();
-				let weak_actual_article = weak_actual_article(&ctx.props().article_struct.weak);
-
-				let new_hidden = !actual_article.hidden();
-				weak_actual_article.upgrade().unwrap().borrow_mut().set_hidden(new_hidden);
-				hide_article(actual_article.service(), actual_article.id(), new_hidden);
-
-				self.article_actions.send(ArticleActionsRequest::RedrawTimelines(vec![weak_actual_article.clone()]));
-
+				let actual_article = actual_article.unwrap_or_else(||
+					weak_actual_article(&ctx.props().article_struct.weak)
+				);
+				self.article_actions.send(ArticleActionsRequest::Action(action, vec![weak_actual_article(&actual_article)]));
 				true
 			}
 			Msg::ToggleInModal => {
@@ -333,6 +261,16 @@ impl Component for ArticleComponent {
 			}
 		}
 	}*/
+}
+
+fn pause_video(video_ref: &NodeRef) {
+	if let Some(video) = video_ref.cast::<web_sys::HtmlVideoElement>() {
+		video.set_muted(true);
+		match video.pause() {
+			Err(err) => log_warn!("Failed to try and pause the video", err),
+			Ok(_) => {}
+		}
+	}
 }
 
 fn make_media_load_states(lazy_loading: bool, media: Vec<ArticleMedia>) -> Vec<MediaLoadState> {

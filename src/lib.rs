@@ -35,6 +35,7 @@ use timeline::{
 	timeline_container::{TimelineContainer, DisplayMode},
 	agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse},
 };
+use crate::services::article_actions::Action;
 use crate::settings::ChangeSettingMsg;
 
 #[derive(serde::Deserialize)]
@@ -171,7 +172,7 @@ impl Component for Model {
 			notifications: Vec::new(),
 			sidebar_favviewer: false,
 			app_settings: AppSettings {
-				on_media_click: OnMediaClick::MarkAsRead,
+				on_media_click: OnMediaClick::Action(Action::MarkAsRead),
 				article_filtered_mode: ArticleFilteredMode::Hidden,
 				keep_column_count: true,
 				masonry_independent_columns: true,

@@ -6,6 +6,7 @@ use crate::articles::{MediaType, MediaQueueInfo, media_load_queue::MediaLoadStat
 use crate::articles::component::{ViewProps, Msg as ParentMsg};
 use crate::components::{Dropdown, DropdownLabel};
 use crate::components::{FA, font_awesome::Props as FAProps};
+use crate::services::article_actions::Action;
 use crate::log_warn;
 
 pub struct GalleryArticle {
@@ -155,8 +156,6 @@ impl GalleryArticle {
 
 	fn view_nav(&self, ctx: &Context<Self>) -> Html {
 		let actual_article = ctx.props().article_struct.boxed_actual_article();
-		let actual_weak = ctx.props().article_struct.boxed.actual_article().unwrap_or_else(|| ctx.props().article_struct.weak.clone());
-		let actual_weak_c = actual_weak.clone();
 		html! {
 			<>
 				<div class="holderBox holderBoxTop">
@@ -175,8 +174,8 @@ impl GalleryArticle {
 						}
 					}
 					<Dropdown on_expanded_change={ctx.link().callback(Msg::SetDrawOnTop)} is_right=true current_label={DropdownLabel::Icon(yew::props! { FAProps {icon: "ellipsis-h".to_owned()}})} label_classes={classes!("articleButton")}>
-						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleMarkAsRead))}> {"Mark as read"} </a>
-						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::ToggleHide))}> {"Hide"} </a>
+						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::Action(Action::MarkAsRead, None)))}> {"Mark as read"} </a>
+						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::Action(Action::Hide, None)))}> {"Hide"} </a>
 						{ if let Some(index) = ctx.props().media_load_states.iter().enumerate().find_map(|(i, m)| if *m == MediaLoadState::NotLoaded { Some(i) } else { None }) {
 							html! {
 								<a class="dropdown-item" onclick={ctx.link().callback(move |_| Msg::ParentCallback(ParentMsg::LoadMedia(index)))}>{"Load Media"}</a>
@@ -191,16 +190,16 @@ impl GalleryArticle {
 						>
 							{ "External Link" }
 						</a>
-						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::LogData))}>{"Log Data"}</a>
-						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::LogJsonData))}>{"Log Json Data"}</a>
-						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::FetchData))}>{"Fetch Data"}</a>
+						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::Action(Action::LogData, None)))}>{"Log Data"}</a>
+						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::Action(Action::LogJsonData, None)))}>{"Log Json Data"}</a>
+						<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::ParentCallback(ParentMsg::Action(Action::FetchData, None)))}>{"Fetch Data"}</a>
 					</Dropdown>
 				</div>
 				<div class="holderBox holderBoxBottom">
-					<button class="button" onclick={ctx.link().callback(move |_| Msg::ParentCallback(ParentMsg::Like(actual_weak.clone())))}>
+					<button class="button" onclick={ctx.link().callback(move |_| Msg::ParentCallback(ParentMsg::Action(Action::Like, None)))}>
 						<FA icon="heart" span_classes={classes!("darkIcon", "is-small")}/>
 					</button>
-					<button class="button" onclick={ctx.link().callback(move |_| Msg::ParentCallback(ParentMsg::Repost(actual_weak_c.clone())))}>
+					<button class="button" onclick={ctx.link().callback(move |_| Msg::ParentCallback(ParentMsg::Action(Action::Repost, None)))}>
 						<FA icon="retweet" span_classes={classes!("darkIcon", "is-small")}/>
 					</button>
 				</div>
