@@ -336,6 +336,11 @@ impl Component for Timeline {
 
 				false
 			}
+			Msg::ScrollTop => {
+				scroll_to_top(self.container_ref.cast::<Element>().unwrap());
+
+				false
+			}
 			Msg::FilterMsg(msg) => self.filters.update(msg),
 			Msg::SetSortMethod(new_method) => {
 				self.sort_method.0 = new_method.map(|method| *method);
@@ -353,11 +358,6 @@ impl Component for Timeline {
 			Msg::ToggleSortReversed => {
 				self.sort_method.1 = !self.sort_method.1;
 				true
-			}
-			Msg::ScrollTop => {
-				scroll_to_top(self.container_ref.cast::<Element>().unwrap());
-
-				false
 			}
 			Msg::ActionsCallback(response) => {
 				match response {
@@ -519,7 +519,7 @@ impl Component for Timeline {
 						<button onclick={ctx.link().callback(|_| Msg::Shuffle)} title="Shuffle">
 							<FA icon="random" size={IconSize::Large}/>
 						</button>
-						<button onclick={ctx.link().callback(|_| Msg::Autoscroll)} title="Autoscroll">
+						<button onclick={ctx.link().callback(|_| Msg::Autoscroll)} title="Autoscroll" class="timelineAutoscroll">
 							<FA icon="scroll" size={IconSize::Large}/>
 						</button>
 						<button onclick={ctx.link().callback(|_| Msg::Refresh)} title="Refresh">

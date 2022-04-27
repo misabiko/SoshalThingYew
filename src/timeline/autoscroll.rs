@@ -1,16 +1,21 @@
 use wasm_bindgen::closure::Closure;
-use web_sys::Element;
+use web_sys::{Element, MouseEvent};
 use yew::NodeRef;
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::ops::Not;
 use wasm_bindgen::JsCast;
 
 pub fn start_autoscroll(autoscroll: &Rc<RefCell<AutoScroll>>, scrolled_ref: NodeRef) {
-	let old_direction = autoscroll.borrow().direction;
-	autoscroll.borrow_mut().direction = match old_direction {
-		ScrollDirection::Up => ScrollDirection::Down,
-		ScrollDirection::Down => ScrollDirection::Up,
-	};
+	/*{
+		let mut autoscroll_borrow = autoscroll.borrow_mut();
+		if autoscroll_borrow.anim.is_some() {
+			log::debug!("invert direction");
+			autoscroll_borrow.direction = !autoscroll_borrow.direction;
+		}else {
+			log::debug!("keep direction");
+		}
+	}*/
 
 	let anim_autoscroll = autoscroll.clone();
 	let event_autoscroll = autoscroll.clone();
@@ -34,10 +39,7 @@ pub fn start_autoscroll(autoscroll: &Rc<RefCell<AutoScroll>>, scrolled_ref: Node
 							ScrollDirection::Down => borrow.speed,
 						});
 					} else {
-						borrow.direction = match borrow.direction {
-							ScrollDirection::Up => ScrollDirection::Down,
-							ScrollDirection::Down => ScrollDirection::Up,
-						};
+						borrow.direction = !borrow.direction;
 					}
 				}
 
@@ -47,7 +49,7 @@ pub fn start_autoscroll(autoscroll: &Rc<RefCell<AutoScroll>>, scrolled_ref: Node
 					.unwrap();
 			}) as Box<dyn FnMut()>),
 			request_id: 0,
-			scroll_stop: Closure::once(Box::new(move || {
+			scroll_stop: Closure::once(Box::new(move |e: MouseEvent| {
 				let mut borrow = event_autoscroll.borrow_mut();
 				if let Some(anim) = &borrow.anim {
 					web_sys::window().expect("no global window")
@@ -56,7 +58,14 @@ pub fn start_autoscroll(autoscroll: &Rc<RefCell<AutoScroll>>, scrolled_ref: Node
 				}
 
 				borrow.anim = None;
-			}) as Box<dyn FnOnce()>),
+
+				let target = e.target().unwrap();
+				let target = target.dyn_ref::<Element>().unwrap();
+				//TODO Make sure same timeline
+				if target.matches(".timelineAutoscroll, .timelineAutoscroll *").unwrap() {
+					borrow.direction = !borrow.direction;
+				}
+			})),
 		};
 		let mut options = web_sys::AddEventListenerOptions::new();
 		window.add_event_listener_with_callback_and_add_event_listener_options(
@@ -80,7 +89,7 @@ pub fn scroll_to_top(scrolled_element: Element) {
 struct AutoscrollAnim {
 	request_id: i32,
 	scroll_step: Closure<dyn FnMut()>,
-	scroll_stop: Closure<dyn FnMut()>,
+	scroll_stop: Closure<dyn FnMut(MouseEvent)>,
 }
 
 pub struct AutoScroll {
@@ -103,4 +112,15 @@ impl Default for AutoScroll {
 enum ScrollDirection {
 	Up,
 	Down,
+}
+
+impl Not for ScrollDirection {
+	type Output = ScrollDirection;
+
+	fn not(self) -> Self::Output {
+		match self {
+			ScrollDirection::Up => ScrollDirection::Down,
+			ScrollDirection::Down => ScrollDirection::Up,
+		}
+	}
 }
