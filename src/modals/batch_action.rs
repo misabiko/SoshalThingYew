@@ -99,8 +99,11 @@ impl Component for BatchActionModal {
 					<label class="label">{"Action"}</label>
 					<div class="control">
 						<Dropdown current_label={DropdownLabel::Text(self.action.to_string())}>
-							<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::SetAction(Action::MarkAsRead))}> {Action::MarkAsRead.to_string()} </a>
-							<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::SetAction(Action::Hide))}> {Action::Hide.to_string()} </a>
+							{ for Action::iter().map(|action| html! {
+								<a class="dropdown-item" onclick={ctx.link().callback(|_| Msg::SetAction(*action))}>
+									{ action.to_string() }
+								</a>
+							}) }
 						</Dropdown>
 					</div>
 				</div>

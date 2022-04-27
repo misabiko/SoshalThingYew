@@ -152,3 +152,17 @@ impl Display for Action {
 		}
 	}
 }
+
+const ALL_ACTIONS: [Action; 5] = [
+	Action::Like,
+	Action::Repost,
+	Action::MarkAsRead,
+	Action::Hide,
+	Action::FetchData,
+];
+
+impl Action {
+	pub fn iter() -> impl ExactSizeIterator<Item=&'static Action> {
+		ALL_ACTIONS.iter()
+	}
+}
