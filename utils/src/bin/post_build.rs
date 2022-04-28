@@ -27,5 +27,5 @@ fn main() -> std::io::Result<()> {
     //log::info!("generated files {}", &json.to_string());
     println!("generated files {}", &json.to_string());
 
-    fs::write("extension/generated_files.json", json.to_string())
+    fs::write("dist/.stage/generated_files.json", json.to_string())
 }
