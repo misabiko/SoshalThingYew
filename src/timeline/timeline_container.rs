@@ -1,12 +1,11 @@
 use yew::prelude::*;
 use yew_agent::{Bridge, Bridged};
-use serde::{Serialize, Deserialize};
 
 use super::{
 	Props as TimelineProps, Timeline, TimelineId, Container,
 	agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse},
 };
-use crate::{AppSettings, TimelineContainerCallback};
+use crate::{AppSettings, TimelineContainerCallback, DisplayMode, PageInfo};
 use crate::services::{
 	endpoint_agent::{EndpointAgent, TimelineEndpointWrapper, Request as EndpointRequest, Response as EndpointResponse},
 	twitter::endpoints::*
@@ -26,12 +25,14 @@ pub struct TimelineContainer {
 	main_timeline: TimelineId,
 	_timeline_agent: Box<dyn Bridge<TimelineAgent>>,
 	endpoint_agent: Box<dyn Bridge<EndpointAgent>>,
+	page_info: Option<PageInfo>,
 }
 
 pub enum TimelineContainerMsg {
 	AddTimeline(TimelineCreationMode, bool),
 	AddModalTimeline(TimelineCreationMode),
 	RemoveModalTimeline,
+	ToggleFavViewer,
 	TimelineAgentResponse(TimelineAgentResponse),
 	EndpointResponse(EndpointResponse),
 }
@@ -44,6 +45,7 @@ pub struct TimelineContainerProps {
 	pub app_settings: AppSettings,
 	pub favviewer: bool,
 	pub display_mode: DisplayMode,
+	pub page_info: Option<PageInfo>,
 }
 
 impl Component for TimelineContainer {
@@ -60,6 +62,20 @@ impl Component for TimelineContainer {
 
 		parse_pathname(ctx, &mut endpoint_agent);
 
+		//TODO use memreplace Some(Setup) → None
+		let page_info = match &ctx.props().page_info {
+			Some(PageInfo::Setup { style_html, initial_style, make_activator, add_timelines }) => {
+				(add_timelines)();
+
+				Some(PageInfo::Ready {
+					style_html: style_html.clone(),
+					style: initial_style.clone(),
+					favviewer_button: (make_activator)(ctx.link().callback(|_| Msg::ToggleFavViewer)),
+				})
+			}
+			_ => None,
+		};
+
 		Self {
 			timelines: Vec::new(),
 			modal_timeline: None,
@@ -67,6 +83,7 @@ impl Component for TimelineContainer {
 			main_timeline: TimelineId::MIN,
 			_timeline_agent,
 			endpoint_agent,
+			page_info,
 		}
 	}
 
@@ -124,6 +141,14 @@ impl Component for TimelineContainer {
 
 					true
 				}else {
+					false
+				}
+			}
+			Msg::ToggleFavViewer => {
+				if let Some(page_info) = &mut self.page_info {
+					page_info.toggle_hidden();
+					true
+				} else {
 					false
 				}
 			}
@@ -217,6 +242,7 @@ impl Component for TimelineContainer {
 			<>
 				<AddTimelineModal {add_timeline_callback}/>
 				<BatchActionModal {timeline_ids}/>
+				{ self.page_info.as_ref().map(|p| p.view()).unwrap_or_default() }
 
 				<div id="timelineContainer">
 					{ self.view_modal_timeline(ctx) }
@@ -256,8 +282,7 @@ impl TimelineContainer {
 	}
 
 	fn view_main_timeline(&self, ctx: &Context<Self>, props: &TimelineProps, container: Container, column_count: u8) -> Html {
-		let toggle_favviewer_onclick = ctx.props().parent_callback
-			.reform(|_: MouseEvent| TimelineContainerCallback::ToggleFavViewer);
+		let toggle_favviewer_onclick = ctx.link().callback(|_| Msg::ToggleFavViewer);
 		let toggle_sidebar_onclick = ctx.props().parent_callback
 			.reform(|_: MouseEvent| TimelineContainerCallback::ToggleSidebarFavViewer);
 
@@ -297,22 +322,6 @@ impl TimelineContainer {
 		}else {
 			html! {}
 		}
-	}
-}
-
-#[derive(PartialEq, Clone, Copy, Serialize, Deserialize)]
-#[serde(tag = "type")]
-pub enum DisplayMode {
-	Single {
-		container: Container,
-		column_count: u8,
-	},
-	Default,
-}
-
-impl Default for DisplayMode {
-	fn default() -> Self {
-		DisplayMode::Default
 	}
 }
 

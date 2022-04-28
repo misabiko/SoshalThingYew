@@ -2,6 +2,7 @@ use yew::prelude::*;
 use yew_agent::{Bridge, Bridged, Dispatched, Dispatcher};
 use std::collections::HashMap;
 use gloo_storage::Storage;
+use serde::{Serialize, Deserialize};
 
 pub mod articles;
 pub mod choose_endpoints;
@@ -32,7 +33,7 @@ use services::{
 use sidebar::Sidebar;
 use timeline::{
 	Container,
-	timeline_container::{TimelineContainer, DisplayMode},
+	timeline_container::TimelineContainer,
 	agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse},
 };
 use crate::services::article_actions::Action;
@@ -45,7 +46,6 @@ pub struct AuthInfo {
 }
 
 pub struct Model {
-	page_info: Option<PageInfo>,
 	app_settings: AppSettings,
 	display_mode: DisplayMode,
 	last_display_single: DisplayMode,
@@ -107,20 +107,6 @@ impl Component for Model {
 
 		let search = web_sys::UrlSearchParams::new_with_str(&web_sys::window().unwrap().location().search().unwrap()).unwrap();
 
-		//TODO use memreplace Some(Setup) → None
-		let page_info = match &ctx.props().page_info {
-			Some(PageInfo::Setup { style_html, initial_style, make_activator, add_timelines }) => {
-				(add_timelines)();
-
-				Some(PageInfo::Ready {
-					style_html: style_html.clone(),
-					style: initial_style.clone(),
-					favviewer_button: (make_activator)(ctx.link().callback(|_| Msg::TimelineContainerCallback(TimelineContainerCallback::ToggleFavViewer))),
-				})
-			}
-			_ => None,
-		};
-
 		let single_timeline_bool = search
 			.get("single_timeline")
 			.and_then(|s| s.parse().ok())
@@ -162,7 +148,6 @@ impl Component for Model {
 			display_mode,
 			_timeline_agent,
 			endpoint_agent: EndpointAgent::dispatcher(),
-			page_info,
 			twitter,
 			_pixiv,
 			_dummy_service,
@@ -184,14 +169,6 @@ impl Component for Model {
 	fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
 		match msg {
 			Msg::TimelineContainerCallback(callback) => match callback {
-				TimelineContainerCallback::ToggleFavViewer => {
-					if let Some(page_info) = &mut self.page_info {
-						page_info.toggle_hidden();
-						true
-					} else {
-						false
-					}
-				}
 				TimelineContainerCallback::ToggleSidebarFavViewer => {
 					self.sidebar_favviewer = !self.sidebar_favviewer;
 					true
@@ -279,7 +256,6 @@ impl Component for Model {
 				<div id="soshal-notifications">
 					{ for self.notifications.iter().cloned() }
 				</div>
-				{ self.page_info.as_ref().map(|p| p.view()).unwrap_or_default() }
 				{ self.view_sidebar(ctx) }
 
 				<TimelineContainer
@@ -287,6 +263,7 @@ impl Component for Model {
 					app_settings={self.app_settings}
 					favviewer={ctx.props().favviewer}
 					display_mode={self.display_mode}
+					page_info={ctx.props().page_info.clone()}
 				/>
 			</>
 		}
@@ -323,9 +300,24 @@ impl Model {
 }
 
 pub enum TimelineContainerCallback {
-	ToggleFavViewer,
 	ToggleSidebarFavViewer,
 	ToggleDisplayMode,
+}
+
+#[derive(PartialEq, Clone, Copy, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum DisplayMode {
+	Single {
+		container: Container,
+		column_count: u8,
+	},
+	Default,
+}
+
+impl Default for DisplayMode {
+	fn default() -> Self {
+		DisplayMode::Default
+	}
 }
 
 //Maybe move to a generic util module?
