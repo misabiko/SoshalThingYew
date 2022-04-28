@@ -107,14 +107,14 @@ impl Filter {
 			}
 			Filter::Liked => {
 				match article.actual_article() {
-					Some(a) => !a.upgrade().unwrap().borrow().liked(),
-					None => !article.liked(),
+					Some(a) => a.upgrade().unwrap().borrow().liked(),
+					None => article.liked(),
 				}
 			}
 			Filter::Reposted => {
 				match article.actual_article() {
-					Some(a) => !a.upgrade().unwrap().borrow().reposted(),
-					None => !article.reposted(),
+					Some(a) => a.upgrade().unwrap().borrow().reposted(),
+					None => article.reposted(),
 				}
 			}
 			Filter::PlainTweet => {

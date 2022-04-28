@@ -314,7 +314,7 @@ impl Agent for EndpointAgent {
 					});
 					self.link.send_message(Msg::UpdatedState);
 				}else {
-					log::error!("BatchAddEndpoints: Model not yet registered to EndpointAgent");
+					log::error!("BatchAddEndpoints: TimelineContainer not yet registered to EndpointAgent");
 				}
 			},
 			Request::InitService(name, endpoints) => {
