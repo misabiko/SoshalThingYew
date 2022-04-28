@@ -3,6 +3,6 @@ node_modules/
 dist/
 
 credentials.json
-generated_files.json
+extension/generated_files.json
 /test-results/
 /soshalthing.log

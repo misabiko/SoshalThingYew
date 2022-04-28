@@ -14,13 +14,13 @@ dummy_service = []
 
 [dependencies]
 soshalthing_macros = { path = "soshalthing_macros" }
-yew = "0.19.3"
-yew-agent = "0.1.0"
-yewtil = { version = "0.4.0", features = ["future"] }
-gloo-utils = "0.1.1"
-wasm-bindgen = "0.2.78"
-wasm-bindgen-futures = "0.4.28"
-web-sys = { version = "0.3.55", features = [
+yew = "0.19"
+yew-agent = "0.1"
+yewtil = { version = "0.4", features = ["future"] }
+gloo-utils = "0.1"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = [
     "HtmlHeadElement",
     "UrlSearchParams",
     "HtmlCollection",
@@ -30,18 +30,18 @@ web-sys = { version = "0.3.55", features = [
     "HtmlVideoElement",
     "Navigator",
 ] }
-js-sys = "0.3.55"
-reqwest = { version = "0.11.8", features = ["json"] }
+js-sys = "0.3"
+reqwest = { version = "0.11", features = ["json"] }
 serde_json = "1.0"
-serde = "1.0.130"
-log = "0.4.14"
-wasm-logger = "0.2.0"
-rand = "0.8.4"
-getrandom = { version = "0.2.3", features = ["js"] }
-gloo-storage = "0.2.0"
-gloo-timers = "0.2.2"
-derivative = "2.2.0"
-html-escape = "0.2.9"
+serde = "1.0"
+log = "0.4"
+wasm-logger = "0.2"
+rand = "0.8"
+getrandom = { version = "0.2", features = ["js"] }
+gloo-storage = "0.2"
+gloo-timers = "0.2"
+derivative = "2.2"
+html-escape = "0.2"
 
 [dev-dependencies]
-wasm-bindgen-test = "0.3.28"
+wasm-bindgen-test = "0.3"

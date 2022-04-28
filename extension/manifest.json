@@ -15,7 +15,7 @@
 	"web_accessible_resources": [{
 		"resources": [
 			"/generated_files.json",
-			"/dist/*index-*",
+			"/*index-*",
 			"/webfonts/*"
 		],
 		"matches": ["https://*.pixiv.net/*"]

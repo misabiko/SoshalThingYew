@@ -8,7 +8,7 @@
 
 	const css = document.createElement("link");
 	css.rel = "stylesheet";
-	css.href = chrome.runtime.getURL("/dist/" + index["css"]);
+	css.href = chrome.runtime.getURL(index["css"]);
 
 	const twemoji = document.createElement("script");
 	twemoji.src = "https://twemoji.maxcdn.com/v/latest/twemoji.min.js";
@@ -16,7 +16,7 @@
 
 	document.head.append(bulma, css, twemoji);
 
-	const src = chrome.runtime.getURL("/dist/" + index["js"]);
+	const src = chrome.runtime.getURL(index["js"]);
 	const contentMain = await import(src);
 	contentMain.default();
 })();
