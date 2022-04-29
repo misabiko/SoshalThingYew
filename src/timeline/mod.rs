@@ -30,51 +30,6 @@ use crate::{TimelineAgentResponse, TimelineEndpointWrapper};
 
 pub type TimelineId = i8;
 
-pub struct ArticleStruct {
-	pub weak: ArticleWeak,
-	//TODO Rename or describe
-	pub included: bool,
-	pub boxed: ArticleBox,
-	boxed_actual_article_index_opt: Option<usize>,
-	boxed_actual_article_opt: Option<ArticleBox>,
-	pub boxed_refs: Vec<ArticleRefType<ArticleBox>>,
-}
-
-impl ArticleStruct {
-	pub fn global_id(&self) -> String {
-		format!("{}{}", &self.boxed.service(), &self.boxed.id())
-	}
-
-	pub fn boxed_actual_article(&self) -> &ArticleBox {
-		match &self.boxed_actual_article_opt {
-			Some(a) => a,
-			None => &self.boxed,
-		}
-	}
-}
-
-impl Clone for ArticleStruct {
-	fn clone(&self) -> Self {
-		Self {
-			weak: self.weak.clone(),
-			included: self.included,
-			boxed: self.boxed.clone_data(),
-			boxed_actual_article_index_opt: self.boxed_actual_article_index_opt,
-			boxed_actual_article_opt: self.boxed_actual_article_opt.as_ref().map(|a| a.clone_data()),
-			boxed_refs: self.boxed_refs.iter().map(|ref_article| ref_article.clone_data()).collect(),
-		}
-	}
-}
-
-impl PartialEq for ArticleStruct {
-	fn eq(&self, other: &Self) -> bool {
-		Weak::ptr_eq(&self.weak, &other.weak) &&
-			self.included == other.included &&
-			&self.boxed == &other.boxed &&
-			self.boxed_refs == other.boxed_refs
-	}
-}
-
 pub struct Timeline {
 	endpoints: Rc<RefCell<Vec<TimelineEndpointWrapper>>>,
 	articles: Vec<ArticleWeak>,
@@ -82,7 +37,6 @@ pub struct Timeline {
 	compact: bool,
 	animated_as_gifs: bool,
 	hide_text: bool,
-	endpoint_agent: Dispatcher<EndpointAgent>,
 	filters: FilterCollection,
 	sort_method: (Option<SortMethod>, bool),
 	_container: Container,
@@ -92,14 +46,15 @@ pub struct Timeline {
 	show_choose_endpoint: bool,
 	container_ref: NodeRef,
 	autoscroll: Rc<RefCell<AutoScroll>>,
-	article_actions: Box<dyn Bridge<ArticleActionsAgent>>,
-	timeline_agent: Box<dyn Bridge<TimelineAgent>>,
 	use_section: bool,
 	section: (usize, usize),
 	rtl: bool,
 	lazy_loading: bool,
 	app_settings_override: AppSettingsOverride,
 	should_organize_articles: bool,
+	article_actions: Box<dyn Bridge<ArticleActionsAgent>>,
+	timeline_agent: Box<dyn Bridge<TimelineAgent>>,
+	endpoint_agent: Dispatcher<EndpointAgent>,
 }
 
 pub enum Msg {
@@ -877,5 +832,50 @@ impl Timeline {
 		} else {
 			None
 		}).collect()
+	}
+}
+
+pub struct ArticleStruct {
+	pub weak: ArticleWeak,
+	//TODO Rename or describe
+	pub included: bool,
+	pub boxed: ArticleBox,
+	boxed_actual_article_index_opt: Option<usize>,
+	boxed_actual_article_opt: Option<ArticleBox>,
+	pub boxed_refs: Vec<ArticleRefType<ArticleBox>>,
+}
+
+impl ArticleStruct {
+	pub fn global_id(&self) -> String {
+		format!("{}{}", &self.boxed.service(), &self.boxed.id())
+	}
+
+	pub fn boxed_actual_article(&self) -> &ArticleBox {
+		match &self.boxed_actual_article_opt {
+			Some(a) => a,
+			None => &self.boxed,
+		}
+	}
+}
+
+impl Clone for ArticleStruct {
+	fn clone(&self) -> Self {
+		Self {
+			weak: self.weak.clone(),
+			included: self.included,
+			boxed: self.boxed.clone_data(),
+			boxed_actual_article_index_opt: self.boxed_actual_article_index_opt,
+			boxed_actual_article_opt: self.boxed_actual_article_opt.as_ref().map(|a| a.clone_data()),
+			boxed_refs: self.boxed_refs.iter().map(|ref_article| ref_article.clone_data()).collect(),
+		}
+	}
+}
+
+impl PartialEq for ArticleStruct {
+	fn eq(&self, other: &Self) -> bool {
+		Weak::ptr_eq(&self.weak, &other.weak) &&
+			self.included == other.included &&
+			&self.boxed == &other.boxed &&
+			self.boxed_refs == other.boxed_refs
 	}
 }
