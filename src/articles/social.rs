@@ -160,7 +160,7 @@ impl SocialArticle {
 	}
 
 	fn is_minimized(&self, ctx: &Context<Self>) -> bool {
-		!ctx.props().article_struct.included && ctx.props().app_settings.article_filtered_mode == ArticleFilteredMode::Minimized
+		!ctx.props().article_struct.in_section && ctx.props().app_settings.article_filtered_mode == ArticleFilteredMode::Minimized
 	}
 
 	fn view_timestamp(&self, actual_article: &ArticleBox) -> Html {

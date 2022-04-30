@@ -100,7 +100,6 @@ pub enum TimelineMsg {
 pub struct TimelineProps {
 	pub name: String,
 	pub id: TimelineId,
-	//TODO Split TimelineProps into TimelineData and TimelineProps
 	#[prop_or_default]
 	pub app_settings: Option<AppSettings>,
 	#[prop_or_default]
@@ -137,6 +136,7 @@ pub struct TimelineProps {
 	pub modal: bool,
 }
 
+//TODO derive PartialEq
 impl PartialEq for TimelineProps {
 	fn eq(&self, other: &Self) -> bool {
 		self.name == other.name &&
@@ -398,7 +398,7 @@ impl Component for Timeline {
 				let borrow = strong.borrow();
 				ArticleStruct {
 					weak: a,
-					included,
+					in_section: included,
 					boxed: borrow.clone_data(),
 					boxed_actual_article_index_opt: borrow.actual_article_index(),
 					boxed_actual_article_opt: borrow.actual_article().map(|a| a.upgrade().unwrap().borrow().clone_data()),
@@ -840,8 +840,7 @@ impl Timeline {
 
 pub struct ArticleStruct {
 	pub weak: ArticleWeak,
-	//TODO Rename or describe
-	pub included: bool,
+	pub in_section: bool,
 	pub boxed: ArticleBox,
 	boxed_actual_article_index_opt: Option<usize>,
 	boxed_actual_article_opt: Option<ArticleBox>,
@@ -865,7 +864,7 @@ impl Clone for ArticleStruct {
 	fn clone(&self) -> Self {
 		Self {
 			weak: self.weak.clone(),
-			included: self.included,
+			in_section: self.in_section,
 			boxed: self.boxed.clone_data(),
 			boxed_actual_article_index_opt: self.boxed_actual_article_index_opt,
 			boxed_actual_article_opt: self.boxed_actual_article_opt.as_ref().map(|a| a.clone_data()),
@@ -877,7 +876,7 @@ impl Clone for ArticleStruct {
 impl PartialEq for ArticleStruct {
 	fn eq(&self, other: &Self) -> bool {
 		Weak::ptr_eq(&self.weak, &other.weak) &&
-			self.included == other.included &&
+			self.in_section == other.in_section &&
 			&self.boxed == &other.boxed &&
 			self.boxed_refs == other.boxed_refs
 	}

@@ -228,7 +228,7 @@ impl Component for ArticleComponent {
 				ArticleView::Social => "socialArticle",
 				ArticleView::Gallery => "galleryArticle",
 			},
-			if !ctx.props().article_struct.included && ctx.props().app_settings.article_filtered_mode == ArticleFilteredMode::Transparent {
+			if !ctx.props().article_struct.in_section && ctx.props().app_settings.article_filtered_mode == ArticleFilteredMode::Transparent {
 				Some("transparent")
 			}else {
 				None
