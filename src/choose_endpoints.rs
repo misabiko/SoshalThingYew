@@ -8,11 +8,11 @@ use wasm_bindgen::JsCast;
 use web_sys::HtmlInputElement;
 use serde_json::Value;
 
-use crate::services::endpoint_agent::{Request as EndpointRequest, EndpointAgent, EndpointId, RefreshTime, EndpointConstructorCollection, Response as EndpointResponse, EndpointView, TimelineEndpointWrapper};
+use crate::services::endpoint_agent::{EndpointRequest, EndpointAgent, EndpointId, RefreshTime, EndpointConstructorCollection, EndpointResponse, EndpointView, TimelineEndpointWrapper};
 use crate::components::{Dropdown, DropdownLabel};
 use crate::timeline::{
 	filters::{FiltersOptions, FilterCollection, FilterMsg},
-	agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse},
+	agent::{TimelineAgent, TimelineRequest, TimelineResponse},
 };
 
 pub struct EndpointForm {
@@ -34,9 +34,9 @@ pub struct ChooseEndpoints {
 	services: HashMap<&'static str, EndpointConstructorCollection>,
 }
 
-pub enum Msg {
+pub enum ChooseEndpointsMsg {
 	EndpointResponse(EndpointResponse),
-	TimelineAgentResponse(TimelineAgentResponse),
+	TimelineResponse(TimelineResponse),
 	ToggleStartEndpointDropdown,
 	ToggleRefreshEndpointDropdown,
 	CreateNewEndpointForm(RefreshTime),
@@ -53,17 +53,20 @@ pub enum Msg {
 }
 
 #[derive(Properties, Clone)]
-pub struct Props {
+pub struct ChooseEndpointsProps {
 	pub timeline_endpoints: Weak<RefCell<Vec<TimelineEndpointWrapper>>>,
 	#[prop_or_default]
 	pub inside_add_timeline: bool,
 }
 
-impl PartialEq for Props {
+impl PartialEq for ChooseEndpointsProps {
 	fn eq(&self, other: &Self) -> bool {
 		self.timeline_endpoints.ptr_eq(&other.timeline_endpoints)
 	}
 }
+
+type Msg = ChooseEndpointsMsg;
+type Props = ChooseEndpointsProps;
 
 impl Component for ChooseEndpoints {
 	type Message = Msg;
@@ -72,8 +75,8 @@ impl Component for ChooseEndpoints {
 	fn create(ctx: &Context<Self>) -> Self {
 		let _add_timeline_agent = match ctx.props().inside_add_timeline {
 			true => {
-				let mut agent = TimelineAgent::bridge(ctx.link().callback(Msg::TimelineAgentResponse));
-				agent.send(TimelineAgentRequest::RegisterChooseEndpoints);
+				let mut agent = TimelineAgent::bridge(ctx.link().callback(Msg::TimelineResponse));
+				agent.send(TimelineRequest::RegisterChooseEndpoints);
 				Some(agent)
 			}
 			false => None,
@@ -105,12 +108,12 @@ impl Component for ChooseEndpoints {
 				}
 				_ => false
 			}
-			Msg::TimelineAgentResponse(response) => match response {
-				TimelineAgentResponse::AddBlankTimeline => {
+			Msg::TimelineResponse(response) => match response {
+				TimelineResponse::AddBlankTimeline => {
 					self.endpoint_form = None;
 					true
 				}
-				TimelineAgentResponse::AddUserTimeline(service, username) => {
+				TimelineResponse::AddUserTimeline(service, username) => {
 					//TODO Default user timeline filters in options
 					if let Some(endpoint_type) = self.services[&service].user_endpoint_index {
 						self.endpoint_form = Some(EndpointForm {

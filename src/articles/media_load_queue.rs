@@ -1,30 +1,24 @@
 use std::collections::{HashSet, HashMap, VecDeque};
 use yew_agent::{Agent, AgentLink, HandlerId, Context};
 
-static MAX_LOADING: usize = 5;
-
-#[derive(Clone, Copy, PartialEq, Debug)]
-pub enum MediaLoadState {
-	NotLoaded,
-	Loading,
-	Loaded,
-}
-
 pub struct MediaLoadAgent {
 	link: AgentLink<Self>,
 	load_queue: VecDeque<(String, usize, u32, HashSet<HandlerId>)>,
 	currently_loading: HashMap<(String, usize), HashSet<HandlerId>>,
 }
 
-pub enum Request {
+pub enum MediaLoadRequest {
 	QueueMedia(String, usize, u32),
 	LoadMedia(String, usize),
 	MediaLoaded(String, usize),
 }
 
-pub enum Response {
+pub enum MediaLoadResponse {
 	UpdateState(usize, MediaLoadState),
 }
+
+type Request = MediaLoadRequest;
+type Response = MediaLoadResponse;
 
 impl Agent for MediaLoadAgent {
 	type Reach = Context<Self>;
@@ -137,4 +131,13 @@ impl MediaLoadAgent {
 			self.link.respond(*id_i, Response::UpdateState(media_index, MediaLoadState::Loading));
 		}
 	}
+}
+
+static MAX_LOADING: usize = 5;
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum MediaLoadState {
+	NotLoaded,
+	Loading,
+	Loaded,
 }

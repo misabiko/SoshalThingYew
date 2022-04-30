@@ -12,7 +12,7 @@ pub struct SettingsAgent {
 	model: Option<HandlerId>,
 }
 
-pub enum Request {
+pub enum SettingsRequest {
 	ShowModal,
 	InitFavViewerSettings(DisplayMode),
 	UpdateFavViewer(DisplayMode),
@@ -22,11 +22,14 @@ pub enum Request {
 	ChangeSetting(ChangeSettingMsg),
 }
 
-pub enum Response {
+pub enum SettingsResponse {
 	ShowModal,
 	UpdateFavViewerSettings(DisplayMode),
 	ChangeSetting(ChangeSettingMsg),
 }
+
+type Request = SettingsRequest;
+type Response = SettingsResponse;
 
 impl Agent for SettingsAgent {
 	type Reach = AgentContext<Self>;

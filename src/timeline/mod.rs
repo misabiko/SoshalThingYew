@@ -15,18 +15,18 @@ mod autoscroll;
 
 pub use containers::Container;
 use autoscroll::{AutoScroll, start_autoscroll, scroll_to_top};
-use containers::{view_container, Props as ContainerProps, ContainerMsg};
+use containers::{view_container, ContainerProps as ContainerProps, ContainerMsg};
 use filters::{FilterCollection, FilterMsg, FiltersOptions};
 use sort_methods::SortMethod;
-use agent::{TimelineAgent, Request as TimelineAgentRequest};
+use agent::{TimelineAgent, TimelineRequest};
 use crate::articles::{ArticleView, ArticleRefType, ArticleWeak, ArticleBox};
-use crate::services::endpoint_agent::{EndpointAgent, Request as EndpointRequest};
+use crate::services::endpoint_agent::{EndpointAgent, EndpointRequest};
 use crate::modals::ModalCard;
 use crate::choose_endpoints::ChooseEndpoints;
 use crate::components::{Dropdown, DropdownLabel, FA, IconSize};
-use crate::services::article_actions::{Action, ArticleActionsAgent, Request as ArticleActionsRequest, Response as ArticleActionsResponse};
+use crate::services::article_actions::{Action, ArticleActionsAgent, ArticleActionsRequest, ArticleActionsResponse};
 use crate::settings::{AppSettings, AppSettingsOverride, ArticleFilteredMode, view_on_media_click_setting, view_article_filtered_mode_setting, view_keep_column_count_setting, view_masonry_independent_columns_setting, ChangeSettingMsg};
-use crate::{TimelineAgentResponse, TimelineEndpointWrapper};
+use crate::{TimelineResponse, TimelineEndpointWrapper};
 
 pub type TimelineId = i8;
 
@@ -57,7 +57,7 @@ pub struct Timeline {
 	endpoint_agent: Dispatcher<EndpointAgent>,
 }
 
-pub enum Msg {
+pub enum TimelineMsg {
 	Refresh,
 	LoadBottom,
 	LoadTop,
@@ -93,11 +93,11 @@ pub enum Msg {
 	ChangeSetting(ChangeSettingMsg),
 	BalanceContainer,
 	ContainerCallback(ContainerMsg),
-	TimelineAgentResponse(TimelineAgentResponse),
+	TimelineResponse(TimelineResponse),
 }
 
 #[derive(Properties, Clone)]
-pub struct Props {
+pub struct TimelineProps {
 	pub name: String,
 	pub id: TimelineId,
 	//TODO Split TimelineProps into TimelineData and TimelineProps
@@ -137,7 +137,7 @@ pub struct Props {
 	pub modal: bool,
 }
 
-impl PartialEq for Props {
+impl PartialEq for TimelineProps {
 	fn eq(&self, other: &Self) -> bool {
 		self.name == other.name &&
 			self.id == other.id &&
@@ -154,6 +154,9 @@ impl PartialEq for Props {
 	}
 }
 
+type Msg = TimelineMsg;
+type Props = TimelineProps;
+
 impl Component for Timeline {
 	type Message = Msg;
 	type Properties = Props;
@@ -167,8 +170,8 @@ impl Component for Timeline {
 		let mut endpoint_agent = EndpointAgent::dispatcher();
 		endpoint_agent.send(EndpointRequest::InitTimeline(ctx.props().id.clone(), endpoints.clone(), ctx.link().callback(Msg::NewArticles)));
 
-		let mut timeline_agent = TimelineAgent::bridge(ctx.link().callback(Msg::TimelineAgentResponse));
-		timeline_agent.send(TimelineAgentRequest::RegisterTimeline(ctx.props().id));
+		let mut timeline_agent = TimelineAgent::bridge(ctx.link().callback(Msg::TimelineResponse));
+		timeline_agent.send(TimelineRequest::RegisterTimeline(ctx.props().id));
 
 		Self {
 			endpoints,
@@ -258,7 +261,7 @@ impl Component for Timeline {
 			}
 			Msg::ChangeContainer(c) => {
 				if ctx.props().main_timeline {
-					self.timeline_agent.send(TimelineAgentRequest::SetMainContainer(c))
+					self.timeline_agent.send(TimelineRequest::SetMainContainer(c))
 				} else {
 					self._container = c;
 				}
@@ -270,7 +273,7 @@ impl Component for Timeline {
 			}
 			Msg::ChangeColumnCount(new_column_count) => {
 				if ctx.props().main_timeline {
-					self.timeline_agent.send(TimelineAgentRequest::SetMainColumnCount(new_column_count))
+					self.timeline_agent.send(TimelineRequest::SetMainColumnCount(new_column_count))
 				} else {
 					self._column_count = new_column_count;
 				}
@@ -324,11 +327,11 @@ impl Component for Timeline {
 				}
 			}
 			Msg::SetMainTimeline => {
-				self.timeline_agent.send(TimelineAgentRequest::SetMainTimeline(ctx.props().id));
+				self.timeline_agent.send(TimelineRequest::SetMainTimeline(ctx.props().id));
 				false
 			}
 			Msg::RemoveTimeline => {
-				self.timeline_agent.send(TimelineAgentRequest::RemoveTimeline(ctx.props().id));
+				self.timeline_agent.send(TimelineRequest::RemoveTimeline(ctx.props().id));
 				self.endpoint_agent.send(EndpointRequest::RemoveTimeline(ctx.props().id));
 
 				false
@@ -376,8 +379,8 @@ impl Component for Timeline {
 					false
 				}
 			}
-			Msg::TimelineAgentResponse(response) => match response {
-				TimelineAgentResponse::BatchAction(action, filters) => {
+			Msg::TimelineResponse(response) => match response {
+				TimelineResponse::BatchAction(action, filters) => {
 					self.article_actions.send(ArticleActionsRequest::Action(action, self.filtered_sectioned_articles(ctx, Some(filters))));
 					false
 				}

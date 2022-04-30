@@ -4,7 +4,7 @@ use yew_agent::{Dispatcher, Dispatched};
 mod endpoint_options;
 
 use endpoint_options::EndpointOptions;
-use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest};
+use crate::timeline::agent::{TimelineAgent, TimelineRequest};
 use crate::settings::{SettingsAgent, SettingsRequest};
 use crate::components::{FA, IconSize, IconType};
 use crate::modals::modal_agent::{ModalAgent, ModalRequest, ModalType};
@@ -16,7 +16,7 @@ pub struct Sidebar {
 	modal_agent: Dispatcher<ModalAgent>,
 }
 
-pub enum Msg {
+pub enum SidebarMsg {
 	ToggleExpanded,
 	AddTimeline,
 	ShowSettings,
@@ -24,11 +24,14 @@ pub enum Msg {
 }
 
 #[derive(Properties, PartialEq, Clone)]
-pub struct Props {
+pub struct SidebarProps {
 	pub services: Vec<Html>,
 	pub children: Children,
 	//pub parent_callback: Callback<SidebarCallback>,
 }
+
+type Msg = SidebarMsg;
+type Props = SidebarProps;
 
 impl Component for Sidebar {
 	type Message = Msg;
@@ -53,7 +56,7 @@ impl Component for Sidebar {
 				true
 			}
 			Msg::AddTimeline => {
-				self.add_timeline_agent.send(TimelineAgentRequest::AddTimeline);
+				self.add_timeline_agent.send(TimelineRequest::AddTimeline);
 				false
 			}
 			Msg::ShowSettings => {

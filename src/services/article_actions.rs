@@ -8,6 +8,7 @@ use wasm_bindgen::JsValue;
 use crate::articles::ArticleWeak;
 use crate::services::storages::{hide_article, mark_article_as_read};
 
+//TODO Use Action
 pub struct ServiceActions {
 	pub like: Option<Callback<(HandlerId, ArticleWeak)>>,
 	pub repost: Option<Callback<(HandlerId, ArticleWeak)>>,
@@ -20,17 +21,20 @@ pub struct ArticleActionsAgent {
 	subscribers: HashSet<HandlerId>,
 }
 
-pub enum Request {
+pub enum ArticleActionsRequest {
 	Init(&'static str, ServiceActions),
 	//Callback(Vec<ArticleWeak>),
 	Action(Action, Vec<ArticleWeak>),
 	RedrawTimelines(Vec<ArticleWeak>),
 }
 
-pub enum Response {
+pub enum ArticleActionsResponse {
 	//Callback(Vec<ArticleWeak>),
 	RedrawTimelines(Vec<ArticleWeak>),
 }
+
+type Request = ArticleActionsRequest;
+type Response = ArticleActionsResponse;
 
 impl Agent for ArticleActionsAgent {
 	type Reach = Context<Self>;

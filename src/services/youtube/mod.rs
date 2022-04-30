@@ -10,12 +10,12 @@ mod endpoints;
 use article::YouTubeArticleData;
 use crate::articles::ArticleRc;
 use crate::error::{Result, Error};
-use crate::notifications::{Notification, NotificationAgent, Request as NotificationRequest};
+use crate::notifications::{Notification, NotificationAgent, NotificationRequest};
 use crate::services::{
 	service,
 	RefreshTime,
-	endpoint_agent::{EndpointAgent, EndpointConstructor, EndpointId, Request as EndpointRequest},
-	article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest},
+	endpoint_agent::{EndpointAgent, EndpointConstructor, EndpointId, EndpointRequest},
+	article_actions::{ArticleActionsAgent, ServiceActions, ArticleActionsRequest},
 	endpoint_agent::EndpointConstructorCollection,
 	storages::get_service_storage,
 	youtube::endpoints::{fetch_videos, PlaylistEndpoint},
@@ -38,20 +38,24 @@ pub struct YouTubeAgent {
 	notification_agent: Dispatcher<NotificationAgent>,
 }
 
-pub enum Msg {
+pub enum YouTubeMsg {
 	EndpointFetchResponse(RefreshTime, EndpointId, Result<Vec<ArticleRc<YouTubeArticleData>>>),
 }
 
-pub enum Request {
+pub enum YouTubeRequest {
 	Auth(bool),
 	AddArticles(RefreshTime, EndpointId, Vec<ArticleRc<YouTubeArticleData>>),
 	FetchArticles(RefreshTime, EndpointId, Url),
 	Sidebar,
 }
 
-pub enum Response {
+pub enum YouTubeResponse {
 	Sidebar(Html),
 }
+
+type Msg = YouTubeMsg;
+type Request = YouTubeRequest;
+type Response = YouTubeResponse;
 
 impl Agent for YouTubeAgent {
 	type Reach = Context<Self>;

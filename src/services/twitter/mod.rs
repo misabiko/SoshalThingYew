@@ -11,12 +11,12 @@ pub use article::TweetArticleData;
 use article::StrongArticleRefType;
 use crate::articles::{ArticleRc, ArticleRefType, ArticleWeak};
 use crate::{base_url, SearchEndpoint};
-use crate::notifications::{Notification, NotificationAgent, Request as NotificationRequest};
+use crate::notifications::{Notification, NotificationAgent, NotificationRequest};
 use crate::services::{
 	service,
 	RateLimit,
-	endpoint_agent::{EndpointAgent, Request as EndpointRequest, EndpointId, EndpointConstructor, EndpointConstructorCollection, RefreshTime},
-	article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest},
+	endpoint_agent::{EndpointAgent, EndpointRequest, EndpointId, EndpointConstructor, EndpointConstructorCollection, RefreshTime},
+	article_actions::{ArticleActionsAgent, ServiceActions, ArticleActionsRequest},
 	twitter::endpoints::*,
 };
 use crate::error::{Error, RatelimitedResult};
@@ -74,23 +74,27 @@ pub struct TwitterAgent {
 	notification_agent: Dispatcher<NotificationAgent>,
 }
 
-pub enum Msg {
+pub enum TwitterMsg {
 	FetchResponse(HandlerId, RatelimitedResult<Vec<(ArticleRc<TweetArticleData>, Vec<StrongArticleRefType>)>>),
 	EndpointFetchResponse(RefreshTime, EndpointId, RatelimitedResult<Vec<(ArticleRc<TweetArticleData>, Vec<StrongArticleRefType>)>>),
 	Like(HandlerId, ArticleWeak),
 	Retweet(HandlerId, ArticleWeak),
 }
 
-pub enum Request {
+pub enum TwitterRequest {
 	Auth(Option<String>),
 	Sidebar,
 	FetchTweets(RefreshTime, EndpointId, Url),
 	FetchTweet(RefreshTime, EndpointId, Url),
 }
 
-pub enum Response {
+pub enum TwitterResponse {
 	Sidebar(Html),
 }
+
+type Msg = TwitterMsg;
+type Request = TwitterRequest;
+type Response = TwitterResponse;
 
 impl Agent for TwitterAgent {
 	type Reach = Context<Self>;

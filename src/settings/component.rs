@@ -14,7 +14,7 @@ pub struct SettingsModal {
 	favviewer_settings: DisplayMode,
 }
 
-pub enum Msg {
+pub enum SettingsModalMsg {
 	SetEnabled(bool),
 	ChangeColumnCount(u8),
 	ChangeContainer(Container),
@@ -24,9 +24,12 @@ pub enum Msg {
 }
 
 #[derive(Properties, PartialEq, Clone)]
-pub struct Props {
+pub struct SettingsModalProps {
 	pub app_settings: AppSettings,
 }
+
+type Msg = SettingsModalMsg;
+type Props = SettingsModalProps;
 
 impl Component for SettingsModal {
 	type Message = Msg;

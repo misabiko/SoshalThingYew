@@ -4,11 +4,11 @@ use std::collections::HashMap;
 use gloo_timers::callback::Timeout;
 
 use crate::favviewer::{FavViewerStyle, PageInfo, default_hidden_style};
-use crate::{Model, Props as ModelProps, DisplayMode, EndpointAgent};
+use crate::{Model, ModelProps, DisplayMode, EndpointAgent};
 use crate::settings::{SettingsAgent, SettingsRequest};
 use crate::timeline::Container;
 use crate::services::{
-	endpoint_agent::{Request as EndpointRequest, TimelineCreationRequest},
+	endpoint_agent::{EndpointRequest, TimelineCreationRequest},
 	pixiv::endpoints::*,
 	storages::get_or_init_favviewer_settings,
 };

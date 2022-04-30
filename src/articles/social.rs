@@ -5,9 +5,9 @@ use wasm_bindgen::JsValue;
 use yew_agent::{Dispatcher, Dispatched};
 
 use crate::articles::{ArticleBox, ArticleWeak, ArticleRefType, MediaType, UnfetchedArticleRef};
-use crate::articles::component::{ViewProps, Msg as ParentMsg};
-use crate::components::{Dropdown, DropdownLabel, FA, IconType, font_awesome::Props as FAProps};
-use crate::timeline::agent::{TimelineAgent, Request as TimelineAgentRequest};
+use crate::articles::component::{ViewProps, ArticleComponentMsg as ParentMsg};
+use crate::components::{Dropdown, DropdownLabel, FA, IconType, font_awesome::FAProps};
+use crate::timeline::agent::{TimelineAgent, TimelineRequest};
 use crate::log_warn;
 use crate::services::article_actions::Action;
 use crate::settings::ArticleFilteredMode;
@@ -17,11 +17,13 @@ pub struct SocialArticle {
 	add_timeline_agent: Dispatcher<TimelineAgent>,
 }
 
-pub enum Msg {
+pub enum SocialArticleMsg {
 	ParentCallback(ParentMsg),
 	ToggleCompact,
 	AddUserTimeline(&'static str, String),
 }
+
+type Msg = SocialArticleMsg;
 
 impl Component for SocialArticle {
 	type Message = Msg;
@@ -48,8 +50,8 @@ impl Component for SocialArticle {
 				true
 			}
 			Msg::AddUserTimeline(service, username) => {
-				//self.add_timeline_agent.send(TimelineAgentRequest::AddUserTimeline(service, username));
-				self.add_timeline_agent.send(TimelineAgentRequest::AddQuickUserTimeline(service, username));
+				//self.add_timeline_agent.send(TimelineRequest::AddUserTimeline(service, username));
+				self.add_timeline_agent.send(TimelineRequest::AddQuickUserTimeline(service, username));
 				false
 			}
 		}

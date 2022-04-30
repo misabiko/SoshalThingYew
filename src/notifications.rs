@@ -16,18 +16,22 @@ pub struct NotificationAgent {
 	model: Option<HandlerId>,
 }
 
-pub enum Msg {
+pub enum NotificationMsg {
 	Delete(String),
 }
 
-pub enum Request {
+pub enum NotificationRequest {
 	RegisterTimelineContainer,
 	Notify(Option<String>, Notification),
 }
 
-pub enum Response {
+pub enum NotificationResponse {
 	DrawNotifications(Vec<Html>),
 }
+
+type Msg = NotificationMsg;
+type Request = NotificationRequest;
+type Response = NotificationResponse;
 
 impl Agent for NotificationAgent {
 	type Reach = Context<Self>;

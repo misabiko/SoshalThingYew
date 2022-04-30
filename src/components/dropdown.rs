@@ -1,24 +1,18 @@
 use yew::prelude::*;
 use wasm_bindgen::JsCast;
 
-use super::font_awesome::{FA, Props as FontAwesomeProps};
+use super::font_awesome::{FA, FAProps};
 
 pub struct Dropdown {
 	expanded: bool,
 }
 
-pub enum Msg {
+pub enum DropdownMsg {
 	ToggleExpanded,
 }
 
-#[derive(Clone, PartialEq)]
-pub enum DropdownLabel {
-	Text(String),
-	Icon(FontAwesomeProps),
-}
-
 #[derive(Properties, Clone, PartialEq)]
-pub struct Props {
+pub struct DropdownProps {
 	pub current_label: DropdownLabel,
 	#[prop_or_default]
 	pub label_classes: Option<Classes>,
@@ -30,6 +24,9 @@ pub struct Props {
 	#[prop_or_default]
 	pub on_expanded_change: Option<Callback<bool>>,
 }
+
+type Msg = DropdownMsg;
+type Props = DropdownProps;
 
 impl Component for Dropdown {
 	type Message = Msg;
@@ -86,4 +83,10 @@ impl Component for Dropdown {
 			</div>
 		}
 	}
+}
+
+#[derive(Clone, PartialEq)]
+pub enum DropdownLabel {
+	Text(String),
+	Icon(FAProps),
 }

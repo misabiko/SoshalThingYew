@@ -2,12 +2,12 @@ use yew::prelude::*;
 use yew_agent::{Bridge, Bridged};
 
 use super::{
-	Props as TimelineProps, Timeline, TimelineId, Container,
-	agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse},
+	TimelineProps, Timeline, TimelineId, Container,
+	agent::{TimelineAgent, TimelineRequest, TimelineResponse},
 };
 use crate::{AppSettings, TimelineContainerCallback, DisplayMode, PageInfo};
 use crate::services::{
-	endpoint_agent::{EndpointAgent, TimelineEndpointWrapper, Request as EndpointRequest, Response as EndpointResponse},
+	endpoint_agent::{EndpointAgent, TimelineEndpointWrapper, EndpointRequest, EndpointResponse},
 	twitter::endpoints::*
 };
 use crate::components::{FA, IconSize};
@@ -33,7 +33,7 @@ pub enum TimelineContainerMsg {
 	AddModalTimeline(TimelineCreationMode),
 	RemoveModalTimeline,
 	ToggleFavViewer,
-	TimelineAgentResponse(TimelineAgentResponse),
+	TimelineResponse(TimelineResponse),
 	EndpointResponse(EndpointResponse),
 }
 
@@ -53,9 +53,9 @@ impl Component for TimelineContainer {
 	type Properties = TimelineContainerProps;
 
 	fn create(ctx: &Context<Self>) -> Self {
-		let mut _timeline_agent = TimelineAgent::bridge(ctx.link().callback(Msg::TimelineAgentResponse));
-		_timeline_agent.send(TimelineAgentRequest::RegisterTimelineContainer);
-		_timeline_agent.send(TimelineAgentRequest::LoadStorageTimelines);
+		let mut _timeline_agent = TimelineAgent::bridge(ctx.link().callback(Msg::TimelineResponse));
+		_timeline_agent.send(TimelineRequest::RegisterTimelineContainer);
+		_timeline_agent.send(TimelineRequest::LoadStorageTimelines);
 
 		let mut endpoint_agent = EndpointAgent::bridge(ctx.link().callback(Msg::EndpointResponse));
 		endpoint_agent.send(EndpointRequest::RegisterTimelineContainer);
@@ -152,15 +152,15 @@ impl Component for TimelineContainer {
 					false
 				}
 			}
-			Msg::TimelineAgentResponse(response) => match response {
-				TimelineAgentResponse::SetMainTimeline(id) => {
+			Msg::TimelineResponse(response) => match response {
+				TimelineResponse::SetMainTimeline(id) => {
 					self.main_timeline = id;
 					if let DisplayMode::Default = ctx.props().display_mode {
 						ctx.props().parent_callback.emit(TimelineContainerCallback::ToggleDisplayMode);
 					};
 					true
 				}
-				TimelineAgentResponse::RemoveTimeline(id) => {
+				TimelineResponse::RemoveTimeline(id) => {
 					let index = self.timelines.iter().position(|t| t.id == id);
 					if let Some(index) = index {
 						let id = self.timelines[index].id;
@@ -175,14 +175,14 @@ impl Component for TimelineContainer {
 					}
 					true
 				}
-				TimelineAgentResponse::CreateTimelines(timelines) => {
+				TimelineResponse::CreateTimelines(timelines) => {
 					for props in timelines {
 						self.timelines.push((props)(self.timeline_counter));
 						self.timeline_counter += 1;
 					}
 					true
 				}
-				TimelineAgentResponse::AddQuickUserTimeline(service, username) => {
+				TimelineResponse::AddQuickUserTimeline(service, username) => {
 					let callback = {
 						let username = username.clone();
 						let /*mut*/ filters = FilterCollection::default();

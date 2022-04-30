@@ -3,19 +3,21 @@ use yew::prelude::*;
 use yew_agent::{Bridge, Bridged};
 use wasm_bindgen::JsCast;
 
-use crate::services::endpoint_agent::{EndpointId, EndpointAgent, Request as EndpointRequest, Response as EndpointResponse, EndpointView};
+use crate::services::endpoint_agent::{EndpointId, EndpointAgent, EndpointRequest, EndpointResponse, EndpointView};
 
 pub struct EndpointOptions {
 	pub endpoints: HashMap<EndpointId, EndpointView>,
 	endpoint_agent: Box<dyn Bridge<EndpointAgent>>,
 }
 
-pub enum Msg {
+pub enum EndpointOptionsMsg {
 	EndpointResponse(EndpointResponse),
 	StartAutoRefresh(EndpointId),
 	StopAutoRefresh(EndpointId),
 	SetAutoRefreshInterval(EndpointId, u32),
 }
+
+type Msg = EndpointOptionsMsg;
 
 impl Component for EndpointOptions {
 	type Message = Msg;

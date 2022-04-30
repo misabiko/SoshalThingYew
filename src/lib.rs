@@ -20,21 +20,21 @@ use components::{FA, IconSize};
 use error::Result;
 use favviewer::PageInfo;
 use settings::{AppSettings, ArticleFilteredMode, OnMediaClick, SettingsModal, SettingsAgent, SettingsRequest, SettingsResponse};
-use notifications::{NotificationAgent, Request as NotificationRequest, Response as NotificationResponse};
+use notifications::{NotificationAgent, NotificationRequest, NotificationResponse};
 use services::{
 	Endpoint,
-	endpoint_agent::{EndpointId, EndpointAgent, TimelineEndpointWrapper, Request as EndpointRequest},
+	endpoint_agent::{EndpointId, EndpointAgent, TimelineEndpointWrapper, EndpointRequest},
 	pixiv::PixivAgent,
 	dummy_service::DummyServiceAgent,
-	twitter::{endpoints::*, TwitterAgent, Request as TwitterRequest, Response as TwitterResponse, SERVICE_INFO as TwitterServiceInfo},
-	youtube::{YouTubeAgent, Request as YouTubeRequest, Response as YouTubeResponse, SERVICE_INFO as YouTubeServiceInfo},
+	twitter::{endpoints::*, TwitterAgent, TwitterRequest, TwitterResponse, SERVICE_INFO as TwitterServiceInfo},
+	youtube::{YouTubeAgent, YouTubeRequest, YouTubeResponse, SERVICE_INFO as YouTubeServiceInfo},
 	storages::SoshalLocalStorage,
 };
 use sidebar::Sidebar;
 use timeline::{
 	Container,
 	timeline_container::TimelineContainer,
-	agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse},
+	agent::{TimelineAgent, TimelineRequest, TimelineResponse},
 };
 use crate::services::article_actions::Action;
 use crate::settings::ChangeSettingMsg;
@@ -62,10 +62,10 @@ pub struct Model {
 	youtube: Box<dyn Bridge<YouTubeAgent>>,
 }
 
-pub enum Msg {
-	TimelineAgentResponse(TimelineAgentResponse),
+pub enum ModelMsg {
+	TimelineResponse(TimelineResponse),
 	TimelineContainerCallback(TimelineContainerCallback),
-	EndpointAgentRequest(EndpointRequest),
+	EndpointRequest(EndpointRequest),
 	NotificationResponse(NotificationResponse),
 	SettingsResponse(SettingsResponse),
 	TwitterResponse(TwitterResponse),
@@ -74,7 +74,7 @@ pub enum Msg {
 }
 
 #[derive(Properties, PartialEq, Default)]
-pub struct Props {
+pub struct ModelProps {
 	pub favviewer: bool,
 	#[prop_or_default]
 	pub display_mode: Option<DisplayMode>,
@@ -83,6 +83,9 @@ pub struct Props {
 	#[prop_or_default]
 	pub services_sidebar: HashMap<String, Html>,
 }
+
+type Msg = ModelMsg;
+type Props = ModelProps;
 
 impl Component for Model {
 	type Message = Msg;
@@ -99,8 +102,8 @@ impl Component for Model {
 		let mut youtube = YouTubeAgent::bridge(ctx.link().callback(Msg::YouTubeResponse));
 		youtube.send(YouTubeRequest::Sidebar);
 
-		let mut _timeline_agent = TimelineAgent::bridge(ctx.link().callback(Msg::TimelineAgentResponse));
-		_timeline_agent.send(TimelineAgentRequest::RegisterDisplayMode);
+		let mut _timeline_agent = TimelineAgent::bridge(ctx.link().callback(Msg::TimelineResponse));
+		_timeline_agent.send(TimelineRequest::RegisterDisplayMode);
 
 		let mut _settings_agent = SettingsAgent::bridge(ctx.link().callback(Msg::SettingsResponse));
 		_settings_agent.send(SettingsRequest::RegisterModel);
@@ -181,8 +184,8 @@ impl Component for Model {
 					true
 				}
 			}
-			Msg::TimelineAgentResponse(response) => match response {
-				TimelineAgentResponse::SetMainContainer(new_container) => {
+			Msg::TimelineResponse(response) => match response {
+				TimelineResponse::SetMainContainer(new_container) => {
 					if let DisplayMode::Single { container, .. } = &mut self.display_mode {
 						*container = new_container;
 						true
@@ -191,7 +194,7 @@ impl Component for Model {
 						false
 					}
 				}
-				TimelineAgentResponse::SetMainColumnCount(new_count) => {
+				TimelineResponse::SetMainColumnCount(new_count) => {
 					if let DisplayMode::Single { column_count, .. } = &mut self.display_mode {
 						*column_count = new_count;
 						true
@@ -202,7 +205,7 @@ impl Component for Model {
 				}
 				_ => false,
 			}
-			Msg::EndpointAgentRequest(request) => {
+			Msg::EndpointRequest(request) => {
 				self.endpoint_agent.send(request);
 				false
 			}

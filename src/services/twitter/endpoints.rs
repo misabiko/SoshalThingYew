@@ -1,7 +1,7 @@
 use reqwest::Url;
 use yew_agent::{Dispatched, Dispatcher};
 
-use super::{TwitterAgent, Request as TwitterRequest, SERVICE_INFO};
+use super::{TwitterAgent, TwitterRequest, SERVICE_INFO};
 use crate::articles::ArticleWeak;
 use crate::base_url;
 use crate::services::{Endpoint, EndpointSerialized, RateLimit};

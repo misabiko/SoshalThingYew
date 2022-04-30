@@ -12,8 +12,8 @@ use crate::articles::{ArticleRc, ArticleWeak};
 use crate::error::RatelimitedResult;
 use crate::services::{
 	service,
-	article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest},
-	endpoint_agent::{EndpointAgent, Request as EndpointRequest, EndpointId, RefreshTime, EndpointConstructorCollection, EndpointConstructor},
+	article_actions::{ArticleActionsAgent, ServiceActions, ArticleActionsRequest},
+	endpoint_agent::{EndpointAgent, EndpointRequest, EndpointId, RefreshTime, EndpointConstructorCollection, EndpointConstructor},
 	pixiv::endpoints::{APIPayload, FollowAPIEndpoint, FollowAPIResponse, FullPostAPI},
 	storages::{ServiceStorage, get_service_storage, cache_articles},
 };
@@ -26,17 +26,20 @@ pub struct PixivAgent {
 	fetching_articles: HashSet<u32>,
 }
 
-pub enum Msg {
+pub enum PixivMsg {
 	FetchResponse(RatelimitedResult<Vec<ArticleRc<PixivArticleData>>>),
 	EndpointFetchResponse(RefreshTime, EndpointId, RatelimitedResult<Vec<ArticleRc<PixivArticleData>>>),
 	FetchData(HandlerId, ArticleWeak),
 }
 
-pub enum Request {
+pub enum PixivRequest {
 	AddArticles(RefreshTime, EndpointId, Vec<ArticleRc<PixivArticleData>>),
 	RefreshEndpoint(EndpointId, RefreshTime),
 	FetchPosts(RefreshTime, EndpointId, String),
 }
+
+type Msg = PixivMsg;
+type Request = PixivRequest;
 
 impl Agent for PixivAgent {
 	type Reach = Context<Self>;

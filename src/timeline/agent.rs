@@ -5,11 +5,11 @@ use gloo_storage::Storage;
 use serde::{Serialize, Deserialize};
 
 use super::{
-	TimelineId, Props as TimelineProps, Container,
+	TimelineId, TimelineProps, Container,
 	timeline_container::{TimelinePropsClosure, TimelinePropsEndpointsClosure},
 };
 use crate::services::EndpointSerialized;
-use crate::services::endpoint_agent::{Request as EndpointRequest, EndpointAgent};
+use crate::services::endpoint_agent::{EndpointRequest, EndpointAgent};
 use crate::TimelineEndpointWrapper;
 use crate::log_warn;
 use crate::timeline::filters::FilterCollection;
@@ -26,7 +26,7 @@ pub struct TimelineAgent {
 	timelines: HashMap<TimelineId, HandlerId>,
 }
 
-pub enum Request {
+pub enum TimelineRequest {
 	RegisterModal,
 	RegisterChooseEndpoints,
 	RegisterTimelineContainer,
@@ -44,7 +44,7 @@ pub enum Request {
 	BatchAction(Action, Vec<TimelineId>, FilterCollection),
 }
 
-pub enum Response {
+pub enum TimelineResponse {
 	AddTimeline,
 	AddBlankTimeline,
 	AddUserTimeline(&'static str, String),
@@ -57,28 +57,8 @@ pub enum Response {
 	BatchAction(Action, FilterCollection),
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct SoshalTimelineStorage {
-	title: String,
-	#[serde(default)]
-	container: Container,
-	#[serde(default)]
-	endpoints: Vec<EndpointSerialized>,
-	#[serde(default = "default_1")]
-	column_count: u8,
-	#[serde(default = "default_1")]
-	width: u8,
-	#[serde(default)]
-	filters: Option<FilterCollection>,
-	#[serde(default = "default_sort_method")]
-	sort_method: Option<(SortMethod, bool)>,
-	#[serde(default)]
-	compact: bool,
-	#[serde(default)]
-	animated_as_gifs: bool,
-	#[serde(default)]
-	hide_text: bool,
-}
+type Request = TimelineRequest;
+type Response = TimelineResponse;
 
 impl Agent for TimelineAgent {
 	type Reach = AgentContext<Self>;
@@ -229,6 +209,29 @@ impl Agent for TimelineAgent {
 			self.display_mode = None
 		}
 	}
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SoshalTimelineStorage {
+	title: String,
+	#[serde(default)]
+	container: Container,
+	#[serde(default)]
+	endpoints: Vec<EndpointSerialized>,
+	#[serde(default = "default_1")]
+	column_count: u8,
+	#[serde(default = "default_1")]
+	width: u8,
+	#[serde(default)]
+	filters: Option<FilterCollection>,
+	#[serde(default = "default_sort_method")]
+	sort_method: Option<(SortMethod, bool)>,
+	#[serde(default)]
+	compact: bool,
+	#[serde(default)]
+	animated_as_gifs: bool,
+	#[serde(default)]
+	hide_text: bool,
 }
 
 fn default_1() -> u8 {

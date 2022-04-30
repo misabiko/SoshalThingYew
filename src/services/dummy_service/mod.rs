@@ -11,7 +11,7 @@ use crate::services::{
 	EndpointSerialized,
 	RefreshTime,
 	endpoint_agent::{EndpointAgent, EndpointConstructor, EndpointConstructorCollection},
-	article_actions::{ArticleActionsAgent, ServiceActions, Request as ArticleActionsRequest},
+	article_actions::{ArticleActionsAgent, ServiceActions, ArticleActionsRequest},
 };
 
 #[service("Dummy", DummyArticleData, u32)]
@@ -21,20 +21,18 @@ pub struct DummyServiceAgent {
 	actions_agent: Dispatcher<ArticleActionsAgent>,
 }
 
-pub enum Msg {
+pub enum DummyServiceMsg {
 	Like(HandlerId, ArticleWeak),
 	Repost(HandlerId, ArticleWeak),
 }
 
-pub enum Request {}
-
-pub enum Response {}
+type Msg = DummyServiceMsg;
 
 impl Agent for DummyServiceAgent {
 	type Reach = Context<Self>;
 	type Message = Msg;
-	type Input = Request;
-	type Output = Response;
+	type Input = ();
+	type Output = ();
 
 	fn create(link: AgentLink<Self>) -> Self {
 		let articles = HashMap::from([
@@ -113,9 +111,7 @@ impl Agent for DummyServiceAgent {
 		}
 	}
 
-	fn handle_input(&mut self, msg: Self::Input, _id: HandlerId) {
-		match msg {}
-	}
+	fn handle_input(&mut self, _msg: Self::Input, _id: HandlerId) {}
 }
 
 #[derive(Clone, Debug)]

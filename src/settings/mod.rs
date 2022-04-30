@@ -9,7 +9,7 @@ pub use component::{
 	view_keep_column_count_setting,
 	view_masonry_independent_columns_setting
 };
-pub use agent::{SettingsAgent, Request as SettingsRequest, Response as SettingsResponse};
+pub use agent::{SettingsAgent, SettingsRequest, SettingsResponse};
 use crate::services::article_actions::Action;
 
 #[derive(Clone, Copy, PartialEq, Eq)]

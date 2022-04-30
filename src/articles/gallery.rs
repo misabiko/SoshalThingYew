@@ -3,9 +3,9 @@ use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsValue;
 
 use crate::articles::{MediaType, MediaQueueInfo, media_load_queue::MediaLoadState};
-use crate::articles::component::{ViewProps, Msg as ParentMsg};
+use crate::articles::component::{ViewProps, ArticleComponentMsg as ParentMsg};
 use crate::components::{Dropdown, DropdownLabel};
-use crate::components::{FA, font_awesome::Props as FAProps};
+use crate::components::{FA, font_awesome::FAProps};
 use crate::services::article_actions::Action;
 use crate::log_warn;
 
@@ -13,10 +13,12 @@ pub struct GalleryArticle {
 	draw_on_top: bool,
 }
 
-pub enum Msg {
+pub enum GalleryArticleMsg {
 	ParentCallback(ParentMsg),
 	SetDrawOnTop(bool),
 }
+
+type Msg = GalleryArticleMsg;
 
 impl Component for GalleryArticle {
 	type Message = Msg;

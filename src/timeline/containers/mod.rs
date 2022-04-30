@@ -44,7 +44,7 @@ impl Container {
 	}
 }
 
-pub fn view_container(container: &Container, props: Props) -> Html {
+pub fn view_container(container: &Container, props: ContainerProps) -> Html {
 	match container {
 		Container::Column => html! {
 			<ColumnContainer ..props/>
@@ -59,7 +59,7 @@ pub fn view_container(container: &Container, props: Props) -> Html {
 }
 
 #[derive(Properties, PartialEq)]
-pub struct Props {
+pub struct ContainerProps {
 	pub container_ref: NodeRef,
 	pub compact: bool,
 	pub animated_as_gifs: bool,
@@ -80,7 +80,7 @@ pub enum ContainerMsg {
 }
 
 #[function_component(ColumnContainer)]
-pub fn column_container(props: &Props) -> Html {
+pub fn column_container(props: &ContainerProps) -> Html {
 	let article_view = props.article_view.clone();
 	html! {
 		<div class="articlesContainer columnContainer" ref={props.container_ref.clone()}>
@@ -103,7 +103,7 @@ pub fn column_container(props: &Props) -> Html {
 }
 
 #[function_component(RowContainer)]
-pub fn row_container(props: &Props) -> Html {
+pub fn row_container(props: &ContainerProps) -> Html {
 	//TODO Keep scroll bar on the right
 	let style = match props.rtl {
 		true => Some("direction: rtl"),

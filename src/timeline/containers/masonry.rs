@@ -1,6 +1,6 @@
 use yew::prelude::*;
 
-use super::Props;
+use super::ContainerProps;
 use crate::articles::{ArticleComponent, ArticleBox};
 use crate::timeline::ArticleStruct;
 use crate::timeline::containers::ContainerMsg;
@@ -11,11 +11,9 @@ pub struct MasonryContainer {
 	last_independent_columns: bool,
 }
 
-pub enum Msg {}
-
 impl Component for MasonryContainer {
-	type Message = Msg;
-	type Properties = Props;
+	type Message = ();
+	type Properties = ContainerProps;
 
 	fn create(ctx: &Context<Self>) -> Self {
 		Self {

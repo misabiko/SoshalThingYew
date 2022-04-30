@@ -7,9 +7,9 @@ use yew_agent::{Bridge, Bridged};
 use super::ModalCard;
 use crate::TimelineEndpointWrapper;
 use crate::timeline::{
-	Props as TimelineProps,
+	TimelineProps,
 	timeline_container::TimelinePropsClosure,
-	agent::{TimelineAgent, Request as TimelineAgentRequest, Response as TimelineAgentResponse},
+	agent::{TimelineAgent, TimelineRequest, TimelineResponse},
 	filters::{FilterMsg, FilterCollection, FiltersOptions},
 };
 use crate::choose_endpoints::ChooseEndpoints;
@@ -23,18 +23,21 @@ pub struct AddTimelineModal {
 	set_as_main_timeline: bool,
 }
 
-pub enum Msg {
+pub enum AddTimelineModalMsg {
 	AddTimeline,
-	AgentResponse(TimelineAgentResponse),
+	AgentResponse(TimelineResponse),
 	SetEnabled(bool),
 	FilterMsg(FilterMsg),
 	ToggleSetMainTimeline,
 }
 
 #[derive(Properties, PartialEq, Clone)]
-pub struct Props {
+pub struct AddTimelineModalProps {
 	pub add_timeline_callback: Callback<(TimelinePropsClosure, bool)>,
 }
+
+type Msg = AddTimelineModalMsg;
+type Props = AddTimelineModalProps;
 
 impl Component for AddTimelineModal {
 	type Message = Msg;
@@ -42,7 +45,7 @@ impl Component for AddTimelineModal {
 
 	fn create(ctx: &Context<Self>) -> Self {
 		let mut _agent = TimelineAgent::bridge(ctx.link().callback(Msg::AgentResponse));
-		_agent.send(TimelineAgentRequest::RegisterModal);
+		_agent.send(TimelineRequest::RegisterModal);
 
 		Self {
 			enabled: false,
@@ -78,11 +81,11 @@ impl Component for AddTimelineModal {
 				true
 			}
 			Msg::AgentResponse(response) => match response {
-				TimelineAgentResponse::AddTimeline => {
+				TimelineResponse::AddTimeline => {
 					ctx.link().send_message(Msg::SetEnabled(true));
 					false
 				}
-				TimelineAgentResponse::AddBlankTimeline => {
+				TimelineResponse::AddBlankTimeline => {
 					if let Some(title) = self.title_ref.cast::<HtmlInputElement>() {
 						title.set_value("Timeline");
 					}
@@ -92,7 +95,7 @@ impl Component for AddTimelineModal {
 					self.enabled = true;
 					true
 				},
-				TimelineAgentResponse::AddUserTimeline(_service, username) => {
+				TimelineResponse::AddUserTimeline(_service, username) => {
 					if let Some(title) = self.title_ref.cast::<HtmlInputElement>() {
 						title.set_value(&username);
 					}

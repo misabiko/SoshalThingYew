@@ -5,8 +5,8 @@ use std::convert::identity;
 
 use super::{ArticleView, SocialArticle, GalleryArticle};
 use crate::articles::{MediaQueueInfo, ArticleMedia, weak_actual_article, ArticleWeak};
-use crate::articles::media_load_queue::{MediaLoadAgent, Request as MediaLoadRequest, Response as MediaLoadResponse, MediaLoadState};
-use crate::services::article_actions::{Action, ArticleActionsAgent, Request as ArticleActionsRequest};
+use crate::articles::media_load_queue::{MediaLoadAgent, MediaLoadRequest, MediaLoadResponse, MediaLoadState};
+use crate::services::article_actions::{Action, ArticleActionsAgent, ArticleActionsRequest};
 use crate::modals::Modal;
 use crate::log_warn;
 use crate::settings::{AppSettings, OnMediaClick, ArticleFilteredMode};
@@ -35,7 +35,7 @@ pub struct ArticleComponent {
 	media_load_queue: Box<dyn Bridge<MediaLoadAgent>>,
 }
 
-pub enum Msg {
+pub enum ArticleComponentMsg {
 	OnMediaClick,
 	//TODO Add to Action
 	Action(Action, Option<ArticleWeak>),
@@ -46,7 +46,7 @@ pub enum Msg {
 }
 
 #[derive(Properties, PartialEq, Clone)]
-pub struct Props {
+pub struct ArticleComponentProps {
 	pub article_struct: ArticleStruct,
 	pub article_view: ArticleView,
 	pub load_priority: u32,
@@ -60,6 +60,9 @@ pub struct Props {
 	pub column_count: u8,
 	pub app_settings: AppSettings,
 }
+
+type Msg = ArticleComponentMsg;
+type Props = ArticleComponentProps;
 
 #[derive(Properties, PartialEq, Clone)]
 pub struct ViewProps {

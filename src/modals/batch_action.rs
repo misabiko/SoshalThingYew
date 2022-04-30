@@ -5,7 +5,7 @@ use super::ModalCard;
 use crate::components::{Dropdown, DropdownLabel};
 use crate::modals::modal_agent::{ModalAgent, ModalRequest, ModalType};
 use crate::services::article_actions::Action;
-use crate::timeline::{agent::{TimelineAgent, Request as TimelineRequest}, filters::{FilterCollection, FilterMsg, FiltersOptions}, TimelineId};
+use crate::timeline::{agent::{TimelineAgent, TimelineRequest}, filters::{FilterCollection, FilterMsg, FiltersOptions}, TimelineId};
 
 pub struct BatchActionModal {
 	enabled: bool,

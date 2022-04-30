@@ -15,7 +15,7 @@ use crate::timeline::{
 	timeline_container::{TimelineCreationMode, TimelinePropsEndpointsClosure},
 	filters::FilterCollection
 };
-use crate::notifications::{NotificationAgent, Request as NotificationRequest, Notification};
+use crate::notifications::{NotificationAgent, NotificationRequest, Notification};
 
 pub struct EndpointAgent {
 	link: AgentLink<Self>,
@@ -28,7 +28,7 @@ pub struct EndpointAgent {
 	notification_agent: Dispatcher<NotificationAgent>,
 }
 
-pub enum Msg {
+pub enum EndpointAgentMsg {
 	Refreshed(RefreshTime, EndpointId, (Vec<ArticleRc>, Option<RateLimit>)),
 	RefreshFail(EndpointId, Error),
 	UpdatedState,
@@ -36,7 +36,7 @@ pub enum Msg {
 	ResetAutoRefresh(EndpointId),
 }
 
-pub enum Request {
+pub enum EndpointRequest {
 	InitTimeline(TimelineId, Rc<RefCell<Vec<TimelineEndpointWrapper>>>, Callback<Vec<ArticleWeak>>),
 	RemoveTimeline(TimelineId),
 	Refresh(Weak<RefCell<Vec<TimelineEndpointWrapper>>>),
@@ -67,11 +67,15 @@ pub enum Request {
 	SetAutoRefreshInterval(EndpointId, u32),
 }
 
-pub enum Response {
+pub enum EndpointResponse {
 	UpdatedState(HashMap<&'static str, EndpointConstructorCollection>, Vec<EndpointView>),
 	BatchRequestResponse(Vec<(Vec<TimelineEndpointWrapper>, TimelinePropsEndpointsClosure)>),
 	AddTimeline(TimelineCreationMode, bool),
 }
+
+type Msg = EndpointAgentMsg;
+type Request = EndpointRequest;
+type Response = EndpointResponse;
 
 impl Agent for EndpointAgent {
 	type Reach = AgentContext<Self>;
