@@ -7,16 +7,6 @@ use std::ops::Not;
 use wasm_bindgen::JsCast;
 
 pub fn start_autoscroll(autoscroll: &Rc<RefCell<AutoScroll>>, scrolled_ref: NodeRef) {
-	/*{
-		let mut autoscroll_borrow = autoscroll.borrow_mut();
-		if autoscroll_borrow.anim.is_some() {
-			log::debug!("invert direction");
-			autoscroll_borrow.direction = !autoscroll_borrow.direction;
-		}else {
-			log::debug!("keep direction");
-		}
-	}*/
-
 	let anim_autoscroll = autoscroll.clone();
 	let event_autoscroll = autoscroll.clone();
 
