@@ -36,7 +36,7 @@ $fa-font-path: "/webfonts"
 	height: 100%
 	display: flex
 
-#soshal-notifications
+#soshalNotifications
 	position: absolute
 	right: 0
 	bottom: 0
@@ -48,6 +48,15 @@ img.emoji
 	width: 1em
 	margin: 0 .05em 0 .1em
 	vertical-align: -0.1em
+
+button.modal-close::before,
+button.modal-close::after,
+button.delete::before,
+button.delete::after
+	background-color: hsl(0, 0%, 76%)
+
+button.modal-close
+	background-color: bulmaRgba($scheme-invert, 0.2)
 
 //#favviewer
 //	width: 100vw
