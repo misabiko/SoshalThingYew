@@ -3,10 +3,10 @@
     "test": "playwright test"
   },
   "dependencies": {
-    "@fortawesome/fontawesome-free": "^6.0.0-beta3",
-    "bulma": "^0.9.3"
+    "@fortawesome/fontawesome-free": "^6.1.1",
+    "bulma": "^0.9.4"
   },
   "devDependencies": {
-    "@playwright/test": "^1.19.0"
+    "@playwright/test": "^1.23.3"
   }
 }
