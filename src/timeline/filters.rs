@@ -63,7 +63,7 @@ impl Filter {
 				Filter::Reposted => "Reposted",
 				Filter::PlainTweet => "Plain Tweet",
 				Filter::Repost { .. } => "Repost",
-				Filter::Quote { .. } => "Has Quote",
+				Filter::Quote { .. } => "Quote",
 			}
 		}
 	}
