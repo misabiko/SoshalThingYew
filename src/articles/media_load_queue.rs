@@ -1,6 +1,8 @@
 use std::collections::{HashSet, HashMap, VecDeque};
 use yew_agent::{Agent, AgentLink, HandlerId, Context};
 
+//TODO Add UI to list loading media
+
 pub struct MediaLoadAgent {
 	link: AgentLink<Self>,
 	load_queue: VecDeque<(String, usize, u32, HashSet<HandlerId>)>,

@@ -27,7 +27,6 @@ impl SortMethod {
 	pub fn direction_label(&self, reversed: bool) -> &'static str {
 		match self {
 			SortMethod::Date => if reversed { "Reverse chronological" } else { "Chronological" },
-			SortMethod::Likes | SortMethod::Reposts => if reversed { "Descending" } else { "Ascending" },
 			_ => if reversed { "Descending" } else { "Ascending" },
 		}
 	}

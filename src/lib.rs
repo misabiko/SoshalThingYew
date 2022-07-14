@@ -256,7 +256,7 @@ impl Component for Model {
 		html! {
 			<>
 				<SettingsModal app_settings={self.app_settings}/>
-				<div id="soshal-notifications">
+				<div id="soshalNotifications">
 					{ for self.notifications.iter().cloned() }
 				</div>
 				{ self.view_sidebar(ctx) }
